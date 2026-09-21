@@ -712,6 +712,7 @@
 
   /* ---------- wiring ---------- */
   document.querySelectorAll('.rail input, .rail select').forEach(function(i){
+    if(i.type === 'checkbox') return;   /* checkboxes own their state; a generic re-render would undo the click */
     var shareKey = SHARE_KEYS.filter(function(k){ return SHARE_INPUT[k] === i.id; })[0];
     function handle(){
       if(shareKey){
