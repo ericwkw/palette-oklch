@@ -6,7 +6,8 @@ Colour is generated in OKLCH and stays there: every ramp sits on the same lightn
 
 ## What it does
 
-- **Light / dark switch** in the tab bar: Light, Dark or Both. It changes the tool's own page as well as which theme the ramps, contrast tables and preview show.
+- **Light / dark switch** in the tab bar: Light, Dark or Both. Every view follows it — ramps, roles, tokens, contrast, opacity, gradients and preview are rebuilt for the chosen theme, and the tool's own page follows too. Both shows them one under the other.
+- **One set of hues serves both themes.** Hue and colourfulness are shared; only the lightness curve differs, and tokens read the ramp from the opposite end (paper is step 50 in light, 950 in dark). Two dark-mode controls adjust that curve: how far the deep end lifts, and how colourful the dark theme runs.
 - **Start from a hex.** Paste a brand colour into any role's *From hex* field and its hue and colourfulness drive the ramp; the lightness steps stay fixed so it still lines up with the rest.
 
 - **Ramps** on the shadcn / Tailwind scale — 50, 100 … 900, 950 — for main, supporting, an accent pair, neutrals, and six functional colours. Light and dark come from one set of hues.

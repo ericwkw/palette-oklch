@@ -122,12 +122,14 @@ function makeRamp(hue, chroma, opts){
   var Ls = dark ? L_DARK : L_LIGHT;
   var peak = opts.peak === undefined ? 6 : opts.peak;
   var fall = opts.falloff === undefined ? 0.85 : opts.falloff;
+  var lift = opts.lift === undefined ? 0.055 : opts.lift;     /* how far the dark end lifts */
+  var boost = opts.boost === undefined ? 1 : opts.boost;      /* dark-theme colourfulness */
   var out = [];
   for(var i=0;i<STEPS.length;i++){
     /* 50 is the lightest step in both themes; the dark curve lifts the deep end
        so dark surfaces stay separable, and pulls the light end down a little */
-    var L = dark ? 0.055 + Ls[i] * 0.885 : Ls[i];
-    var C = chromaAt(i, peak, chroma, fall);
+    var L = dark ? lift + Ls[i] * (1 - lift * 2.1) : Ls[i];
+    var C = chromaAt(i, peak, chroma, fall) * (dark ? boost : 1);
     C = fitChroma(L, C, hue, space);
     out.push({ step:STEPS[i], L:L, C:C, h:hue, hex:oklchToHex(L,C,hue,space), css:oklchCss(L,C,hue,space) });
   }

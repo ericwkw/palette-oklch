@@ -11,6 +11,7 @@
     a1:{h:45,c:0.18}, a2:{h:20,c:0.20},
     neutral:{c:0.012, from:'main', h:250},
     shape:{peak:6, falloff:0.85, gamut:'srgb'},
+    darkMode:{lift:0.055, boost:1},
     share:{neutral:55, sup:22, main:15, a1:6, a2:2}
   };
   var S = JSON.parse(JSON.stringify(DEFAULTS));
@@ -23,6 +24,7 @@
     ['hA2','a2.h','oA2',0],         ['cA2','a2.c','ocA2',3],
     ['cNeu','neutral.c','ocNeu',3], ['hNeuOwn','neutral.h','oNeuOwn',0],
     ['cPeak','shape.peak','ocPeak',0], ['cFall','shape.falloff','ocFall',2],
+    ['dLift','darkMode.lift','odLift',3], ['dBoost','darkMode.boost','odBoost',2],
     ['sNeutral','share.neutral','osNeutral',0], ['sSup','share.sup','osSup',0],
     ['sMain','share.main','osMain',0], ['sA1','share.a1','osA1',0], ['sA2','share.a2','osA2',0]
   ];
@@ -89,9 +91,10 @@
     return S.neutral.from === 'main' ? S.main.h : (S.neutral.from === 'sup' ? S.sup.h : S.neutral.h);
   }
   function build(dark){
-    var o = { dark:dark, space:S.shape.gamut, peak:S.shape.peak, falloff:S.shape.falloff };
+    var dm = S.darkMode || { lift:0.055, boost:1 };
+    var o = { dark:dark, space:S.shape.gamut, peak:S.shape.peak, falloff:S.shape.falloff, lift:dm.lift, boost:dm.boost };
     var p = {
-      neutral: makeRamp(neutralHue(), S.neutral.c, { dark:dark, space:o.space, peak:5, falloff:0.5 }),
+      neutral: makeRamp(neutralHue(), S.neutral.c, { dark:dark, space:o.space, peak:5, falloff:0.5, lift:dm.lift, boost:dm.boost }),
       main:    makeRamp(S.main.h, S.main.c, o),
       sup:     makeRamp(S.sup.h,  S.sup.c,  o),
       a1:      makeRamp(S.a1.h,   S.a1.c,   o),
@@ -190,19 +193,26 @@
     }).join('');
     return '<table><thead><tr><th>Role</th><th>Hue</th><th>Typical steps</th></tr></thead><tbody>'+rows+'</tbody></table>';
   }
-  function funcTableHtml(p){
+  function funcTableHtml(p, dark){
     var rows = FUNCTIONAL.map(function(f){
-      var L = funcSet(p[f.id],false), D = funcSet(build(true)[f.id],true);
+      var set = funcSet(p[f.id], dark);
       function cell(s){ return '<span class="dot" style="background:'+s.hex+'"></span><span class="mono">'+s.hex.toUpperCase()+'</span>'; }
       return '<tr><td><b>'+f.name+'</b><div class="muted">'+f.note+'</div></td>'+
-        '<td>'+cell(L.surface)+'</td><td>'+cell(L.border)+'</td><td>'+cell(L.text)+'</td><td>'+cell(L.fill)+'</td>'+
-        '<td>'+cell(D.surface)+'</td><td>'+cell(D.fill)+'</td></tr>';
+        '<td>'+cell(set.surface)+'</td><td>'+cell(set.border)+'</td><td>'+cell(set.text)+'</td><td>'+cell(set.fill)+'</td></tr>';
     }).join('');
-    return '<table><thead><tr><th>Meaning</th><th>Surface</th><th>Border</th><th>Text</th><th>Fill</th><th>Dark surface</th><th>Dark fill</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    return '<table><thead><tr><th>Meaning</th><th>Surface</th><th>Border</th><th>Text</th><th>Fill</th></tr></thead><tbody>'+rows+'</tbody></table>';
   }
-  function stateTableHtml(p){
+  function stateTableHtml(p, dark){
     var m = p.main, n = p.neutral;
-    var rows = [
+    var rows = (dark ? [
+      ['Default','main 500', stepOf(m,500)],
+      ['Hover','main 400', stepOf(m,400)],
+      ['Pressed','main 300', stepOf(m,300)],
+      ['Selected surface','main 900', stepOf(m,900)],
+      ['Focus ring','main 500 at 3px', stepOf(m,500)],
+      ['Disabled','neutral 800 on neutral 900', stepOf(n,800)],
+      ['Read-only','neutral 900 with neutral 400 text', stepOf(n,900)]
+    ] : [
       ['Default','main 600', stepOf(m,600)],
       ['Hover','main 700', stepOf(m,700)],
       ['Pressed','main 800', stepOf(m,800)],
@@ -210,7 +220,7 @@
       ['Focus ring','main 500 at 3px', stepOf(m,500)],
       ['Disabled','neutral 200 on neutral 100', stepOf(n,200)],
       ['Read-only','neutral 100 with neutral 600 text', stepOf(n,100)]
-    ].map(function(r){
+    ]).map(function(r){
       return '<tr><td><b>'+r[0]+'</b></td><td class="muted">'+r[1]+'</td><td><span class="dot" style="background:'+r[2].hex+'"></span><span class="mono">'+r[2].hex.toUpperCase()+'</span></td></tr>';
     }).join('');
     return '<table><thead><tr><th>State</th><th>Step</th><th>Value</th></tr></thead><tbody>'+rows+'</tbody></table>';
@@ -239,16 +249,17 @@
     }
     return null;
   }
-  function contrastFillHtml(p){
+  function contrastFillHtml(p, dark){
+    var base = dark ? 500 : 600;
     var fills = [['Primary', p.main],['Accent 1', p.a1],['Accent 2', p.a2]]
       .concat(FUNCTIONAL.map(function(f){ return [f.name, p[f.id]]; }));
     var rows = fills.map(function(f){
-      var s = stepOf(f[1],600), t = textOn(s.hex,p), r = wcag(t,s.hex);
+      var s = stepOf(f[1],base), t = textOn(s.hex,p), r = wcag(t,s.hex);
       var fix = r >= 4.5 ? '<span class="muted">—</span>' : (function(){
         var st = passingStep(f[1],p);
         return st ? '<span class="pill mid">use '+st+'</span>' : '<span class="muted">no step passes — pair with an outline</span>';
       })();
-      return '<tr><td><span class="dot" style="background:'+s.hex+'"></span>'+f[0]+' 600</td><td class="mono">'+s.hex.toUpperCase()+'</td>'+
+      return '<tr><td><span class="dot" style="background:'+s.hex+'"></span>'+f[0]+' '+base+'</td><td class="mono">'+s.hex.toUpperCase()+'</td>'+
         '<td><span class="dot" style="background:'+t+'"></span><span class="mono">'+t.toUpperCase()+'</span></td>'+
         '<td>'+badge(r, apca(t,s.hex), false)+'</td><td>'+fix+'</td></tr>';
     }).join('');
@@ -257,9 +268,12 @@
   }
 
   var ALPHAS = [0.04,0.08,0.12,0.16,0.24,0.40,0.60,0.80];
-  function alphaHtml(p){
-    var surfaces = [['Paper', stepOf(p.neutral,50)],['Panel', stepOf(p.neutral,100)],['Ink', stepOf(p.neutral,950)]];
-    var sources = [['Main 600', stepOf(p.main,600)],['Supporting 600', stepOf(p.sup,600)],['Accent 1 500', stepOf(p.a1,500)],['Danger 600', stepOf(p.danger,600)]];
+  function alphaHtml(p, dark){
+    var surfaces = dark
+      ? [['Paper', stepOf(p.neutral,950)],['Panel', stepOf(p.neutral,900)],['Light ground', stepOf(p.neutral,50)]]
+      : [['Paper', stepOf(p.neutral,50)],['Panel', stepOf(p.neutral,100)],['Ink', stepOf(p.neutral,950)]];
+    var f = dark ? 500 : 600, a = dark ? 400 : 500;
+    var sources = [['Main '+f, stepOf(p.main,f)],['Supporting '+f, stepOf(p.sup,f)],['Accent 1 '+a, stepOf(p.a1,a)],['Danger '+f, stepOf(p.danger,f)]];
     return surfaces.map(function(s){
       var rows = sources.map(function(src){
         var cells = ALPHAS.map(function(a){
@@ -420,6 +434,15 @@
     img.src = imgUrl;
   });
 
+  /* every view follows the Light / Dark / Both switch */
+  function forThemes(L, D, fn){
+    var list = THEME === 'dark' ? [['dark', D, true]] : (THEME === 'light' ? [['light', L, false]] : [['light', L, false], ['dark', D, true]]);
+    return list.map(function(t){
+      var head = list.length > 1 ? '<h3 style="margin:14px 0 8px;font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)">' + (t[2] ? 'Dark' : 'Light') + '</h3>' : '';
+      return '<div data-theme="' + t[0] + '">' + head + fn(t[1], t[2]) + '</div>';
+    }).join('');
+  }
+
   /* ---------- render ---------- */
   function render(){
     readControls();
@@ -433,7 +456,7 @@
       if(input && document.activeElement !== input) input.value = hex.toUpperCase();
     });
     var clash = hueClash(S.main.h);
-    el('rampMeta').textContent = Math.round(S.main.h) + '° main · ' + STEPS.length + ' steps · ' + (S.shape.gamut === 'p3' ? 'Display P3' : 'sRGB') + (clash ? ' · reads close to ' + clash : '');
+    el('rampMeta').textContent = Math.round(S.main.h) + '° main · ' + STEPS.length + ' steps · one set of hues for both themes · ' + (S.shape.gamut === 'p3' ? 'Display P3' : 'sRGB') + (clash ? ' · reads close to ' + clash : '');
 
     el('stepsHead').innerHTML = stepsHeadHtml();
     el('stepsHeadDark').innerHTML = stepsHeadHtml();
@@ -451,20 +474,18 @@
     }).join('');
     el('shareSum').textContent = 'Always totals 100% — moving one slider rebalances the others.';
 
-    el('roleTable').innerHTML = roleTableHtml(L);
-    el('funcTable').innerHTML = funcTableHtml(L);
-    el('stateTable').innerHTML = stateTableHtml(L);
+    el('roleTable').innerHTML = forThemes(L, D, function(p){ return roleTableHtml(p); });
+    el('funcTable').innerHTML = forThemes(L, D, function(p, dk){ return funcTableHtml(p, dk); });
+    el('stateTable').innerHTML = forThemes(L, D, function(p, dk){ return stateTableHtml(p, dk); });
 
-    el('ctText').innerHTML = '<div data-theme="light">' + contrastTextHtml(L,false) + '</div>' +
-                             '<div data-theme="dark">' + contrastTextHtml(D,true) + '</div>';
-    el('ctFill').innerHTML = contrastFillHtml(L);
+    el('ctText').innerHTML = forThemes(L, D, function(p, dk){ return contrastTextHtml(p, dk); });
+    el('ctFill').innerHTML = forThemes(L, D, function(p, dk){ return contrastFillHtml(p, dk); });
     el('contrastMeta').textContent = 'WCAG 2 · APCA Lc';
 
-    el('alphaMatrix').innerHTML = alphaHtml(L);
+    el('alphaMatrix').innerHTML = forThemes(L, D, function(p, dk){ return alphaHtml(p, dk); });
     el('scrimOut').innerHTML = scrimHtml();
-    el('gradOut').innerHTML = gradientsHtml(L);
-    el('previewOut').innerHTML = '<div data-theme="light">' + previewHtml(L,false) + '</div>' +
-                                 '<div data-theme="dark">' + previewHtml(D,true) + '</div>';
+    el('gradOut').innerHTML = forThemes(L, D, function(p){ return '<div class="grid2">' + gradientsHtml(p) + '</div>'; });
+    el('previewOut').innerHTML = forThemes(L, D, function(p, dk){ return previewHtml(p, dk); });
 
     el('outCss').textContent = cssExport();
     el('outJson').textContent = jsonExport();
@@ -475,10 +496,6 @@
 
   /* which theme the views show; Both shows them side by side */
   function applyTheme(){
-    document.querySelectorAll('[data-theme]').forEach(function(node){
-      if(node.closest('#themeSeg')) return;
-      node.style.display = (THEME === 'both' || node.dataset.theme === THEME) ? '' : 'none';
-    });
     var dark = el('rampsDark') && el('rampsDark').closest('.card');
     var light = el('rampsLight') && el('rampsLight').closest('.card');
     if(light) light.style.display = (THEME === 'dark') ? 'none' : '';
@@ -491,7 +508,7 @@
     [].forEach.call(el('themeSeg').children, function(x){ x.setAttribute('aria-selected', String(x === b)); });
     /* the tool itself follows the switch, so a dark palette is judged on a dark page */
     document.documentElement.setAttribute('data-ui', THEME === 'dark' ? 'dark' : 'light');
-    applyTheme();
+    render();   /* every view is built for the chosen theme, not just hidden */
   });
 
   /* paste a brand hex: its hue and chroma drive the ramp, the lightness steps stay fixed */

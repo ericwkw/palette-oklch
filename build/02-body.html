@@ -72,6 +72,14 @@
     </fieldset>
 
     <fieldset>
+      <legend>Dark mode — same hues, different curve</legend>
+      <p class="hint" style="margin-top:8px">Every hue and colourfulness above is shared by both themes. Only the lightness curve differs, and tokens read the ramp from the opposite end: paper is step 50 in light, step 950 in dark.</p>
+      <div class="row"><label for="dLift">Deep end lift</label><input type="range" id="dLift" min="0" max="0.14" step="0.005" value="0.055"><output id="odLift">.055</output></div>
+      <div class="row"><label for="dBoost">Colourfulness</label><input type="range" id="dBoost" min="0.6" max="1.4" step="0.02" value="1"><output id="odBoost">1.00</output></div>
+      <p class="hint">Lift keeps dark surfaces apart from each other; colourfulness compensates for colours looking weaker on a dark ground.</p>
+    </fieldset>
+
+    <fieldset>
       <legend>Share of surface — how much of a screen each one covers</legend>
       <div class="share" id="railShare" style="height:16px;margin:2px 0 10px"></div>
       <div class="row"><label for="sNeutral">Neutral</label><input type="range" id="sNeutral" min="0" max="100" step="1" value="55"><output id="osNeutral">55</output></div>
