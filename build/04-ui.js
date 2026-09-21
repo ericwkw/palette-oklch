@@ -3,6 +3,7 @@
   var $ = function(s){ return document.querySelector(s); };
   var el = function(id){ return document.getElementById(id); };
   var STORE = 'palette-studio-v1';
+  var THEME = 'light';   /* which theme the views show: light | dark | both */
 
   var DEFAULTS = {
     name:'Untitled',
@@ -331,7 +332,23 @@
   }
 
   /* ---------- scrim check ---------- */
-  var imgData = null;
+  var imgData = null, imgUrl = null;
+  var SCRIMS = [0, 0.2, 0.35, 0.5, 0.65];
+  function scrimPreviewHtml(){
+    if(!imgUrl) return '';
+    return '<div class="grid3" style="margin:4px 0 14px">' + SCRIMS.map(function(a){
+      var pass = imgData ? imgData.every(function(b){ return apca('#ffffff', composite('#000000', a, b.hex)) <= -60; }) : null;
+      return '<figure style="margin:0">' +
+        '<div style="position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--line);aspect-ratio:4/3">' +
+          '<img src="' + imgUrl + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block">' +
+          '<div style="position:absolute;inset:0;background:rgba(0,0,0,' + a + ')"></div>' +
+          '<span style="position:absolute;left:10px;bottom:10px;color:#fff;font-size:.82rem;font-weight:600;text-shadow:none">Caption text here</span>' +
+        '</div>' +
+        '<figcaption class="hint" style="margin-top:6px">' + Math.round(a*100) + '% black scrim ' +
+          (pass === null ? '' : (pass ? '<span class="pill pass">passes</span>' : '<span class="pill fail">fails somewhere</span>')) +
+        '</figcaption></figure>';
+    }).join('') + '</div>';
+  }
   function scrimHtml(){
     var p = build(false);
     var bands = imgData || [{ name:'light patch', hex:'#E9EDF2' }, { name:'dark patch', hex:'#1B222B' }];
@@ -345,10 +362,12 @@
         '<b>'+b.name+'</b><span class="mono">'+b.hex.toUpperCase()+'</span>'+
         '<span class="pill '+(need===null?'fail':(need<=0.4?'pass':'mid'))+'">'+
         (need===null ? 'white text never passes' : 'white text passes at ' + Math.round(need*100) + '% black scrim') + '</span></div>';
-    }).join('') + '<p class="hint">Measured with APCA Lc 60, the body-text level. A caption sitting over the brightest part of an image is the case that fails first.</p>';
+    }).join('') + scrimPreviewHtml() + '<p class="hint">Measured with APCA Lc 60, the body-text level. A caption sitting over the brightest part of an image is the case that fails first.</p>';
   }
   el('imgIn').addEventListener('change', function(e){
     var file = e.target.files && e.target.files[0]; if(!file) return;
+    if(imgUrl) URL.revokeObjectURL(imgUrl);
+    imgUrl = URL.createObjectURL(file);
     var img = new Image();
     img.onload = function(){
       var c = document.createElement('canvas'), w = 120, h = Math.max(1, Math.round(120 * img.height / img.width));
@@ -366,7 +385,7 @@
       imgData = [{ name:'lightest pixel under the caption', hex:lightest }, { name:'darkest pixel under the caption', hex:darkest }];
       render();
     };
-    img.src = URL.createObjectURL(file);
+    img.src = imgUrl;
   });
 
   /* ---------- render ---------- */
@@ -375,7 +394,9 @@
     syncControls();
     var L = build(false), D = build(true);
 
-    el('chipMain').style.background = stepOf(L.main,500).hex;
+    [['chipMain','main',600],['chipSup','sup',500],['chipA1','a1',500],['chipA2','a2',600],['chipNeu','neutral',300]].forEach(function(c){
+      var node = el(c[0]); if(node) node.style.background = stepOf(L[c[1]], c[2]).hex;
+    });
     var clash = hueClash(S.main.h);
     el('rampMeta').textContent = Math.round(S.main.h) + '° main · ' + STEPS.length + ' steps · ' + (S.shape.gamut === 'p3' ? 'Display P3' : 'sRGB') + (clash ? ' · reads close to ' + clash : '');
 
@@ -386,7 +407,9 @@
 
     var sh = S.share, total = sh.neutral+sh.sup+sh.main+sh.a1+sh.a2 || 1;
     var parts = [['neutral',stepOf(L.neutral,200).hex],['sup',stepOf(L.sup,500).hex],['main',stepOf(L.main,600).hex],['a1',stepOf(L.a1,500).hex],['a2',stepOf(L.a2,600).hex]];
-    el('shareBar').innerHTML = parts.map(function(pt){ return '<span style="flex:'+sh[pt[0]]+';background:'+pt[1]+'"></span>'; }).join('');
+    var bar = parts.map(function(pt){ return '<span style="flex:'+sh[pt[0]]+';background:'+pt[1]+'"></span>'; }).join('');
+    el('shareBar').innerHTML = bar;
+    if(el('railShare')) el('railShare').innerHTML = bar;
     el('shareLegend').innerHTML = parts.map(function(pt,i){
       var names = ['Neutral','Supporting','Main','Accent 1','Accent 2'];
       return '<span class="swatch-inline"><span class="dot" style="background:'+pt[1]+'"></span><b>'+Math.round(sh[pt[0]]/total*100)+'%</b> '+names[i]+'</span>';
@@ -397,20 +420,42 @@
     el('funcTable').innerHTML = funcTableHtml(L);
     el('stateTable').innerHTML = stateTableHtml(L);
 
-    el('ctText').innerHTML = contrastTextHtml(L,false) + contrastTextHtml(D,true);
+    el('ctText').innerHTML = '<div data-theme="light">' + contrastTextHtml(L,false) + '</div>' +
+                             '<div data-theme="dark">' + contrastTextHtml(D,true) + '</div>';
     el('ctFill').innerHTML = contrastFillHtml(L);
     el('contrastMeta').textContent = 'WCAG 2 · APCA Lc';
 
     el('alphaMatrix').innerHTML = alphaHtml(L);
     el('scrimOut').innerHTML = scrimHtml();
     el('gradOut').innerHTML = gradientsHtml(L);
-    el('previewOut').innerHTML = previewHtml(L,false) + previewHtml(D,true);
+    el('previewOut').innerHTML = '<div data-theme="light">' + previewHtml(L,false) + '</div>' +
+                                 '<div data-theme="dark">' + previewHtml(D,true) + '</div>';
 
     el('outCss').textContent = cssExport();
     el('outJson').textContent = jsonExport();
 
+    applyTheme();
     try{ localStorage.setItem(STORE, JSON.stringify(S)); }catch(e){}
   }
+
+  /* which theme the views show; Both shows them side by side */
+  function applyTheme(){
+    document.querySelectorAll('[data-theme]').forEach(function(node){
+      if(node.closest('#themeSeg')) return;
+      node.style.display = (THEME === 'both' || node.dataset.theme === THEME) ? '' : 'none';
+    });
+    var dark = el('rampsDark') && el('rampsDark').closest('.card');
+    var light = el('rampsLight') && el('rampsLight').closest('.card');
+    if(light) light.style.display = (THEME === 'dark') ? 'none' : '';
+    if(dark) dark.style.display = (THEME === 'light') ? 'none' : '';
+    document.documentElement.style.colorScheme = THEME === 'dark' ? 'dark' : 'light';
+  }
+  el('themeSeg').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-theme]'); if(!b) return;
+    THEME = b.dataset.theme;
+    [].forEach.call(el('themeSeg').children, function(x){ x.setAttribute('aria-selected', String(x === b)); });
+    applyTheme();
+  });
 
   /* ---------- wiring ---------- */
   document.querySelectorAll('.rail input, .rail select').forEach(function(i){

@@ -6,15 +6,21 @@
     <p class="sub">Ramps on fixed lightness steps (shadcn / Tailwind 50–950), roles on top, light and dark from one source.</p>
 
     <fieldset>
-      <legend>Brand</legend>
+      <legend>Palette name</legend>
       <div class="field"><label for="pName">Name</label><input type="text" id="pName" value="Untitled"></div>
-      <div class="row"><label for="hMain">Main hue</label><input type="range" id="hMain" min="0" max="360" step="1" value="250"><output id="oMain">250</output></div>
-      <div class="row"><label for="cMain">Chroma</label><input type="range" id="cMain" min="0.02" max="0.30" step="0.005" value="0.16"><output id="ocMain">.160</output></div>
-      <div class="row"><label>&nbsp;</label><div class="chip" id="chipMain"></div><output></output></div>
     </fieldset>
 
     <fieldset>
-      <legend>Supporting</legend>
+      <legend>Main — identity and primary buttons</legend>
+      <div class="chip" id="chipMain"></div>
+      <div class="row"><label for="hMain">Hue</label><input type="range" id="hMain" min="0" max="360" step="1" value="250"><output id="oMain">250</output></div>
+      <div class="row"><label for="cMain">Colourfulness</label><input type="range" id="cMain" min="0.02" max="0.30" step="0.005" value="0.16"><output id="ocMain">.160</output></div>
+      <p class="hint">Hue is where it sits on the colour wheel, 0–360°. Colourfulness is how strong it is; drop it for a muted brand.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Supporting — structure and secondary surfaces</legend>
+      <div class="chip" id="chipSup"></div>
       <div class="field"><label for="relSup">Relation</label>
         <select id="relSup">
           <option value="same">Same hue, calmer</option>
@@ -23,41 +29,54 @@
           <option value="custom">Custom</option>
         </select></div>
       <div class="row"><label for="hSup">Hue</label><input type="range" id="hSup" min="0" max="360" step="1" value="280"><output id="oSup">280</output></div>
-      <div class="row"><label for="cSup">Chroma</label><input type="range" id="cSup" min="0.01" max="0.30" step="0.005" value="0.09"><output id="ocSup">.090</output></div>
+      <div class="row"><label for="cSup">Colourfulness</label><input type="range" id="cSup" min="0.01" max="0.30" step="0.005" value="0.09"><output id="ocSup">.090</output></div>
+      <p class="hint">Relation sets the hue from the main colour. Pick Custom to move it yourself.</p>
     </fieldset>
 
     <fieldset>
-      <legend>Accent pair</legend>
-      <div class="row"><label for="hA1">Frequent</label><input type="range" id="hA1" min="0" max="360" step="1" value="45"><output id="oA1">45</output></div>
-      <div class="row"><label for="cA1">Chroma</label><input type="range" id="cA1" min="0.02" max="0.32" step="0.005" value="0.18"><output id="ocA1">.180</output></div>
-      <div class="row"><label for="hA2">Rare</label><input type="range" id="hA2" min="0" max="360" step="1" value="20"><output id="oA2">20</output></div>
-      <div class="row"><label for="cA2">Chroma</label><input type="range" id="cA2" min="0.02" max="0.32" step="0.005" value="0.20"><output id="ocA2">.200</output></div>
+      <legend>Accent 1 — the highlight you meet often</legend>
+      <div class="chip" id="chipA1"></div>
+      <div class="row"><label for="hA1">Hue</label><input type="range" id="hA1" min="0" max="360" step="1" value="45"><output id="oA1">45</output></div>
+      <div class="row"><label for="cA1">Colourfulness</label><input type="range" id="cA1" min="0.02" max="0.32" step="0.005" value="0.18"><output id="ocA1">.180</output></div>
     </fieldset>
 
     <fieldset>
-      <legend>Neutrals</legend>
+      <legend>Accent 2 — the rare, strongest mark</legend>
+      <div class="chip" id="chipA2"></div>
+      <div class="row"><label for="hA2">Hue</label><input type="range" id="hA2" min="0" max="360" step="1" value="20"><output id="oA2">20</output></div>
+      <div class="row"><label for="cA2">Colourfulness</label><input type="range" id="cA2" min="0.02" max="0.32" step="0.005" value="0.20"><output id="ocA2">.200</output></div>
+      <p class="hint">One accent appears often — a tag, a marker. The other is kept for the single most important thing in a view.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Neutrals — paper, panels, hairlines, text</legend>
+      <div class="chip" id="chipNeu"></div>
       <div class="row"><label for="cNeu">Tint</label><input type="range" id="cNeu" min="0" max="0.05" step="0.002" value="0.012"><output id="ocNeu">.012</output></div>
       <div class="field"><label for="hNeu">Hue from</label>
         <select id="hNeu"><option value="main" selected>Main</option><option value="sup">Supporting</option><option value="own">Own</option></select></div>
       <div class="row"><label for="hNeuOwn">Own hue</label><input type="range" id="hNeuOwn" min="0" max="360" step="1" value="250"><output id="oNeuOwn">250</output></div>
+      <p class="hint">A little tint keeps greys from looking dead. Zero gives true grey.</p>
     </fieldset>
 
     <fieldset>
-      <legend>Shape</legend>
-      <div class="row"><label for="cPeak">Chroma peak</label><input type="range" id="cPeak" min="0" max="10" step="1" value="6"><output id="ocPeak">600</output></div>
-      <div class="row"><label for="cFall">Falloff</label><input type="range" id="cFall" min="0.2" max="1.6" step="0.05" value="0.85"><output id="ocFall">.85</output></div>
+      <legend>Ramp shape — how the shades behave</legend>
+      <div class="row"><label for="cPeak">Strongest at</label><input type="range" id="cPeak" min="0" max="10" step="1" value="6"><output id="ocPeak">600</output></div>
+      <div class="row"><label for="cFall">Dark fade</label><input type="range" id="cFall" min="0.2" max="1.6" step="0.05" value="0.85"><output id="ocFall">.85</output></div>
+      <p class="hint">Which step is the most colourful, and how quickly the dark end loses colour.</p>
       <div class="field"><label for="gamut">Gamut</label>
         <select id="gamut"><option value="srgb" selected>sRGB</option><option value="p3">Display P3</option></select></div>
     </fieldset>
 
     <fieldset>
-      <legend>Share of surface</legend>
+      <legend>Share of surface — how much of a screen each one covers</legend>
+      <div class="share" id="railShare" style="height:16px;margin:2px 0 10px"></div>
       <div class="row"><label for="sNeutral">Neutral</label><input type="range" id="sNeutral" min="0" max="80" step="1" value="55"><output id="osNeutral">55</output></div>
       <div class="row"><label for="sSup">Supporting</label><input type="range" id="sSup" min="0" max="60" step="1" value="22"><output id="osSup">22</output></div>
       <div class="row"><label for="sMain">Main</label><input type="range" id="sMain" min="0" max="60" step="1" value="15"><output id="osMain">15</output></div>
       <div class="row"><label for="sA1">Accent 1</label><input type="range" id="sA1" min="0" max="30" step="1" value="6"><output id="osA1">6</output></div>
       <div class="row"><label for="sA2">Accent 2</label><input type="range" id="sA2" min="0" max="20" step="1" value="2"><output id="osA2">2</output></div>
       <p class="hint" id="shareSum"></p>
+      <p class="hint">Relative weights, not exact percentages — they set the proportion bar and how much colour the preview uses.</p>
     </fieldset>
 
     <div class="btns">
@@ -78,6 +97,12 @@
       <button data-view="gradients" aria-selected="false">Gradients</button>
       <button data-view="preview" aria-selected="false">Preview</button>
       <button data-view="export" aria-selected="false">Export</button>
+      <span style="flex:1"></span>
+      <div class="seg" id="themeSeg" role="group" aria-label="Theme shown">
+        <button data-theme="light" aria-selected="true">Light</button>
+        <button data-theme="dark" aria-selected="false">Dark</button>
+        <button data-theme="both" aria-selected="false">Both</button>
+      </div>
     </div>
 
     <section class="view on" data-view="ramps">
@@ -89,7 +114,7 @@
       </div>
       <div class="card" style="background:#12161C;border-color:#222A34">
         <h3 style="color:#E7ECF2">Dark mode</h3>
-        <p class="cap" style="color:#8A94A0">Generated from the same hues: the ramp is flipped and the deep end lifted, so dark surfaces stay separable.</p>
+        <p class="cap" style="color:#8A94A0">Same hues, same step order: 50 stays the lightest. The curve lifts the deep end and eases the light end, so dark surfaces stay separable.</p>
         <div class="steps-head" id="stepsHeadDark" style="color:#6B7683"></div>
         <div id="rampsDark"></div>
       </div>
