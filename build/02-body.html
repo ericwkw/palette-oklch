@@ -1,0 +1,147 @@
+<body>
+<div class="app">
+
+  <aside class="rail">
+    <div class="brand"><h1>Palette</h1><span>OKLCH studio</span></div>
+    <p class="sub">Ramps on fixed lightness steps (shadcn / Tailwind 50–950), roles on top, light and dark from one source.</p>
+
+    <fieldset>
+      <legend>Brand</legend>
+      <div class="field"><label for="pName">Name</label><input type="text" id="pName" value="Untitled"></div>
+      <div class="row"><label for="hMain">Main hue</label><input type="range" id="hMain" min="0" max="360" step="1" value="250"><output id="oMain">250</output></div>
+      <div class="row"><label for="cMain">Chroma</label><input type="range" id="cMain" min="0.02" max="0.30" step="0.005" value="0.16"><output id="ocMain">.160</output></div>
+      <div class="row"><label>&nbsp;</label><div class="chip" id="chipMain"></div><output></output></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Supporting</legend>
+      <div class="field"><label for="relSup">Relation</label>
+        <select id="relSup">
+          <option value="same">Same hue, calmer</option>
+          <option value="near" selected>Near (+30°)</option>
+          <option value="far">Far (+150°)</option>
+          <option value="custom">Custom</option>
+        </select></div>
+      <div class="row"><label for="hSup">Hue</label><input type="range" id="hSup" min="0" max="360" step="1" value="280"><output id="oSup">280</output></div>
+      <div class="row"><label for="cSup">Chroma</label><input type="range" id="cSup" min="0.01" max="0.30" step="0.005" value="0.09"><output id="ocSup">.090</output></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Accent pair</legend>
+      <div class="row"><label for="hA1">Frequent</label><input type="range" id="hA1" min="0" max="360" step="1" value="45"><output id="oA1">45</output></div>
+      <div class="row"><label for="cA1">Chroma</label><input type="range" id="cA1" min="0.02" max="0.32" step="0.005" value="0.18"><output id="ocA1">.180</output></div>
+      <div class="row"><label for="hA2">Rare</label><input type="range" id="hA2" min="0" max="360" step="1" value="20"><output id="oA2">20</output></div>
+      <div class="row"><label for="cA2">Chroma</label><input type="range" id="cA2" min="0.02" max="0.32" step="0.005" value="0.20"><output id="ocA2">.200</output></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Neutrals</legend>
+      <div class="row"><label for="cNeu">Tint</label><input type="range" id="cNeu" min="0" max="0.05" step="0.002" value="0.012"><output id="ocNeu">.012</output></div>
+      <div class="field"><label for="hNeu">Hue from</label>
+        <select id="hNeu"><option value="main" selected>Main</option><option value="sup">Supporting</option><option value="own">Own</option></select></div>
+      <div class="row"><label for="hNeuOwn">Own hue</label><input type="range" id="hNeuOwn" min="0" max="360" step="1" value="250"><output id="oNeuOwn">250</output></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Shape</legend>
+      <div class="row"><label for="cPeak">Chroma peak</label><input type="range" id="cPeak" min="0" max="10" step="1" value="6"><output id="ocPeak">600</output></div>
+      <div class="row"><label for="cFall">Falloff</label><input type="range" id="cFall" min="0.2" max="1.6" step="0.05" value="0.85"><output id="ocFall">.85</output></div>
+      <div class="field"><label for="gamut">Gamut</label>
+        <select id="gamut"><option value="srgb" selected>sRGB</option><option value="p3">Display P3</option></select></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Share of surface</legend>
+      <div class="row"><label for="sNeutral">Neutral</label><input type="range" id="sNeutral" min="0" max="80" step="1" value="55"><output id="osNeutral">55</output></div>
+      <div class="row"><label for="sSup">Supporting</label><input type="range" id="sSup" min="0" max="60" step="1" value="22"><output id="osSup">22</output></div>
+      <div class="row"><label for="sMain">Main</label><input type="range" id="sMain" min="0" max="60" step="1" value="15"><output id="osMain">15</output></div>
+      <div class="row"><label for="sA1">Accent 1</label><input type="range" id="sA1" min="0" max="30" step="1" value="6"><output id="osA1">6</output></div>
+      <div class="row"><label for="sA2">Accent 2</label><input type="range" id="sA2" min="0" max="20" step="1" value="2"><output id="osA2">2</output></div>
+      <p class="hint" id="shareSum"></p>
+    </fieldset>
+
+    <div class="btns">
+      <button class="btn primary" id="btnSave">Save</button>
+      <button class="btn" id="btnLoad">Load…</button>
+      <button class="btn" id="btnRandom">Surprise me</button>
+      <button class="btn" id="btnReset">Reset</button>
+    </div>
+    <input type="file" id="fileIn" accept="application/json" hidden>
+  </aside>
+
+  <main class="main">
+    <div class="tabs" id="tabs">
+      <button data-view="ramps" aria-selected="true">Ramps</button>
+      <button data-view="roles" aria-selected="false">Roles &amp; tokens</button>
+      <button data-view="contrast" aria-selected="false">Contrast</button>
+      <button data-view="alpha" aria-selected="false">Opacity &amp; overlays</button>
+      <button data-view="gradients" aria-selected="false">Gradients</button>
+      <button data-view="preview" aria-selected="false">Preview</button>
+      <button data-view="export" aria-selected="false">Export</button>
+    </div>
+
+    <section class="view on" data-view="ramps">
+      <div class="head"><h2>Ramps</h2><span class="muted mono" id="rampMeta"></span></div>
+      <p class="note">Every ramp shares the same lightness steps, so a shade means the same weight whatever the hue. Chroma peaks near the middle and eases off at both ends. Click any swatch to copy its value.</p>
+      <div class="card">
+        <div class="steps-head" id="stepsHead"></div>
+        <div id="rampsLight"></div>
+      </div>
+      <div class="card" style="background:#12161C;border-color:#222A34">
+        <h3 style="color:#E7ECF2">Dark mode</h3>
+        <p class="cap" style="color:#8A94A0">Generated from the same hues: the ramp is flipped and the deep end lifted, so dark surfaces stay separable.</p>
+        <div class="steps-head" id="stepsHeadDark" style="color:#6B7683"></div>
+        <div id="rampsDark"></div>
+      </div>
+    </section>
+
+    <section class="view" data-view="roles">
+      <div class="head"><h2>Roles &amp; tokens</h2></div>
+      <p class="note">Roles name what a colour is for; tokens are what a product uses. Ramp steps are the primitives underneath, so a palette swap never changes a token name.</p>
+      <div class="card"><h3>Share of surface</h3><div class="share" id="shareBar"></div><div class="legend" id="shareLegend"></div></div>
+      <div class="card"><h3>Brand roles</h3><div id="roleTable"></div></div>
+      <div class="card"><h3>Functional colours</h3>
+        <p class="cap">Meaning stays constant across a brand family — these hues do not move when a sister brand changes its main colour. Each one carries a surface, border, text and solid fill.</p>
+        <div id="funcTable"></div>
+      </div>
+      <div class="card"><h3>States</h3><div id="stateTable"></div></div>
+    </section>
+
+    <section class="view" data-view="contrast">
+      <div class="head"><h2>Contrast</h2><span class="muted mono" id="contrastMeta"></span></div>
+      <p class="note">WCAG 2 ratios with APCA alongside. WCAG needs 4.5 for body text and 3.0 for large text or UI edges; APCA Lc 60 is roughly body text, Lc 45 large text.</p>
+      <div class="card"><h3>Text on surfaces</h3><div id="ctText"></div></div>
+      <div class="card"><h3>Solid fills with their own label</h3><div id="ctFill"></div></div>
+    </section>
+
+    <section class="view" data-view="alpha">
+      <div class="head"><h2>Opacity &amp; overlays</h2></div>
+      <p class="note">A colour at an alpha over a known background composites to an exact solid — shown here so a tint can be matched back to a real ramp step. Over photographs there is no single background, so drop an image in and the worst case is measured from its own pixels.</p>
+      <div class="card"><h3>Alpha over surfaces</h3><div id="alphaMatrix"></div></div>
+      <div class="card"><h3>Scrims over an image</h3>
+        <p class="cap">No image loaded uses a light-and-dark test pattern. With an image, the lightest and darkest bands under the caption area are measured, and the scrim needed for white text to pass is reported.</p>
+        <div class="field" style="grid-template-columns:7em minmax(0,1fr)"><label for="imgIn">Image</label><input type="file" id="imgIn" accept="image/*"></div>
+        <div id="scrimOut"></div>
+      </div>
+    </section>
+
+    <section class="view" data-view="gradients">
+      <div class="head"><h2>Gradients</h2></div>
+      <p class="note">Interpolated in OKLCH, so a blend between two hues keeps its chroma instead of passing through grey. Copy the CSS under each.</p>
+      <div id="gradOut" class="grid2"></div>
+    </section>
+
+    <section class="view" data-view="preview">
+      <div class="head"><h2>Preview</h2></div>
+      <p class="note">The same screen in light and dark, built only from tokens, with surface areas following the shares you set.</p>
+      <div class="grid2" id="previewOut"></div>
+    </section>
+
+    <section class="view" data-view="export">
+      <div class="head"><h2>Export</h2></div>
+      <p class="note">shadcn / Tailwind theme in OKLCH, with <code>:root</code> and <code>.dark</code>, plus the raw ramps as JSON.</p>
+      <div class="card"><h3>shadcn globals.css</h3><div class="btns" style="margin:0 0 10px"><button class="btn" data-copy="outCss">Copy</button><button class="btn" data-dl="css">Download</button></div><pre id="outCss"></pre></div>
+      <div class="card"><h3>Ramps &amp; tokens JSON</h3><div class="btns" style="margin:0 0 10px"><button class="btn" data-copy="outJson">Copy</button><button class="btn" data-dl="json">Download</button></div><pre id="outJson"></pre></div>
+    </section>
+  </main>
+</div>
