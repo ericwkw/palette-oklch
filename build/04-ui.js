@@ -225,16 +225,12 @@
   function roleTableHtml(p){
     var rows = ROLES.map(function(r){
       var ramp = p[r[0]], mid = stepOf(ramp,500);
-      var use = { main:'600 fill · 500 ring · 100 surface · 900 text',
-                  sup:'100 surface · 200 border · 700 text · 600 fill',
-                  a1:'500 mark · 100 surface · 700 text',
-                  a2:'600 mark — one per view',
-                  neutral:'50 paper · 100 panel · 200 hairline · 600 quiet text · 950 ink' }[r[0]];
+      var brand = S[r[0]] && S[r[0]].brand;
       return '<tr><td><span class="dot" style="background:'+mid.hex+'"></span><b>'+r[1]+'</b><div class="muted">'+r[2]+'</div></td>'+
         '<td class="mono">'+Math.round(ramp[5].h)+'° · C '+ramp[5].C.toFixed(3)+'</td>'+
-        '<td class="muted">'+use+'</td></tr>';
+        '<td class="mono">'+(brand ? '<span class="dot" style="background:'+brand+'"></span>'+brand.toUpperCase() : '<span class="muted">—</span>')+'</td></tr>';
     }).join('');
-    return '<table><thead><tr><th>Role</th><th>Hue</th><th>Typical steps</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    return '<table><thead><tr><th>Role</th><th>Hue</th><th>Brand hex</th></tr></thead><tbody>'+rows+'</tbody></table>';
   }
   function funcTableHtml(p, dark){
     var rows = FUNCTIONAL.map(function(f){
