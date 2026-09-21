@@ -74,7 +74,8 @@
       <legend>Ramp shape — how the shades behave</legend>
       <div class="row"><label for="cPeak">Strongest at</label><input type="range" id="cPeak" min="0" max="10" step="1" value="6"><output id="ocPeak">600</output></div>
       <div class="row"><label for="cFall">Dark fade</label><input type="range" id="cFall" min="0.2" max="1.6" step="0.05" value="0.85"><output id="ocFall">.85</output></div>
-      <p class="hint">Which step is the most colourful, and how quickly the dark end loses colour.</p>
+      <div class="row"><label for="cTwist">Hue turn</label><input type="range" id="cTwist" min="0" max="2" step="0.05" value="1"><output id="ocTwist">1.00</output></div>
+      <p class="hint">Which step is the most colourful, how quickly the dark end loses colour, and how far the hue turns between the two ends — dark yellows toward orange, dark blues toward indigo. Zero holds one hue throughout.</p>
       <div class="field"><label for="gamut">Gamut</label>
         <select id="gamut"><option value="srgb" selected>sRGB</option><option value="p3">Display P3</option></select></div>
       <p class="hint" id="gamutNote">sRGB keeps every value safe everywhere. In P3 swatches are painted in OKLCH and a ▲ marks the ones a plain sRGB screen cannot show; hex stays as the closest sRGB fallback.</p>

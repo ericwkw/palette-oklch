@@ -119,6 +119,25 @@ function chromaAt(i, peakIdx, peakC, falloff){
 /* does this colour need more than sRGB? */
 function outsideSrgb(L,C,h){ return !inGamut(L,C,h,'srgb'); }
 
+/* How far a hue turns from the light end to the dark end.
+   Left alone, a single hue reads wrong at the extremes: dark yellows look acid,
+   pale reds look pink. These are the natural directions, in degrees across the
+   whole ramp, and the tool scales them with one control. */
+function defaultTwist(h){
+  h = ((h % 360) + 360) % 360;
+  if(h >= 40  && h < 105) return -26;   /* yellow · dark end turns toward orange */
+  if(h >= 105 && h < 175) return -10;   /* green · dark end warms slightly */
+  if(h >= 175 && h < 265) return  10;   /* cyan and blue · dark end deepens toward indigo */
+  if(h >= 265 && h < 320) return  -8;   /* violet · dark end pulls back to blue */
+  return 8;                             /* red and pink · dark end turns toward crimson */
+}
+function twistedHue(hue, i, steps, twist, pivot){
+  if(pivot === undefined) pivot = (steps - 1) / 2;
+  var span = Math.max(pivot, steps - 1 - pivot) || 1;
+  var t = (i - pivot) / span;            /* 0 at the pivot step, ±1 at the far end */
+  return ((hue + (twist / 2) * t) % 360 + 360) % 360;   /* twist is the turn across the whole ramp */
+}
+
 function makeRamp(hue, chroma, opts){
   opts = opts || {};
   var dark = !!opts.dark, space = opts.space || 'srgb';
@@ -127,7 +146,9 @@ function makeRamp(hue, chroma, opts){
   var fall = opts.falloff === undefined ? 0.85 : opts.falloff;
   var lift = opts.lift === undefined ? 0.055 : opts.lift;     /* how far the dark end lifts */
   var boost = opts.boost === undefined ? 1 : opts.boost;      /* dark-theme colourfulness */
-  var anchor = opts.anchor || null;      /* { index, L, C } — an exact colour to build around */
+  var twist = opts.twist === undefined ? defaultTwist(hue) : opts.twist;
+  var anchor = opts.anchor || null;
+  var pivot = anchor ? anchor.index : (STEPS.length - 1) / 2;   /* the step whose hue is exactly `hue` */      /* { index, L, C } — an exact colour to build around */
   var nudges = opts.nudges || {};        /* { step: {dL, dC} } — per-step adjustments */
   var scale = 1, shift = 0;
   if(anchor){
@@ -152,11 +173,12 @@ function makeRamp(hue, chroma, opts){
     }
     var n = nudges[STEPS[i]];
     if(n){ L = clamp(L + (n.dL || 0), 0.02, 0.995); C = Math.max(0, C + (n.dC || 0)); }
-    var wide = outsideSrgb(L,C,hue);
-    C = fitChroma(L, C, hue, space);
-    out.push({ step:STEPS[i], L:L, C:C, h:hue, wide:wide && space === 'p3',
-               hex:(exact && !n) ? exact : oklchToHex(L,C,hue,space),
-               css:oklchCss(L,C,hue,space) });
+    var hi = twistedHue(hue, i, STEPS.length, twist, pivot);
+    var wide = outsideSrgb(L,C,hi);
+    C = fitChroma(L, C, hi, space);
+    out.push({ step:STEPS[i], L:L, C:C, h:hi, wide:wide && space === 'p3',
+               hex:(exact && !n) ? exact : oklchToHex(L,C,hi,space),
+               css:oklchCss(L,C,hi,space) });
   }
   return out;
 }

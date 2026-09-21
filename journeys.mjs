@@ -192,6 +192,42 @@ await journey('defaults pass their own contrast audit', async () => {
   }
 });
 
+/* 8 — the hue turns along a ramp, in the right direction and not too far */
+await journey('hue turns along the ramp, within bounds', async () => {
+  const read = () => evalJs(`(() => {
+    const rows = [...document.querySelectorAll('#rampsLight .ramp')];
+    const label = i => rows[i].querySelector('.name small').textContent;
+    const hues = i => [...rows[i].querySelectorAll('.sw')].map(sw => {
+      const m = sw.title.match(/oklch\\([^ ]+ [^ ]+ ([0-9.]+)\\)/); return m ? parseFloat(m[1]) : null;
+    });
+    return { mainLabel: label(0), main: hues(0), warning: hues(6), neutral: hues(4) };
+  })()`);
+
+  let r = await read();
+  const turn = arr => ((arr[arr.length - 1] - arr[0] + 540) % 360) - 180;
+  assert(Math.abs(turn(r.main)) > 2, 'the main ramp holds a single hue');
+  assert(Math.abs(turn(r.main)) < 40, 'the main ramp turns too far: ' + turn(r.main));
+  assert(/turns/.test(r.mainLabel), 'the ramp label does not say how far it turns');
+  assert(Math.abs(turn(r.neutral)) < 1, 'neutrals should not turn');
+
+  /* a warning ramp sits in the yellows: its dark end must move toward orange, not green */
+  assert(turn(r.warning) < 0, 'the yellow ramp turns the wrong way: ' + turn(r.warning));
+
+  /* every step stays inside its own family */
+  const spread = arr => Math.max(...arr) - Math.min(...arr);
+  assert(spread(r.main) < 45, 'the main ramp leaves its hue family');
+
+  /* zero holds one hue throughout */
+  await setRange('cTwist', 0);
+  r = await read();
+  assert(Math.abs(turn(r.main)) < 0.6, 'hue turn did not switch off at zero');
+
+  /* and the control scales it */
+  await setRange('cTwist', 2);
+  r = await read();
+  assert(Math.abs(turn(r.main)) > 6, 'hue turn did not respond to the control');
+});
+
 const failed = results.filter(r => !r[1]);
 console.log('');
 results.forEach(([name, ok, why]) => console.log(`${ok ? ' ok ' : 'FAIL'}  ${name}${why ? ' — ' + why : ''}`));

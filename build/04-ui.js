@@ -10,7 +10,7 @@
     main:{h:250,c:0.16,brand:null,pin:true}, sup:{h:280,c:0.09,rel:'near',brand:null,pin:true},
     a1:{h:45,c:0.18,brand:null,pin:true}, a2:{h:20,c:0.20,brand:null,pin:true},
     neutral:{c:0.012, from:'main', h:250},
-    shape:{peak:6, falloff:0.85, gamut:'srgb'},
+    shape:{peak:6, falloff:0.85, gamut:'srgb', twist:1},
     darkMode:{lift:0.055, boost:1},
     map:{ primary:700, primaryDark:400, tint:100, tintDark:900, border:200, borderDark:800, ring:600, ringDark:400 },
     nudges:{},
@@ -25,7 +25,7 @@
     ['hA1','a1.h','oA1',0],         ['cA1','a1.c','ocA1',3],
     ['hA2','a2.h','oA2',0],         ['cA2','a2.c','ocA2',3],
     ['cNeu','neutral.c','ocNeu',3], ['hNeuOwn','neutral.h','oNeuOwn',0],
-    ['cPeak','shape.peak','ocPeak',0], ['cFall','shape.falloff','ocFall',2],
+    ['cPeak','shape.peak','ocPeak',0], ['cFall','shape.falloff','ocFall',2], ['cTwist','shape.twist','ocTwist',2],
     ['dLift','darkMode.lift','odLift',3], ['dBoost','darkMode.boost','odBoost',2],
     ['sNeutral','share.neutral','osNeutral',0], ['sSup','share.sup','osSup',0],
     ['sMain','share.main','osMain',0], ['sA1','share.a1','osA1',0], ['sA2','share.a2','osA2',0]
@@ -111,23 +111,26 @@
   function nudgesFor(key){ return (S.nudges && S.nudges[key]) || {}; }
   function build(dark){
     var dm = S.darkMode || { lift:0.055, boost:1 };
+    var tw = S.shape.twist === undefined ? 1 : S.shape.twist;
     var base = { dark:dark, space:S.shape.gamut, peak:S.shape.peak, falloff:S.shape.falloff, lift:dm.lift, boost:dm.boost };
-    function opts(key){
+    function opts(key, hue){
       var o = {}; for(var k in base) o[k] = base[k];
       o.anchor = anchorFor(key, dark); o.nudges = nudgesFor(key);
+      o.twist = defaultTwist(hue) * tw;
       return o;
     }
-    var nOpts = { dark:dark, space:base.space, peak:5, falloff:0.5, lift:dm.lift, boost:dm.boost, nudges:nudgesFor('neutral') };
+    var nOpts = { dark:dark, space:base.space, peak:5, falloff:0.5, lift:dm.lift, boost:dm.boost, nudges:nudgesFor('neutral'), twist:0 };
     var p = {
       neutral: makeRamp(neutralHue(), S.neutral.c, nOpts),
-      main:    makeRamp(S.main.h, S.main.c, opts('main')),
-      sup:     makeRamp(S.sup.h,  S.sup.c,  opts('sup')),
-      a1:      makeRamp(S.a1.h,   S.a1.c,   opts('a1')),
-      a2:      makeRamp(S.a2.h,   S.a2.c,   opts('a2'))
+      main:    makeRamp(S.main.h, S.main.c, opts('main', S.main.h)),
+      sup:     makeRamp(S.sup.h,  S.sup.c,  opts('sup',  S.sup.h)),
+      a1:      makeRamp(S.a1.h,   S.a1.c,   opts('a1',   S.a1.h)),
+      a2:      makeRamp(S.a2.h,   S.a2.c,   opts('a2',   S.a2.h))
     };
     FUNCTIONAL.forEach(function(f){
       var fo = {}; for(var k in base) fo[k] = base[k];
       fo.nudges = nudgesFor(f.id);
+      fo.twist = defaultTwist(f.hue) * tw;
       p[f.id] = makeRamp(f.hue, f.chroma, fo);
     });
     return p;
@@ -212,9 +215,10 @@
     var labels = {}; ROLES.forEach(function(r){ labels[r[0]] = [r[1], r[2]]; });
     FUNCTIONAL.forEach(function(f){ labels[f.id] = [f.name, f.note]; });
     return order.map(function(k){
-      var hue = p[k][5].h;
+      var hue = p[k][5].h, h0 = p[k][0].h, h9 = p[k][p[k].length-1].h;
+      var turn = Math.round(((h9 - h0 + 540) % 360) - 180);
       return '<div class="ramp"><div class="name" style="'+(dark?'color:#E7ECF2':'')+'">'+labels[k][0]+
-        '<small style="'+(dark?'color:#8A94A0':'')+'">'+Math.round(hue)+'°</small></div>' +
+        '<small style="'+(dark?'color:#8A94A0':'')+'">'+Math.round(hue)+'°'+(turn ? ' · turns '+(turn>0?'+':'')+turn+'°' : '')+'</small></div>' +
         p[k].map(function(s){ return swatchHtml(s, dark, brandStep[k] === s.step, k); }).join('') + '</div>';
     }).join('');
   }
