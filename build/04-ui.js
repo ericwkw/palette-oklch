@@ -596,13 +596,31 @@
     ['ring','Focus ring · light', [500,600,700]],
     ['ringDark','Focus ring · dark', [300,400,500]]
   ];
-  function mapControlsHtml(){
+  /* which ramp each mapped token reads, so the control can show the colour it produces */
+  var MAP_SOURCE = { primary:'main', primaryDark:'main', tint:'sup', tintDark:'sup',
+                     border:'neutral', borderDark:'neutral', ring:'main', ringDark:'main' };
+  function mapControlsHtml(L, D){
     return MAP_FIELDS.map(function(f){
+      var dark = /Dark$/.test(f[0]);
+      var sw = stepOf((dark ? D : L)[MAP_SOURCE[f[0]]], S.map[f[0]]);
       return '<div class="field" style="grid-template-columns:minmax(0,1fr)"><label for="map-'+f[0]+'">'+f[1]+'</label>' +
         '<select id="map-'+f[0]+'" data-map="'+f[0]+'">' +
         f[2].map(function(v){ return '<option value="'+v+'"'+(S.map[f[0]] === v ? ' selected' : '')+'>'+v+'</option>'; }).join('') +
-        '</select></div>';
+        '</select>' +
+        '<span class="swatch-inline" style="margin-top:6px"><span class="dot" style="background:'+sw.hex+'"></span><span class="mono">'+sw.hex.toUpperCase()+'</span></span>' +
+        '</div>';
     }).join('');
+  }
+  /* the four things the mapping actually changes, drawn live */
+  function mapDemoHtml(p, dark){
+    var t = tokens(p, dark);
+    return '<div class="preview" style="background:'+t.background.hex+';color:'+t.foreground.hex+';padding:16px">' +
+      '<div class="pv-row" style="gap:14px;align-items:center">' +
+        '<span class="pv-btn" style="background:'+t.primary.hex+';color:'+t['primary-foreground'].hex+'">Primary button</span>' +
+        '<span class="pv-btn" style="background:'+t.secondary.hex+';color:'+t['secondary-foreground'].hex+'">Tinted surface</span>' +
+        '<span style="display:inline-flex;align-items:center;gap:8px;font-size:.78rem">Hairline<span style="display:inline-block;width:64px;height:1px;background:'+t.border.hex+'"></span></span>' +
+        '<span class="pv-btn" style="background:transparent;color:'+t.foreground.hex+';border:1px solid '+t.border.hex+';box-shadow:0 0 0 3px '+t.ring.hex+'">Focused field</span>' +
+      '</div></div>';
   }
 
   /* ---------- render ---------- */
@@ -647,7 +665,8 @@
     }).join('');
     el('shareSum').textContent = 'Always totals 100% — moving one slider rebalances the others.';
 
-    el('mapControls').innerHTML = mapControlsHtml();
+    el('mapControls').innerHTML = mapControlsHtml(L, D);
+    el('mapDemo').innerHTML = forThemes(L, D, function(p, dk){ return mapDemoHtml(p, dk); });
     el('roleTable').innerHTML = forThemes(L, D, function(p){ return roleTableHtml(p); });
     el('funcTable').innerHTML = forThemes(L, D, function(p, dk){ return funcTableHtml(p, dk); });
     el('stateTable').innerHTML = forThemes(L, D, function(p, dk){ return stateTableHtml(p, dk); });
