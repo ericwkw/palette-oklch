@@ -37,6 +37,10 @@
       if(out) out.textContent = b[0]==='cPeak' ? STEPS[get(b[1])] : Number(get(b[1])).toFixed(b[3]).replace(/^0\./,'.');
     });
     el('pName').value = S.name;
+    [['xMain','main',600],['xSup','sup',500],['xA1','a1',500],['xA2','a2',600]].forEach(function(p){
+      var input = el(p[0]); if(!input || document.activeElement === input) return;
+      input.placeholder = '#______';
+    });
     el('relSup').value = S.sup.rel;
     el('hNeu').value = S.neutral.from;
     el('gamut').value = S.shape.gamut;
@@ -394,8 +398,11 @@
     syncControls();
     var L = build(false), D = build(true);
 
-    [['chipMain','main',600],['chipSup','sup',500],['chipA1','a1',500],['chipA2','a2',600],['chipNeu','neutral',300]].forEach(function(c){
-      var node = el(c[0]); if(node) node.style.background = stepOf(L[c[1]], c[2]).hex;
+    [['chipMain','main',600,'xMain'],['chipSup','sup',500,'xSup'],['chipA1','a1',500,'xA1'],['chipA2','a2',600,'xA2'],['chipNeu','neutral',300,null]].forEach(function(c){
+      var hex = stepOf(L[c[1]], c[2]).hex;
+      var node = el(c[0]); if(node) node.style.background = hex;
+      var input = c[3] && el(c[3]);
+      if(input && document.activeElement !== input) input.value = hex.toUpperCase();
     });
     var clash = hueClash(S.main.h);
     el('rampMeta').textContent = Math.round(S.main.h) + '° main · ' + STEPS.length + ' steps · ' + (S.shape.gamut === 'p3' ? 'Display P3' : 'sRGB') + (clash ? ' · reads close to ' + clash : '');
@@ -454,7 +461,25 @@
     var b = e.target.closest('button[data-theme]'); if(!b) return;
     THEME = b.dataset.theme;
     [].forEach.call(el('themeSeg').children, function(x){ x.setAttribute('aria-selected', String(x === b)); });
+    /* the tool itself follows the switch, so a dark palette is judged on a dark page */
+    document.documentElement.setAttribute('data-ui', THEME === 'dark' ? 'dark' : 'light');
     applyTheme();
+  });
+
+  /* paste a brand hex: its hue and chroma drive the ramp, the lightness steps stay fixed */
+  [['xMain','main'],['xSup','sup'],['xA1','a1'],['xA2','a2']].forEach(function(pair){
+    var input = el(pair[0]); if(!input) return;
+    input.addEventListener('change', function(){
+      var v = input.value.trim();
+      if(/^#?[0-9a-f]{6}$/i.test(v)){
+        var c = hexToOklch(v[0] === '#' ? v : '#' + v);
+        S[pair[1]].h = c.h;
+        S[pair[1]].c = Math.min(c.C, pair[1] === 'sup' ? 0.30 : 0.32);
+        if(pair[1] === 'sup') S.sup.rel = 'custom';
+        if(pair[1] === 'main' && S.neutral.from === 'own') S.neutral.h = c.h;
+        syncControls(); render();
+      } else if(v){ input.value = ''; }
+    });
   });
 
   /* ---------- wiring ---------- */

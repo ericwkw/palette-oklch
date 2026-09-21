@@ -6,6 +6,9 @@ Colour is generated in OKLCH and stays there: every ramp sits on the same lightn
 
 ## What it does
 
+- **Light / dark switch** in the tab bar: Light, Dark or Both. It changes the tool's own page as well as which theme the ramps, contrast tables and preview show.
+- **Start from a hex.** Paste a brand colour into any role's *From hex* field and its hue and colourfulness drive the ramp; the lightness steps stay fixed so it still lines up with the rest.
+
 - **Ramps** on the shadcn / Tailwind scale — 50, 100 … 900, 950 — for main, supporting, an accent pair, neutrals, and six functional colours. Light and dark come from one set of hues.
 - **Roles and tokens.** Roles say what a colour is for; tokens are the shadcn names a product uses. Ramp steps underneath are the primitives, so a palette swap never renames a token.
 - **Share of surface.** Set how much of a screen each role should hold; the preview follows those shares.
