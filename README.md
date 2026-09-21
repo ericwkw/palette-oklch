@@ -11,7 +11,7 @@ Colour is generated in OKLCH and stays there: every ramp sits on the same lightn
 
 - **Ramps** on the shadcn / Tailwind scale — 50, 100 … 900, 950 — for main, supporting, an accent pair, neutrals, and six functional colours. Light and dark come from one set of hues.
 - **Roles and tokens.** Roles say what a colour is for; tokens are the shadcn names a product uses. Ramp steps underneath are the primitives, so a palette swap never renames a token.
-- **Share of surface.** Set how much of a screen each role should hold; the preview follows those shares.
+- **Share of surface.** Set how much of a screen each role should hold. The five always add up to 100% — move one and the rest rebalance in proportion, so there is no arithmetic to do.
 - **Contrast.** WCAG 2 ratios with APCA alongside, for text on surfaces in both themes, and for every solid fill with its own label — including which step to use when one fails.
 - **Opacity and overlays.** Every role at 4–80% over each surface, with the exact solid it composites to, so a tint can be matched back to a real step. Drop in an image and the lightest and darkest pixels under the caption area are measured, and the scrim needed for white text is reported.
 - **Gradients** interpolated in OKLCH, with a banding note and where white text survives.

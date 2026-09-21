@@ -34,7 +34,10 @@
       var input = el(b[0]); if(!input) return;
       input.value = get(b[1]);
       var out = el(b[2]);
-      if(out) out.textContent = b[0]==='cPeak' ? STEPS[get(b[1])] : Number(get(b[1])).toFixed(b[3]).replace(/^0\./,'.');
+      if(!out) return;
+      if(b[0] === 'cPeak'){ out.textContent = STEPS[get(b[1])]; }
+      else if(b[0].charAt(0) === 's'){ out.textContent = Math.round(get(b[1])) + '%'; }
+      else { out.textContent = Number(get(b[1])).toFixed(b[3]).replace(/^0\./,'.'); }
     });
     el('pName').value = S.name;
     [['xMain','main',600],['xSup','sup',500],['xA1','a1',500],['xA2','a2',600]].forEach(function(p){
@@ -45,8 +48,33 @@
     el('hNeu').value = S.neutral.from;
     el('gamut').value = S.shape.gamut;
   }
+  var SHARE_KEYS = ['neutral','sup','main','a1','a2'];
+  var SHARE_INPUT = { neutral:'sNeutral', sup:'sSup', main:'sMain', a1:'sA1', a2:'sA2' };
+  function balanceShares(changed){
+    var v = clamp(Math.round(S.share[changed]), 0, 100);
+    S.share[changed] = v;
+    var others = SHARE_KEYS.filter(function(k){ return k !== changed; });
+    var rest = 100 - v;
+    var sum = others.reduce(function(a,k){ return a + S.share[k]; }, 0);
+    if(sum <= 0){
+      /* nothing left to scale — give the remainder to the neutrals */
+      others.forEach(function(k){ S.share[k] = 0; });
+      S.share[changed === 'neutral' ? 'sup' : 'neutral'] = rest;
+    } else {
+      others.forEach(function(k){ S.share[k] = Math.max(0, Math.round(S.share[k] / sum * rest)); });
+      /* rounding can leave a point or two over or short — settle it on the biggest of the rest */
+      var drift = 100 - SHARE_KEYS.reduce(function(a,k){ return a + S.share[k]; }, 0);
+      if(drift !== 0){
+        var big = others.slice().sort(function(a,b){ return S.share[b] - S.share[a]; })[0];
+        S.share[big] = Math.max(0, S.share[big] + drift);
+      }
+    }
+  }
   function readControls(){
-    BIND.forEach(function(b){ var input = el(b[0]); if(input) set(b[1], parseFloat(input.value)); });
+    BIND.forEach(function(b){
+      if(b[1].indexOf('share.') === 0) return;   /* shares are balanced, not read raw */
+      var input = el(b[0]); if(input) set(b[1], parseFloat(input.value));
+    });
     S.name = el('pName').value || 'Untitled';
     S.sup.rel = el('relSup').value;
     S.neutral.from = el('hNeu').value;
@@ -421,7 +449,7 @@
       var names = ['Neutral','Supporting','Main','Accent 1','Accent 2'];
       return '<span class="swatch-inline"><span class="dot" style="background:'+pt[1]+'"></span><b>'+Math.round(sh[pt[0]]/total*100)+'%</b> '+names[i]+'</span>';
     }).join('');
-    el('shareSum').textContent = 'Adds up to ' + total + ' — shown as ' + Math.round(sh.main/total*100) + '% main, ' + Math.round((sh.a1+sh.a2)/total*100) + '% accent.';
+    el('shareSum').textContent = 'Always totals 100% — moving one slider rebalances the others.';
 
     el('roleTable').innerHTML = roleTableHtml(L);
     el('funcTable').innerHTML = funcTableHtml(L);
@@ -484,8 +512,17 @@
 
   /* ---------- wiring ---------- */
   document.querySelectorAll('.rail input, .rail select').forEach(function(i){
-    i.addEventListener('input', render);
-    i.addEventListener('change', render);
+    var shareKey = SHARE_KEYS.filter(function(k){ return SHARE_INPUT[k] === i.id; })[0];
+    function handle(){
+      if(shareKey){
+        S.share[shareKey] = parseFloat(i.value);
+        balanceShares(shareKey);
+        syncControls();
+      }
+      render();
+    }
+    i.addEventListener('input', handle);
+    i.addEventListener('change', handle);
   });
   el('tabs').addEventListener('click', function(e){
     var b = e.target.closest('button[data-view]'); if(!b) return;
