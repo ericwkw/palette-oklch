@@ -694,10 +694,11 @@
 
   /* which theme the views show; Both shows them side by side */
   function applyTheme(){
-    var dark = el('rampsDark') && el('rampsDark').closest('.card');
-    var light = el('rampsLight') && el('rampsLight').closest('.card');
-    if(light) light.style.display = (THEME === 'dark') ? 'none' : '';
-    if(dark) dark.style.display = (THEME === 'light') ? 'none' : '';
+    /* the ramp cards are written into the page, so they are filtered here;
+       every other view is already built for the chosen theme */
+    document.querySelectorAll('.card[data-theme]').forEach(function(card){
+      card.style.display = (THEME === 'both' || card.dataset.theme === THEME) ? '' : 'none';
+    });
     document.documentElement.style.colorScheme = THEME === 'dark' ? 'dark' : 'light';
   }
   el('themeSeg').addEventListener('click', function(e){

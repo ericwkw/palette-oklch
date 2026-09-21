@@ -129,12 +129,12 @@
     <section class="view on" data-view="ramps">
       <div class="head"><h2>Ramps</h2><span class="muted mono" id="rampMeta"></span></div>
       <p class="note">Every ramp shares the same lightness steps, so a shade means the same weight whatever the hue. Chroma peaks near the middle and eases off at both ends. Click any swatch to copy its value.</p>
-      <div class="card">
+      <div class="card" data-theme="light">
         <div class="steps-head" id="stepsHead"></div>
         <div id="rampsLight"></div>
         <div id="stepEditor" class="editor" hidden></div>
       </div>
-      <div class="card dark-card">
+      <div class="card dark-card" data-theme="dark">
         <h3>Dark mode</h3>
         <p class="cap">Same hues, same step order: 50 stays the lightest. The curve lifts the deep end and eases the light end, so dark surfaces stay separable.</p>
         <div class="steps-head" id="stepsHeadDark"></div>

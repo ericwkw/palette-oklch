@@ -22,6 +22,19 @@ Colour is generated in OKLCH and stays there: every ramp sits on the same lightn
 - **Choose what each token uses.** Primary, tint surface, hairline and focus ring can each point at a different step, per theme.
 - **Gamut, honestly.** In P3 the swatches are painted in OKLCH and a ▲ marks the values a plain sRGB screen cannot reach; the hex shown stays the closest sRGB fallback.
 
+## Checking it
+
+`journeys.mjs` drives the tool with real clicks in headless Chrome and checks sequences, not states — what happens *next* after a change, whether it can be seen, and whether it can be undone.
+
+```
+python3 -m http.server 8829     # from this folder, in another terminal
+node journeys.mjs               # or: node journeys.mjs http://host/page
+```
+
+Seven journeys: a brand colour survives being worked around and can be recovered; the pin toggles with a real click; every token mapping moves something on screen; a step can be nudged and reset; the theme switch reaches every tab; work survives a reload; the defaults pass their own contrast audit. Exit code 1 if any fail.
+
+Each of those exists because a spot check missed it. Anything added from here should come with a journey, and every new control should answer three questions: what does it change on screen, how is it undone, and what does it look like in a strange state.
+
 ## Functional colours
 
 Success, warning, danger, info, pending and new. Their hues are fixed on purpose: in a brand family, meaning should not move when a sister brand changes its main colour. Brand hues that land within 18° of one of them are flagged.
