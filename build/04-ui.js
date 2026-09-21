@@ -637,10 +637,17 @@
       if(!brand){ line.innerHTML = ''; return; }
       var near = nearestStep(ramp, brand);
       var pinned = S[c[1]].pin !== false;
-      line.innerHTML = pinned
-        ? '<span class="pair"><span style="background:'+brand+'"></span></span><span>your colour sits at <b>step ' + near.step + '</b>; the rest of the ramp is built around it</span>'
-        : '<span class="pair"><span style="background:'+brand+'"></span><span style="background:'+near.hex+'"></span></span>' +
-          '<span>yours vs <b>step ' + near.step + '</b> ' + near.hex.toUpperCase() + '</span>';
+      var bc = hexToOklch(brand);
+      var drift = Math.abs(((S[c[1]].h - bc.h + 540) % 360) - 180);   /* how far the ramp has been moved */
+      var off = drift > 4 || Math.abs(S[c[1]].c - bc.C) > 0.015;
+      line.innerHTML =
+        '<span class="pair"><span style="background:'+brand+'"></span>' + (pinned ? '' : '<span style="background:'+near.hex+'"></span>') + '</span>' +
+        (off
+          ? '<span>ramp moved off your colour</span><button class="btn mini" data-restore="'+c[1]+'">Back to ' + brand.toUpperCase() + '</button>'
+          : (pinned
+              ? '<span>your colour sits at <b>step ' + near.step + '</b>; the ramp is built around it</span>'
+              : '<span>yours vs <b>step ' + near.step + '</b> ' + near.hex.toUpperCase() + '</span>')) +
+        '<button class="btn mini" data-clearbrand="'+c[1]+'" title="Forget this brand colour">✕</button>';
     });
     var clash = hueClash(S.main.h);
     el('rampMeta').textContent = Math.round(S.main.h) + '° main · ' + STEPS.length + ' steps · one set of hues for both themes · ' + (S.shape.gamut === 'p3' ? 'Display P3' : 'sRGB') + (clash ? ' · reads close to ' + clash : '');
@@ -739,6 +746,17 @@
     }
     i.addEventListener('input', handle);
     i.addEventListener('change', handle);
+  });
+  document.addEventListener('click', function(e){
+    var back = e.target.closest('[data-restore]');
+    if(back){
+      var k = back.dataset.restore, c = hexToOklch(S[k].brand);
+      S[k].h = c.h; S[k].c = Math.min(c.C, 0.32); S[k].pin = true;
+      if(k === 'sup') S.sup.rel = 'custom';
+      syncControls(); render(); return;
+    }
+    var clear = e.target.closest('[data-clearbrand]');
+    if(clear){ S[clear.dataset.clearbrand].brand = null; syncControls(); render(); return; }
   });
   document.addEventListener('change', function(e){
     var sel = e.target.closest('[data-map]');
