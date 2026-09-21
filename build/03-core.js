@@ -4,7 +4,7 @@
    ============================================================ */
 var STEPS = [50,100,200,300,400,500,600,700,800,900,950];
 /* lightness targets, light theme; dark theme mirrors them */
-var L_LIGHT = [0.977,0.951,0.900,0.837,0.760,0.678,0.598,0.515,0.432,0.355,0.272];
+var L_LIGHT = [0.977,0.949,0.897,0.830,0.748,0.652,0.558,0.472,0.395,0.325,0.255];
 var L_DARK  = L_LIGHT;  /* the dark curve is derived from the light one in makeRamp */
 
 function clamp(x,a,b){ return x<a?a:(x>b?b:x); }
@@ -116,6 +116,9 @@ function chromaAt(i, peakIdx, peakC, falloff){
   var k = Math.pow(1 - Math.min(d,1), 1.1);
   return peakC * (0.30 + 0.70*k) * (1 - falloff*0.18*Math.pow(Math.max(0,(i-peakIdx))/Math.max(1,STEPS.length-1-peakIdx),1.4));
 }
+/* does this colour need more than sRGB? */
+function outsideSrgb(L,C,h){ return !inGamut(L,C,h,'srgb'); }
+
 function makeRamp(hue, chroma, opts){
   opts = opts || {};
   var dark = !!opts.dark, space = opts.space || 'srgb';
@@ -124,14 +127,36 @@ function makeRamp(hue, chroma, opts){
   var fall = opts.falloff === undefined ? 0.85 : opts.falloff;
   var lift = opts.lift === undefined ? 0.055 : opts.lift;     /* how far the dark end lifts */
   var boost = opts.boost === undefined ? 1 : opts.boost;      /* dark-theme colourfulness */
+  var anchor = opts.anchor || null;      /* { index, L, C } — an exact colour to build around */
+  var nudges = opts.nudges || {};        /* { step: {dL, dC} } — per-step adjustments */
+  var scale = 1, shift = 0;
+  if(anchor){
+    var baseC = chromaAt(anchor.index, peak, chroma, fall) * (dark ? boost : 1);
+    scale = baseC > 0.0005 ? anchor.C / baseC : 1;
+    shift = anchor.L - (dark ? lift + Ls[anchor.index] * (1 - lift * 2.1) : Ls[anchor.index]);
+  }
   var out = [];
   for(var i=0;i<STEPS.length;i++){
+    var exact = null;
     /* 50 is the lightest step in both themes; the dark curve lifts the deep end
        so dark surfaces stay separable, and pulls the light end down a little */
     var L = dark ? lift + Ls[i] * (1 - lift * 2.1) : Ls[i];
     var C = chromaAt(i, peak, chroma, fall) * (dark ? boost : 1);
+    if(anchor){
+      /* the anchor pulls its neighbours with it, fading out over three steps,
+         so an exact brand colour does not leave a bump in the ramp */
+      var w = Math.max(0, 1 - Math.abs(i - anchor.index) / 3.2);
+      L += shift * w;
+      C *= 1 + (scale - 1) * w;
+      if(i === anchor.index){ L = anchor.L; C = anchor.C; exact = anchor.hex || null; }
+    }
+    var n = nudges[STEPS[i]];
+    if(n){ L = clamp(L + (n.dL || 0), 0.02, 0.995); C = Math.max(0, C + (n.dC || 0)); }
+    var wide = outsideSrgb(L,C,hue);
     C = fitChroma(L, C, hue, space);
-    out.push({ step:STEPS[i], L:L, C:C, h:hue, hex:oklchToHex(L,C,hue,space), css:oklchCss(L,C,hue,space) });
+    out.push({ step:STEPS[i], L:L, C:C, h:hue, wide:wide && space === 'p3',
+               hex:(exact && !n) ? exact : oklchToHex(L,C,hue,space),
+               css:oklchCss(L,C,hue,space) });
   }
   return out;
 }

@@ -67,6 +67,14 @@
   .check input{accent-color:var(--accent)}
   .sw.is-brand{box-shadow:inset 0 0 0 2px var(--ink),0 0 0 2px var(--panel)}
   .sw.is-brand b::after{content:" · brand";font-weight:600}
+  .sw.is-nudged{outline:2px dashed rgba(0,0,0,.35);outline-offset:-4px}
+  .sw{transition:transform .12s ease}
+  .sw:hover{transform:translateY(-2px)}
+  .editor{margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--bg)}
+  .editor .top{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+  .editor .top b{font-size:.82rem}
+  .editor .sample{width:46px;height:26px;border-radius:6px;border:1px solid var(--line)}
+  .editor .row{grid-template-columns:5.6em minmax(0,1fr) 4.4em}
   section.view{display:none}
   section.view.on{display:block}
   .head{display:flex;align-items:baseline;justify-content:space-between;gap:14px;margin:0 0 6px}

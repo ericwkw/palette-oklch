@@ -77,6 +77,7 @@
       <p class="hint">Which step is the most colourful, and how quickly the dark end loses colour.</p>
       <div class="field"><label for="gamut">Gamut</label>
         <select id="gamut"><option value="srgb" selected>sRGB</option><option value="p3">Display P3</option></select></div>
+      <p class="hint" id="gamutNote">sRGB keeps every value safe everywhere. In P3 swatches are painted in OKLCH and a ▲ marks the ones a plain sRGB screen cannot show; hex stays as the closest sRGB fallback.</p>
     </fieldset>
 
     <fieldset>
@@ -131,6 +132,7 @@
       <div class="card">
         <div class="steps-head" id="stepsHead"></div>
         <div id="rampsLight"></div>
+        <div id="stepEditor" class="editor" hidden></div>
       </div>
       <div class="card dark-card">
         <h3>Dark mode</h3>
@@ -144,6 +146,10 @@
       <div class="head"><h2>Roles &amp; tokens</h2></div>
       <p class="note">Roles name what a colour is for; tokens are what a product uses. Ramp steps are the primitives underneath, so a palette swap never changes a token name.</p>
       <div class="card"><h3>Share of surface</h3><div class="share" id="shareBar"></div><div class="legend" id="shareLegend"></div></div>
+      <div class="card"><h3>Which step each token uses</h3>
+        <p class="cap">Change these if your primary should be lighter or heavier, or your hairlines stronger.</p>
+        <div class="grid3" id="mapControls"></div>
+      </div>
       <div class="card"><h3>Brand roles</h3><div id="roleTable"></div></div>
       <div class="card"><h3>Functional colours</h3>
         <p class="cap">Meaning stays constant across a brand family — these hues do not move when a sister brand changes its main colour. Each one carries a surface, border, text and solid fill.</p>
@@ -155,6 +161,10 @@
     <section class="view" data-view="contrast">
       <div class="head"><h2>Contrast</h2><span class="muted mono" id="contrastMeta"></span></div>
       <p class="note">WCAG 2 ratios with APCA alongside. WCAG needs 4.5 for body text and 3.0 for large text or UI edges; APCA Lc 60 is roughly body text, Lc 45 large text.</p>
+      <div class="card"><h3>Token pairs</h3>
+        <p class="cap">Every pair the tokens actually put together, at the level each one needs: 4.5 for text, 3.0 for edges and marks.</p>
+        <div id="ctTokens"></div>
+      </div>
       <div class="card"><h3>Text on surfaces</h3><div id="ctText"></div></div>
       <div class="card"><h3>Solid fills with their own label</h3><div id="ctFill"></div></div>
     </section>

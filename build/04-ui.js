@@ -12,6 +12,8 @@
     neutral:{c:0.012, from:'main', h:250},
     shape:{peak:6, falloff:0.85, gamut:'srgb'},
     darkMode:{lift:0.055, boost:1},
+    map:{ primary:700, primaryDark:400, tint:100, tintDark:900, border:200, borderDark:800, ring:600, ringDark:400 },
+    nudges:{},
     share:{neutral:55, sup:22, main:15, a1:6, a2:2}
   };
   var S = JSON.parse(JSON.stringify(DEFAULTS));
@@ -95,30 +97,39 @@
   function neutralHue(){
     return S.neutral.from === 'main' ? S.main.h : (S.neutral.from === 'sup' ? S.sup.h : S.neutral.h);
   }
+  /* where a pasted colour lands, by lightness, on the shared steps */
+  function anchorFor(key, dark){
+    var b = S[key] && S[key].brand;
+    if(!b || S[key].pin === false || dark) return null;
+    var c = hexToOklch(b), idx = 0, best = 9;
+    for(var i=0;i<STEPS.length;i++){
+      var d = Math.abs(L_LIGHT[i] - c.L);
+      if(d < best){ best = d; idx = i; }
+    }
+    return { index:idx, L:c.L, C:c.C, hex:b.toUpperCase() };
+  }
+  function nudgesFor(key){ return (S.nudges && S.nudges[key]) || {}; }
   function build(dark){
     var dm = S.darkMode || { lift:0.055, boost:1 };
-    var o = { dark:dark, space:S.shape.gamut, peak:S.shape.peak, falloff:S.shape.falloff, lift:dm.lift, boost:dm.boost };
-    var p = {
-      neutral: makeRamp(neutralHue(), S.neutral.c, { dark:dark, space:o.space, peak:5, falloff:0.5, lift:dm.lift, boost:dm.boost }),
-      main:    makeRamp(S.main.h, S.main.c, o),
-      sup:     makeRamp(S.sup.h,  S.sup.c,  o),
-      a1:      makeRamp(S.a1.h,   S.a1.c,   o),
-      a2:      makeRamp(S.a2.h,   S.a2.c,   o)
-    };
-    FUNCTIONAL.forEach(function(f){ p[f.id] = makeRamp(f.hue, f.chroma, o); });
-    /* a pasted brand colour replaces the step it lands on, so your exact value is in the ramp */
-    if(!dark){
-      ['main','sup','a1','a2'].forEach(function(k){
-        var b = S[k] && S[k].brand;
-        if(!b || S[k].pin === false) return;
-        var near = nearestStep(p[k], b), c = hexToOklch(b);
-        p[k] = p[k].map(function(st){
-          return st.step === near.step
-            ? { step:st.step, L:c.L, C:c.C, h:c.h, hex:b, css:oklchCss(c.L,c.C,c.h,o.space) }
-            : st;
-        });
-      });
+    var base = { dark:dark, space:S.shape.gamut, peak:S.shape.peak, falloff:S.shape.falloff, lift:dm.lift, boost:dm.boost };
+    function opts(key){
+      var o = {}; for(var k in base) o[k] = base[k];
+      o.anchor = anchorFor(key, dark); o.nudges = nudgesFor(key);
+      return o;
     }
+    var nOpts = { dark:dark, space:base.space, peak:5, falloff:0.5, lift:dm.lift, boost:dm.boost, nudges:nudgesFor('neutral') };
+    var p = {
+      neutral: makeRamp(neutralHue(), S.neutral.c, nOpts),
+      main:    makeRamp(S.main.h, S.main.c, opts('main')),
+      sup:     makeRamp(S.sup.h,  S.sup.c,  opts('sup')),
+      a1:      makeRamp(S.a1.h,   S.a1.c,   opts('a1')),
+      a2:      makeRamp(S.a2.h,   S.a2.c,   opts('a2'))
+    };
+    FUNCTIONAL.forEach(function(f){
+      var fo = {}; for(var k in base) fo[k] = base[k];
+      fo.nudges = nudgesFor(f.id);
+      p[f.id] = makeRamp(f.hue, f.chroma, fo);
+    });
     return p;
   }
   function stepOf(ramp, step){ return ramp[STEPS.indexOf(step)]; }
@@ -146,9 +157,10 @@
   /* light and dark read the ramp from opposite ends, so one set of hues serves both */
   function tokens(p, dark){
     var n = p.neutral;
+    var m = S.map || {};
     var S_ = dark
-      ? { paper:950, panel:900, hairline:800, quiet:400, ink:50, fill:500, tint:900, tintText:200 }
-      : { paper:50,  panel:100, hairline:200, quiet:600, ink:950, fill:600, tint:100, tintText:900 };
+      ? { paper:950, panel:900, hairline:m.borderDark||800, quiet:400, ink:50, fill:m.primaryDark||400, tint:m.tintDark||900, tintText:200, ring:m.ringDark||400 }
+      : { paper:50,  panel:100, hairline:m.border||200,     quiet:700, ink:950, fill:m.primary||700,     tint:m.tint||100,    tintText:900, ring:m.ring||600 };
     function fillPair(ramp){
       var f = stepOf(ramp, S_.fill);
       return [f, { hex:textOn(f.hex,p) }];
@@ -163,13 +175,13 @@
       'muted': stepOf(n,S_.panel), 'muted-foreground': stepOf(n,S_.quiet),
       'accent': stepOf(p.a1,S_.tint), 'accent-foreground': stepOf(p.a1,S_.tintText),
       'destructive': dest[0], 'destructive-foreground': dest[1],
-      'border': stepOf(n,S_.hairline), 'input': stepOf(n,S_.hairline), 'ring': stepOf(p.main,500),
+      'border': stepOf(n,S_.hairline), 'input': stepOf(n,S_.hairline), 'ring': stepOf(p.main, S_.ring),
       'chart-1': stepOf(p.main,500), 'chart-2': stepOf(p.sup,500), 'chart-3': stepOf(p.a1,500),
       'chart-4': stepOf(p.a2,500), 'chart-5': stepOf(p.success,500),
       'sidebar': stepOf(n,S_.panel), 'sidebar-foreground': stepOf(n,S_.ink),
       'sidebar-primary': prim[0], 'sidebar-primary-foreground': prim[1],
       'sidebar-accent': stepOf(p.sup,S_.tint), 'sidebar-accent-foreground': stepOf(p.sup,S_.tintText),
-      'sidebar-border': stepOf(n,S_.hairline), 'sidebar-ring': stepOf(p.main,500)
+      'sidebar-border': stepOf(n,S_.hairline), 'sidebar-ring': stepOf(p.main, S_.ring)
     };
   }
   /* four usable values per functional colour */
@@ -183,10 +195,13 @@
   }
 
   /* ---------- rendering ---------- */
-  function swatchHtml(s, dark, isBrand){
+  function swatchHtml(s, dark, isBrand, role){
     var ink = wcag('#000000',s.hex) >= wcag('#ffffff',s.hex) ? '#000' : '#fff';
-    return '<div class="sw'+(isBrand?' is-brand':'')+'" style="background:'+s.hex+';color:'+ink+'" data-copy-value="'+s.css+'" title="'+s.css+'">'+
-      '<b>'+s.step+'</b><span>'+s.hex.toUpperCase()+'</span></div>';
+    var nudged = S.nudges && S.nudges[role] && S.nudges[role][s.step];
+    var style = S.shape.gamut === 'p3' ? s.css : s.hex;   /* P3 swatches are painted in oklch, not the sRGB hex */
+    return '<div class="sw'+(isBrand?' is-brand':'')+(nudged?' is-nudged':'')+'" style="background:'+style+';color:'+ink+'"'+
+      ' data-role="'+role+'" data-step="'+s.step+'" data-value="'+s.css+'" title="'+s.css+(s.wide?' · outside sRGB':'')+'">'+
+      '<b>'+s.step+'</b><span>'+s.hex.toUpperCase()+(s.wide?' ▲':'')+'</span></div>';
   }
   function rampsHtml(p, dark){
     var brandStep = {};
@@ -200,7 +215,7 @@
       var hue = p[k][5].h;
       return '<div class="ramp"><div class="name" style="'+(dark?'color:#E7ECF2':'')+'">'+labels[k][0]+
         '<small style="'+(dark?'color:#8A94A0':'')+'">'+Math.round(hue)+'°</small></div>' +
-        p[k].map(function(s){ return swatchHtml(s, dark, brandStep[k] === s.step); }).join('') + '</div>';
+        p[k].map(function(s){ return swatchHtml(s, dark, brandStep[k] === s.step, k); }).join('') + '</div>';
     }).join('');
   }
   function stepsHeadHtml(){
@@ -277,6 +292,45 @@
     }
     return null;
   }
+  /* the pairs the tokens actually create, checked at the level each one needs */
+  var TOKEN_PAIRS = [
+    ['foreground','background','text'],
+    ['muted-foreground','muted','text'],
+    ['card-foreground','card','text'],
+    ['primary-foreground','primary','text'],
+    ['secondary-foreground','secondary','text'],
+    ['accent-foreground','accent','text'],
+    ['destructive-foreground','destructive','text'],
+    ['sidebar-foreground','sidebar','text'],
+    ['border','background','edge'],
+    ['border','card','edge'],
+    ['ring','background','ui'],
+    ['chart-1','background','ui'],
+    ['chart-2','background','ui'],
+    ['chart-3','background','ui']
+  ];
+  function tokenAuditHtml(p, dark){
+    var t = tokens(p, dark);
+    var rows = TOKEN_PAIRS.map(function(pair){
+      var fg = t[pair[0]], bg = t[pair[1]];
+      if(!fg || !bg) return '';
+      var r = wcag(fg.hex,bg.hex), lc = apca(fg.hex,bg.hex), kind = pair[2];
+      var need = kind === 'text' ? 4.5 : (kind === 'ui' ? 3 : 1.2);   /* hairlines are guidance, not a rule */
+      var cls = r >= need ? 'pass' : (r >= need * 0.8 ? 'mid' : 'fail');
+      return '<tr><td><span class="dot" style="background:'+fg.hex+'"></span><code>'+pair[0]+'</code></td>'+
+        '<td><span class="dot" style="background:'+bg.hex+'"></span><code>'+pair[1]+'</code></td>'+
+        '<td class="muted">'+need.toFixed(1)+' · '+(kind === 'text' ? 'text' : (kind === 'ui' ? 'UI mark' : 'hairline'))+'</td>'+
+        '<td><span class="pill '+cls+'">'+r.toFixed(2)+' · Lc '+Math.round(lc)+'</span></td></tr>';
+    }).join('');
+    var fails = TOKEN_PAIRS.filter(function(pair){
+      var fg = t[pair[0]], bg = t[pair[1]];
+      if(!fg || !bg) return false;
+      var need = pair[2] === 'text' ? 4.5 : (pair[2] === 'ui' ? 3 : 1.2);
+      return wcag(fg.hex,bg.hex) < need;
+    }).length;
+    return '<p class="cap">' + (fails ? fails + ' of ' + TOKEN_PAIRS.length + ' token pairs fall short.' : 'Every token pair clears its level.') + '</p>' +
+      '<table><thead><tr><th>Foreground</th><th>Background</th><th>Needs</th><th>Result</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  }
   function contrastFillHtml(p, dark){
     var base = dark ? 500 : 600;
     var fills = [['Primary', p.main],['Accent 1', p.a1],['Accent 2', p.a2]]
@@ -296,6 +350,18 @@
   }
 
   var ALPHAS = [0.04,0.08,0.12,0.16,0.24,0.40,0.60,0.80];
+  /* the nearest ramp step to a composited colour, so a tint can be swapped for a token */
+  function matchStep(p, hex){
+    var t = hexToOklch(hex), best = null, bestD = 9;
+    Object.keys(p).forEach(function(k){
+      p[k].forEach(function(s){
+        var dh = Math.abs(((s.h - t.h + 540) % 360) - 180);
+        var d = Math.abs(s.L - t.L) * 3 + Math.abs(s.C - t.C) * 2 + (180 - dh) / 360 * (t.C > 0.02 ? 0.4 : 0);
+        if(d < bestD){ bestD = d; best = k + '-' + s.step; }
+      });
+    });
+    return bestD < 0.06 ? best : null;
+  }
   function alphaHtml(p, dark){
     var surfaces = dark
       ? [['Paper', stepOf(p.neutral,950)],['Panel', stepOf(p.neutral,900)],['Light ground', stepOf(p.neutral,50)]]
@@ -307,7 +373,9 @@
         var cells = ALPHAS.map(function(a){
           var c = composite(src[1].hex, a, s[1].hex);
           var ink = wcag('#000',c) >= wcag('#fff',c) ? '#000' : '#fff';
-          return '<div class="alpha-cell" style="background:'+c+';color:'+ink+'" title="'+src[0]+' at '+Math.round(a*100)+'% on '+s[0]+' = '+c.toUpperCase()+'" data-copy-value="'+c+'">'+c.slice(1).toUpperCase()+'</div>';
+          var m = matchStep(p, c);
+          return '<div class="alpha-cell" style="background:'+c+';color:'+ink+'" title="'+src[0]+' at '+Math.round(a*100)+'% on '+s[0]+' = '+c.toUpperCase()+(m?' ≈ '+m:'')+'" data-value="'+c+'">'+
+            c.slice(1).toUpperCase() + (m ? '<br><span style="opacity:.75">≈ '+m+'</span>' : '') + '</div>';
         }).join('');
         return '<tr><td>'+src[0]+'</td><td><div class="alpha-grid" style="grid-template-columns:repeat('+ALPHAS.length+',minmax(0,1fr))">'+cells+'</div></td></tr>';
       }).join('');
@@ -474,6 +542,69 @@
     }).join('');
   }
 
+  /* ---------- per-step editor ---------- */
+  var EDITING = null;   /* { role, step } */
+  function roleLabel(k){
+    var r = ROLES.filter(function(x){ return x[0] === k; })[0];
+    if(r) return r[1];
+    var f = FUNCTIONAL.filter(function(x){ return x.id === k; })[0];
+    return f ? f.name : k;
+  }
+  function editorHtml(L){
+    var box = el('stepEditor');
+    if(!EDITING){ box.hidden = true; box.innerHTML = ''; return; }
+    var ramp = L[EDITING.role], sw = stepOf(ramp, EDITING.step);
+    var n = (S.nudges[EDITING.role] && S.nudges[EDITING.role][EDITING.step]) || { dL:0, dC:0 };
+    box.hidden = false;
+    box.innerHTML =
+      '<div class="top"><span class="sample" style="background:'+sw.hex+'"></span>' +
+      '<b>'+roleLabel(EDITING.role)+' '+EDITING.step+'</b>' +
+      '<code class="mono">'+sw.css+'</code><code class="mono muted">'+sw.hex.toUpperCase()+'</code>' +
+      '<span style="flex:1"></span>' +
+      '<button class="btn" id="edCopy">Copy</button>' +
+      '<button class="btn" id="edReset">Reset step</button>' +
+      '<button class="btn" id="edClose">Close</button></div>' +
+      '<div class="row"><label for="edL">Lightness</label><input type="range" id="edL" min="-0.12" max="0.12" step="0.005" value="'+(n.dL||0)+'"><output>'+(n.dL>0?'+':'')+(n.dL||0).toFixed(3)+'</output></div>' +
+      '<div class="row"><label for="edC">Colourfulness</label><input type="range" id="edC" min="-0.10" max="0.10" step="0.005" value="'+(n.dC||0)+'"><output>'+(n.dC>0?'+':'')+(n.dC||0).toFixed(3)+'</output></div>' +
+      '<p class="hint">Nudges this one step only; the rest of the ramp stays where it is. A dashed outline marks steps you have moved.</p>';
+    function setNudge(key, val){
+      S.nudges[EDITING.role] = S.nudges[EDITING.role] || {};
+      var cur = S.nudges[EDITING.role][EDITING.step] || { dL:0, dC:0 };
+      cur[key] = parseFloat(val);
+      if(!cur.dL && !cur.dC){ delete S.nudges[EDITING.role][EDITING.step]; }
+      else { S.nudges[EDITING.role][EDITING.step] = cur; }
+      render();
+    }
+    el('edL').addEventListener('input', function(){ setNudge('dL', this.value); });
+    el('edC').addEventListener('input', function(){ setNudge('dC', this.value); });
+    el('edCopy').addEventListener('click', function(){ navigator.clipboard && navigator.clipboard.writeText(sw.css); this.textContent = 'Copied'; });
+    el('edReset').addEventListener('click', function(){
+      if(S.nudges[EDITING.role]) delete S.nudges[EDITING.role][EDITING.step];
+      render();
+    });
+    el('edClose').addEventListener('click', function(){ EDITING = null; render(); });
+  }
+
+  /* ---------- which step each token uses ---------- */
+  var MAP_FIELDS = [
+    ['primary','Primary · light', [400,500,600,700,800]],
+    ['primaryDark','Primary · dark', [300,400,500,600,700]],
+    ['tint','Tint surface · light', [50,100,200]],
+    ['tintDark','Tint surface · dark', [800,900,950]],
+    ['border','Hairline · light', [100,200,300]],
+    ['borderDark','Hairline · dark', [700,800,900]],
+    ['ring','Focus ring · light', [500,600,700]],
+    ['ringDark','Focus ring · dark', [300,400,500]]
+  ];
+  function mapControlsHtml(){
+    return MAP_FIELDS.map(function(f){
+      return '<div class="field" style="grid-template-columns:minmax(0,1fr)"><label for="map-'+f[0]+'">'+f[1]+'</label>' +
+        '<select id="map-'+f[0]+'" data-map="'+f[0]+'">' +
+        f[2].map(function(v){ return '<option value="'+v+'"'+(S.map[f[0]] === v ? ' selected' : '')+'>'+v+'</option>'; }).join('') +
+        '</select></div>';
+    }).join('');
+  }
+
   /* ---------- render ---------- */
   function render(){
     readControls();
@@ -516,10 +647,12 @@
     }).join('');
     el('shareSum').textContent = 'Always totals 100% — moving one slider rebalances the others.';
 
+    el('mapControls').innerHTML = mapControlsHtml();
     el('roleTable').innerHTML = forThemes(L, D, function(p){ return roleTableHtml(p); });
     el('funcTable').innerHTML = forThemes(L, D, function(p, dk){ return funcTableHtml(p, dk); });
     el('stateTable').innerHTML = forThemes(L, D, function(p, dk){ return stateTableHtml(p, dk); });
 
+    el('ctTokens').innerHTML = forThemes(L, D, function(p, dk){ return tokenAuditHtml(p, dk); });
     el('ctText').innerHTML = forThemes(L, D, function(p, dk){ return contrastTextHtml(p, dk); });
     el('ctFill').innerHTML = forThemes(L, D, function(p, dk){ return contrastFillHtml(p, dk); });
     el('contrastMeta').textContent = 'WCAG 2 · APCA Lc';
@@ -532,6 +665,7 @@
     el('outCss').textContent = cssExport();
     el('outJson').textContent = jsonExport();
 
+    editorHtml(L);
     applyTheme();
     try{ localStorage.setItem(STORE, JSON.stringify(S)); }catch(e){}
   }
@@ -590,14 +724,29 @@
     i.addEventListener('input', handle);
     i.addEventListener('change', handle);
   });
+  document.addEventListener('change', function(e){
+    var sel = e.target.closest('[data-map]');
+    if(!sel) return;
+    S.map[sel.dataset.map] = parseInt(sel.value, 10);
+    render();
+  });
   el('tabs').addEventListener('click', function(e){
     var b = e.target.closest('button[data-view]'); if(!b) return;
     [].forEach.call(el('tabs').children, function(x){ x.setAttribute('aria-selected', String(x === b)); });
     document.querySelectorAll('section.view').forEach(function(s){ s.classList.toggle('on', s.dataset.view === b.dataset.view); });
   });
   document.addEventListener('click', function(e){
-    var sw = e.target.closest('[data-copy-value]');
-    if(sw){ navigator.clipboard && navigator.clipboard.writeText(sw.dataset.copyValue); sw.style.outline='2px solid var(--accent)'; setTimeout(function(){ sw.style.outline=''; },400); return; }
+    var step = e.target.closest('.sw[data-role]');
+    if(step){
+      EDITING = { role:step.dataset.role, step:+step.dataset.step };
+      render();
+      var box = el('stepEditor'); if(box && box.scrollIntoView) box.scrollIntoView({ block:'nearest' });
+      return;
+    }
+    var cell = e.target.closest('[data-value]');
+    if(cell){ navigator.clipboard && navigator.clipboard.writeText(cell.dataset.value); cell.style.outline='2px solid var(--accent)'; setTimeout(function(){ cell.style.outline=''; },400); return; }
+    var mapSel = e.target.closest('[data-map]');
+    if(mapSel) return;
     var cp = e.target.closest('[data-copy]');
     if(cp){ navigator.clipboard && navigator.clipboard.writeText(el(cp.dataset.copy).textContent); cp.textContent='Copied'; setTimeout(function(){ cp.textContent='Copy'; },900); return; }
     var dl = e.target.closest('[data-dl]');
@@ -638,12 +787,17 @@
     syncControls(); render();
   });
   el('btnReset').addEventListener('click', function(){
-    S = JSON.parse(JSON.stringify(DEFAULTS)); syncControls(); render();
+    S = JSON.parse(JSON.stringify(DEFAULTS)); EDITING = null; syncControls(); render();
   });
 
   try{
     var saved = JSON.parse(localStorage.getItem(STORE) || 'null');
-    if(saved && saved.main) S = saved;
+    if(saved && saved.main){
+      S = saved;
+      S.map = S.map || JSON.parse(JSON.stringify(DEFAULTS.map));
+      S.nudges = S.nudges || {};
+      S.darkMode = S.darkMode || JSON.parse(JSON.stringify(DEFAULTS.darkMode));
+    }
   }catch(e){}
   syncControls();
   render();

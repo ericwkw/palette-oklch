@@ -13,10 +13,14 @@ Colour is generated in OKLCH and stays there: every ramp sits on the same lightn
 - **Ramps** on the shadcn / Tailwind scale — 50, 100 … 900, 950 — for main, supporting, an accent pair, neutrals, and six functional colours. Light and dark come from one set of hues.
 - **Roles and tokens.** Roles say what a colour is for; tokens are the shadcn names a product uses. Ramp steps underneath are the primitives, so a palette swap never renames a token.
 - **Share of surface.** Set how much of a screen each role should hold. The five always add up to 100% — move one and the rest rebalance in proportion, so there is no arithmetic to do.
-- **Contrast.** WCAG 2 ratios with APCA alongside, for text on surfaces in both themes, and for every solid fill with its own label — including which step to use when one fails.
-- **Opacity and overlays.** Every role at 4–80% over each surface, with the exact solid it composites to, so a tint can be matched back to a real step. Drop in an image and the lightest and darkest pixels under the caption area are measured, and the scrim needed for white text is reported.
+- **Contrast.** A token audit first: every pair the tokens actually create — foreground on background, muted-foreground on muted, border on card, ring and chart colours — checked at the level each needs (4.5 text, 3.0 marks, hairlines reported not failed). Then text on surfaces, and every solid fill with its own label, including which step to use when one falls short. Defaults pass in both themes.
+- **Opacity and overlays.** Every role at 4–80% over each surface, with the exact solid it composites to and the ramp step it matches (so a tint can be swapped for a token), so a tint can be matched back to a real step. Drop in an image and the lightest and darkest pixels under the caption area are measured, and the scrim needed for white text is reported.
 - **Gradients** interpolated in OKLCH, with a banding note and where white text survives.
 - **Export** as a shadcn `globals.css` (`:root` and `.dark`, all in OKLCH, plus the raw ramps as custom properties) or as JSON. Save and load a palette file; the last state is remembered in the browser.
+
+- **Nudge one step.** Click any swatch to open an editor and move that step's lightness or colourfulness on its own; nudged steps carry a dashed outline, and a reset puts them back.
+- **Choose what each token uses.** Primary, tint surface, hairline and focus ring can each point at a different step, per theme.
+- **Gamut, honestly.** In P3 the swatches are painted in OKLCH and a ▲ marks the values a plain sRGB screen cannot reach; the hex shown stays the closest sRGB fallback.
 
 ## Functional colours
 
