@@ -13,16 +13,20 @@
     <fieldset>
       <legend>Main — identity and primary buttons</legend>
       <div class="chip" id="chipMain"></div>
-      <div class="field"><label for="xMain">From hex</label><input type="text" id="xMain" placeholder="#2450E6" spellcheck="false"></div>
+      <div class="field"><label for="xMain">Brand hex</label><input type="text" id="xMain" placeholder="#2450E6" spellcheck="false"></div>
+      <div class="anchor" id="anMain"></div>
+      <label class="check"><input type="checkbox" id="pinMain" checked> Keep my exact colour in the ramp</label>
       <div class="row"><label for="hMain">Hue</label><input type="range" id="hMain" min="0" max="360" step="1" value="250"><output id="oMain">250</output></div>
       <div class="row"><label for="cMain">Colourfulness</label><input type="range" id="cMain" min="0.02" max="0.30" step="0.005" value="0.16"><output id="ocMain">.160</output></div>
-      <p class="hint">Paste a brand hex to set hue and colourfulness from it, or move the sliders. Hue is the position on the colour wheel; colourfulness is how strong the colour is.</p>
+      <p class="hint">Paste a brand hex and the ramp is built around it: the hue and colourfulness come from your colour, the lightness comes from the shared steps. The line above shows your colour beside the step it lands on, and whether the two match.</p>
     </fieldset>
 
     <fieldset>
       <legend>Supporting — structure and secondary surfaces</legend>
       <div class="chip" id="chipSup"></div>
-      <div class="field"><label for="xSup">From hex</label><input type="text" id="xSup" placeholder="#2450E6" spellcheck="false"></div>
+      <div class="field"><label for="xSup">Brand hex</label><input type="text" id="xSup" placeholder="#2450E6" spellcheck="false"></div>
+      <div class="anchor" id="anSup"></div>
+      <label class="check"><input type="checkbox" id="pinSup" checked> Keep my exact colour in the ramp</label>
       <div class="field"><label for="relSup">Relation</label>
         <select id="relSup">
           <option value="same">Same hue, calmer</option>
@@ -38,7 +42,9 @@
     <fieldset>
       <legend>Accent 1 — the highlight you meet often</legend>
       <div class="chip" id="chipA1"></div>
-      <div class="field"><label for="xA1">From hex</label><input type="text" id="xA1" placeholder="#2450E6" spellcheck="false"></div>
+      <div class="field"><label for="xA1">Brand hex</label><input type="text" id="xA1" placeholder="#2450E6" spellcheck="false"></div>
+      <div class="anchor" id="anA1"></div>
+      <label class="check"><input type="checkbox" id="pinA1" checked> Keep my exact colour in the ramp</label>
       <div class="row"><label for="hA1">Hue</label><input type="range" id="hA1" min="0" max="360" step="1" value="45"><output id="oA1">45</output></div>
       <div class="row"><label for="cA1">Colourfulness</label><input type="range" id="cA1" min="0.02" max="0.32" step="0.005" value="0.18"><output id="ocA1">.180</output></div>
     </fieldset>
@@ -46,7 +52,9 @@
     <fieldset>
       <legend>Accent 2 — the rare, strongest mark</legend>
       <div class="chip" id="chipA2"></div>
-      <div class="field"><label for="xA2">From hex</label><input type="text" id="xA2" placeholder="#2450E6" spellcheck="false"></div>
+      <div class="field"><label for="xA2">Brand hex</label><input type="text" id="xA2" placeholder="#2450E6" spellcheck="false"></div>
+      <div class="anchor" id="anA2"></div>
+      <label class="check"><input type="checkbox" id="pinA2" checked> Keep my exact colour in the ramp</label>
       <div class="row"><label for="hA2">Hue</label><input type="range" id="hA2" min="0" max="360" step="1" value="20"><output id="oA2">20</output></div>
       <div class="row"><label for="cA2">Colourfulness</label><input type="range" id="cA2" min="0.02" max="0.32" step="0.005" value="0.20"><output id="ocA2">.200</output></div>
       <p class="hint">One accent appears often — a tag, a marker. The other is kept for the single most important thing in a view.</p>

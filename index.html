@@ -59,6 +59,14 @@
   .seg button{appearance:none;border:0;background:transparent;border-radius:999px;padding:6px 12px;font-size:.78rem;font-weight:600;color:var(--ink-2);cursor:pointer}
   .seg button[aria-selected=true]{background:var(--ink);color:var(--bg)}
   .chip{width:100%;height:30px;border-radius:7px;border:1px solid var(--line);margin:2px 0 8px}
+  .anchor{display:flex;align-items:center;gap:8px;margin:2px 0 8px;font-size:.72rem;color:var(--ink-2)}
+  .anchor .pair{display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--line);flex:0 0 70px;height:22px}
+  .anchor .pair span{flex:1}
+  .anchor b{font-weight:600;color:var(--ink)}
+  .check{display:flex;align-items:center;gap:7px;font-size:.74rem;color:var(--ink-2);margin:0 0 10px;cursor:pointer}
+  .check input{accent-color:var(--accent)}
+  .sw.is-brand{box-shadow:inset 0 0 0 2px var(--ink),0 0 0 2px var(--panel)}
+  .sw.is-brand b::after{content:" · brand";font-weight:600}
   section.view{display:none}
   section.view.on{display:block}
   .head{display:flex;align-items:baseline;justify-content:space-between;gap:14px;margin:0 0 6px}
@@ -134,16 +142,20 @@
     <fieldset>
       <legend>Main — identity and primary buttons</legend>
       <div class="chip" id="chipMain"></div>
-      <div class="field"><label for="xMain">From hex</label><input type="text" id="xMain" placeholder="#2450E6" spellcheck="false"></div>
+      <div class="field"><label for="xMain">Brand hex</label><input type="text" id="xMain" placeholder="#2450E6" spellcheck="false"></div>
+      <div class="anchor" id="anMain"></div>
+      <label class="check"><input type="checkbox" id="pinMain" checked> Keep my exact colour in the ramp</label>
       <div class="row"><label for="hMain">Hue</label><input type="range" id="hMain" min="0" max="360" step="1" value="250"><output id="oMain">250</output></div>
       <div class="row"><label for="cMain">Colourfulness</label><input type="range" id="cMain" min="0.02" max="0.30" step="0.005" value="0.16"><output id="ocMain">.160</output></div>
-      <p class="hint">Paste a brand hex to set hue and colourfulness from it, or move the sliders. Hue is the position on the colour wheel; colourfulness is how strong the colour is.</p>
+      <p class="hint">Paste a brand hex and the ramp is built around it: the hue and colourfulness come from your colour, the lightness comes from the shared steps. The line above shows your colour beside the step it lands on, and whether the two match.</p>
     </fieldset>
 
     <fieldset>
       <legend>Supporting — structure and secondary surfaces</legend>
       <div class="chip" id="chipSup"></div>
-      <div class="field"><label for="xSup">From hex</label><input type="text" id="xSup" placeholder="#2450E6" spellcheck="false"></div>
+      <div class="field"><label for="xSup">Brand hex</label><input type="text" id="xSup" placeholder="#2450E6" spellcheck="false"></div>
+      <div class="anchor" id="anSup"></div>
+      <label class="check"><input type="checkbox" id="pinSup" checked> Keep my exact colour in the ramp</label>
       <div class="field"><label for="relSup">Relation</label>
         <select id="relSup">
           <option value="same">Same hue, calmer</option>
@@ -159,7 +171,9 @@
     <fieldset>
       <legend>Accent 1 — the highlight you meet often</legend>
       <div class="chip" id="chipA1"></div>
-      <div class="field"><label for="xA1">From hex</label><input type="text" id="xA1" placeholder="#2450E6" spellcheck="false"></div>
+      <div class="field"><label for="xA1">Brand hex</label><input type="text" id="xA1" placeholder="#2450E6" spellcheck="false"></div>
+      <div class="anchor" id="anA1"></div>
+      <label class="check"><input type="checkbox" id="pinA1" checked> Keep my exact colour in the ramp</label>
       <div class="row"><label for="hA1">Hue</label><input type="range" id="hA1" min="0" max="360" step="1" value="45"><output id="oA1">45</output></div>
       <div class="row"><label for="cA1">Colourfulness</label><input type="range" id="cA1" min="0.02" max="0.32" step="0.005" value="0.18"><output id="ocA1">.180</output></div>
     </fieldset>
@@ -167,7 +181,9 @@
     <fieldset>
       <legend>Accent 2 — the rare, strongest mark</legend>
       <div class="chip" id="chipA2"></div>
-      <div class="field"><label for="xA2">From hex</label><input type="text" id="xA2" placeholder="#2450E6" spellcheck="false"></div>
+      <div class="field"><label for="xA2">Brand hex</label><input type="text" id="xA2" placeholder="#2450E6" spellcheck="false"></div>
+      <div class="anchor" id="anA2"></div>
+      <label class="check"><input type="checkbox" id="pinA2" checked> Keep my exact colour in the ramp</label>
       <div class="row"><label for="hA2">Hue</label><input type="range" id="hA2" min="0" max="360" step="1" value="20"><output id="oA2">20</output></div>
       <div class="row"><label for="cA2">Colourfulness</label><input type="range" id="cA2" min="0.02" max="0.32" step="0.005" value="0.20"><output id="ocA2">.200</output></div>
       <p class="hint">One accent appears often — a tag, a marker. The other is kept for the single most important thing in a view.</p>
@@ -467,8 +483,8 @@ function hueClash(h){
 
   var DEFAULTS = {
     name:'Untitled',
-    main:{h:250,c:0.16}, sup:{h:280,c:0.09,rel:'near'},
-    a1:{h:45,c:0.18}, a2:{h:20,c:0.20},
+    main:{h:250,c:0.16,brand:null,pin:true}, sup:{h:280,c:0.09,rel:'near',brand:null,pin:true},
+    a1:{h:45,c:0.18,brand:null,pin:true}, a2:{h:20,c:0.20,brand:null,pin:true},
     neutral:{c:0.012, from:'main', h:250},
     shape:{peak:6, falloff:0.85, gamut:'srgb'},
     darkMode:{lift:0.055, boost:1},
@@ -509,6 +525,11 @@ function hueClash(h){
     el('relSup').value = S.sup.rel;
     el('hNeu').value = S.neutral.from;
     el('gamut').value = S.shape.gamut;
+    [['pinMain','main'],['pinSup','sup'],['pinA1','a1'],['pinA2','a2']].forEach(function(p){
+      var box = el(p[0]); if(!box) return;
+      box.checked = S[p[1]].pin !== false;
+      box.closest('.check').style.display = S[p[1]].brand ? '' : 'none';
+    });
   }
   var SHARE_KEYS = ['neutral','sup','main','a1','a2'];
   var SHARE_INPUT = { neutral:'sNeutral', sup:'sSup', main:'sMain', a1:'sA1', a2:'sA2' };
@@ -561,6 +582,19 @@ function hueClash(h){
       a2:      makeRamp(S.a2.h,   S.a2.c,   o)
     };
     FUNCTIONAL.forEach(function(f){ p[f.id] = makeRamp(f.hue, f.chroma, o); });
+    /* a pasted brand colour replaces the step it lands on, so your exact value is in the ramp */
+    if(!dark){
+      ['main','sup','a1','a2'].forEach(function(k){
+        var b = S[k] && S[k].brand;
+        if(!b || S[k].pin === false) return;
+        var near = nearestStep(p[k], b), c = hexToOklch(b);
+        p[k] = p[k].map(function(st){
+          return st.step === near.step
+            ? { step:st.step, L:c.L, C:c.C, h:c.h, hex:b, css:oklchCss(c.L,c.C,c.h,o.space) }
+            : st;
+        });
+      });
+    }
     return p;
   }
   function stepOf(ramp, step){ return ramp[STEPS.indexOf(step)]; }
@@ -570,6 +604,12 @@ function hueClash(h){
     return wcag(dark,bgHex) >= wcag(light,bgHex) ? dark : light;
   }
 
+  /* which step lands closest to a given colour, by lightness */
+  function nearestStep(ramp, hex){
+    var t = hexToOklch(hex), best = ramp[0], d = 9;
+    ramp.forEach(function(s){ var dd = Math.abs(s.L - t.L); if(dd < d){ d = dd; best = s; } });
+    return best;
+  }
   var ROLES = [
     ['main','Main','identity, primary action'],
     ['sup','Supporting','structure, navigation, secondary surfaces'],
@@ -619,12 +659,16 @@ function hueClash(h){
   }
 
   /* ---------- rendering ---------- */
-  function swatchHtml(s, dark){
+  function swatchHtml(s, dark, isBrand){
     var ink = wcag('#000000',s.hex) >= wcag('#ffffff',s.hex) ? '#000' : '#fff';
-    return '<div class="sw" style="background:'+s.hex+';color:'+ink+'" data-copy-value="'+s.css+'" title="'+s.css+'">'+
+    return '<div class="sw'+(isBrand?' is-brand':'')+'" style="background:'+s.hex+';color:'+ink+'" data-copy-value="'+s.css+'" title="'+s.css+'">'+
       '<b>'+s.step+'</b><span>'+s.hex.toUpperCase()+'</span></div>';
   }
   function rampsHtml(p, dark){
+    var brandStep = {};
+    ['main','sup','a1','a2'].forEach(function(k){
+      if(S[k] && S[k].brand) brandStep[k] = nearestStep(p[k], S[k].brand).step;
+    });
     var order = ROLES.map(function(r){ return r[0]; }).concat(FUNCTIONAL.map(function(f){ return f.id; }));
     var labels = {}; ROLES.forEach(function(r){ labels[r[0]] = [r[1], r[2]]; });
     FUNCTIONAL.forEach(function(f){ labels[f.id] = [f.name, f.note]; });
@@ -632,7 +676,7 @@ function hueClash(h){
       var hue = p[k][5].h;
       return '<div class="ramp"><div class="name" style="'+(dark?'color:#E7ECF2':'')+'">'+labels[k][0]+
         '<small style="'+(dark?'color:#8A94A0':'')+'">'+Math.round(hue)+'°</small></div>' +
-        p[k].map(function(s){ return swatchHtml(s,dark); }).join('') + '</div>';
+        p[k].map(function(s){ return swatchHtml(s, dark, brandStep[k] === s.step); }).join('') + '</div>';
     }).join('');
   }
   function stepsHeadHtml(){
@@ -822,7 +866,10 @@ function hueClash(h){
     var prim = ':root {\n' + ramps.map(function(k){
       return L[k].map(function(s){ return '  --' + k + '-' + s.step + ': ' + s.css + ';'; }).join('\n');
     }).join('\n') + '\n}';
-    return '/* ' + S.name + ' — generated by Palette (OKLCH) */\n\n' + prim + '\n\n' + block(L, ':root', false) + '\n\n' + block(D, '.dark', true) + '\n';
+    var brands = ['main','sup','a1','a2'].filter(function(k){ return S[k] && S[k].brand; })
+      .map(function(k){ return '  --' + k + '-brand: ' + S[k].brand.toLowerCase() + ';   /* the exact colour you gave */'; });
+    var brandBlock = brands.length ? ':root {\n' + brands.join('\n') + '\n}\n\n' : '';
+    return '/* ' + S.name + ' — generated by Palette (OKLCH) */\n\n' + brandBlock + prim + '\n\n' + block(L, ':root', false) + '\n\n' + block(D, '.dark', true) + '\n';
   }
   function jsonExport(){
     var L = build(false), D = build(true);
@@ -909,11 +956,22 @@ function hueClash(h){
     syncControls();
     var L = build(false), D = build(true);
 
-    [['chipMain','main',600,'xMain'],['chipSup','sup',500,'xSup'],['chipA1','a1',500,'xA1'],['chipA2','a2',600,'xA2'],['chipNeu','neutral',300,null]].forEach(function(c){
-      var hex = stepOf(L[c[1]], c[2]).hex;
-      var node = el(c[0]); if(node) node.style.background = hex;
+    [['chipMain','main',600,'xMain','anMain'],['chipSup','sup',500,'xSup','anSup'],
+     ['chipA1','a1',500,'xA1','anA1'],['chipA2','a2',600,'xA2','anA2'],
+     ['chipNeu','neutral',300,null,null]].forEach(function(c){
+      var ramp = L[c[1]], brand = S[c[1]] && S[c[1]].brand;
+      var node = el(c[0]); if(node) node.style.background = stepOf(ramp, c[2]).hex;
       var input = c[3] && el(c[3]);
-      if(input && document.activeElement !== input) input.value = hex.toUpperCase();
+      if(input && document.activeElement !== input) input.value = brand || '';
+      var line = c[4] && el(c[4]);
+      if(!line) return;
+      if(!brand){ line.innerHTML = ''; return; }
+      var near = nearestStep(ramp, brand);
+      var pinned = S[c[1]].pin !== false;
+      line.innerHTML = pinned
+        ? '<span class="pair"><span style="background:'+brand+'"></span></span><span>your colour sits at <b>step ' + near.step + '</b>; the rest of the ramp is built around it</span>'
+        : '<span class="pair"><span style="background:'+brand+'"></span><span style="background:'+near.hex+'"></span></span>' +
+          '<span>yours vs <b>step ' + near.step + '</b> ' + near.hex.toUpperCase() + '</span>';
     });
     var clash = hueClash(S.main.h);
     el('rampMeta').textContent = Math.round(S.main.h) + '° main · ' + STEPS.length + ' steps · one set of hues for both themes · ' + (S.shape.gamut === 'p3' ? 'Display P3' : 'sRGB') + (clash ? ' · reads close to ' + clash : '');
@@ -971,19 +1029,26 @@ function hueClash(h){
     render();   /* every view is built for the chosen theme, not just hidden */
   });
 
+  [['pinMain','main'],['pinSup','sup'],['pinA1','a1'],['pinA2','a2']].forEach(function(p){
+    var box = el(p[0]); if(!box) return;
+    box.addEventListener('change', function(){ S[p[1]].pin = box.checked; render(); });
+  });
+
   /* paste a brand hex: its hue and chroma drive the ramp, the lightness steps stay fixed */
   [['xMain','main'],['xSup','sup'],['xA1','a1'],['xA2','a2']].forEach(function(pair){
     var input = el(pair[0]); if(!input) return;
     input.addEventListener('change', function(){
       var v = input.value.trim();
       if(/^#?[0-9a-f]{6}$/i.test(v)){
-        var c = hexToOklch(v[0] === '#' ? v : '#' + v);
+        var hex = (v[0] === '#' ? v : '#' + v).toUpperCase();
+        var c = hexToOklch(hex);
+        S[pair[1]].brand = hex;               /* the colour you gave, kept exactly */
         S[pair[1]].h = c.h;
         S[pair[1]].c = Math.min(c.C, pair[1] === 'sup' ? 0.30 : 0.32);
         if(pair[1] === 'sup') S.sup.rel = 'custom';
         if(pair[1] === 'main' && S.neutral.from === 'own') S.neutral.h = c.h;
         syncControls(); render();
-      } else if(v){ input.value = ''; }
+      } else if(v){ S[pair[1]].brand = null; input.value = ''; render(); }
     });
   });
 
