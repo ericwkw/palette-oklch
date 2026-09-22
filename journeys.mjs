@@ -383,6 +383,93 @@ await journey('undo and redo walk the last changes', async () => {
   assert(await evalJs(`document.getElementById('cMain').value`) !== keyed, 'the keyboard shortcut did nothing');
 });
 
+/* 12 — a sister can be added, moved, and told apart from the parent */
+await journey('a sister brand joins the family and stays distinct', async () => {
+  await click('#tabs button', 6);
+  let n = await evalJs(`document.querySelectorAll('#famList .card').length`);
+  assert(n === 1, 'the family does not start at the parent alone');
+
+  await click('#btnFamAdd');
+  const state = await evalJs(`(() => {
+    const cards = [...document.querySelectorAll('#famList .card')];
+    return { n: cards.length,
+             hue: +document.querySelector('#famList [data-fam="h"]').value,
+             parentHue: +document.getElementById('hMain').value,
+             meta: document.getElementById('famMeta').textContent };
+  })()`);
+  assert(state.n === 2, 'adding a sister did not add a card');
+  assert(/1 sister/.test(state.meta), 'the family line does not count the sister: ' + state.meta);
+  const gap = h => { const d = Math.abs((h - state.parentHue + 360) % 360); return d > 180 ? 360 - d : d; };
+  assert(gap(state.hue) >= 24, 'the new sister landed on top of the parent: ' + state.hue);
+
+  /* it inherits the parent's neutrals and functional colours, and only those differ that should */
+  const shared = await evalJs(`(() => {
+    const css = document.getElementById('outFamily').textContent;
+    const blocks = css.split('[data-brand=');
+    const grab = (t, k) => (t.match(new RegExp('--' + k + ': ([^;]+);')) || [])[1];
+    return { pBg: grab(blocks[0], 'background'), sBg: grab(blocks[1], 'background'),
+             pDest: grab(blocks[0], 'destructive'), sDest: grab(blocks[1], 'destructive'),
+             pPrim: grab(blocks[0], 'primary'), sPrim: grab(blocks[1], 'primary') };
+  })()`);
+  assert(shared.pBg && shared.sBg, 'the family export is missing a brand block');
+  assert(shared.pBg === shared.sBg, 'the sister does not share the parent neutrals');
+  assert(shared.pDest === shared.sDest, 'the sister does not share the functional colours');
+  assert(shared.pPrim !== shared.sPrim, 'the sister has the same primary as the parent');
+
+  /* moving it near the parent is called out rather than quietly allowed */
+  await evalJs(`(() => { const el = document.querySelector('#famList [data-fam="h"]');
+    el.value = String(+document.getElementById('hMain').value + 6);
+    el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  await sleep(320);
+  let warn = await evalJs(`document.querySelectorAll('#famList .card')[1].innerHTML`);
+  assert(/mistaken for each other/.test(warn), 'two brands 6° apart raised no warning');
+
+  /* and landing on a functional hue is called out too */
+  await evalJs(`(() => { const el = document.querySelector('#famList [data-fam="h"]');
+    el.value = '27'; el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  await sleep(320);
+  warn = await evalJs(`document.querySelectorAll('#famList .card')[1].innerHTML`);
+  assert(/spoken for/.test(warn), 'a sister sitting on Danger raised no warning');
+
+  /* spacing them out clears it, and removing is undoable */
+  await click('#btnFamSpread');
+  warn = await evalJs(`document.querySelectorAll('#famList .card')[1].innerHTML`);
+  assert(!/mistaken for each other/.test(warn), 'spacing them evenly left them colliding');
+  await click('[data-famdel]');
+  assert(await evalJs(`document.querySelectorAll('#famList .card').length`) === 1, 'the sister was not removed');
+  await click('#btnUndo');
+  assert(await evalJs(`document.querySelectorAll('#famList .card').length`) === 2, 'undo did not bring the sister back');
+});
+
+/* 13 — every brand in the family reads as strongly as the parent */
+await journey('the family holds its contrast parity', async () => {
+  await click('#tabs button', 6);
+  await click('#btnFamAdd');
+  await click('#btnFamAdd');
+  await click('#btnFamSpread');
+  const parity = await evalJs(`(() => {
+    const rows = [...document.querySelectorAll('#famParity tbody tr')];
+    return rows.map(r => [...r.children].map(c => c.textContent.trim()));
+  })()`);
+  assert(parity.length === 3, 'the parity table does not cover every brand');
+  assert(/measured against/.test(parity[0][3]), 'the parent is not the reference row');
+  for (const row of parity.slice(1)) {
+    const onFill = parseFloat(row[2]);
+    assert(onFill >= 4.5, `${row[0]} cannot carry its own label: ${row[2]}`);
+  }
+
+  /* a sister pushed pale is reported, not passed */
+  await evalJs(`(() => { const el = document.querySelector('#famList [data-fam="c"]');
+    el.value = '0.02'; el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  await sleep(340);
+  const after = await evalJs(`[...document.querySelectorAll('#famParity tbody tr')].map(r => r.lastElementChild.textContent.trim())`);
+  assert(after.length === 3, 'the parity table lost a row');
+
+  /* and a preview is drawn for every brand, in the family strip */
+  const strips = await evalJs(`document.querySelectorAll('#famStrip .preview').length`);
+  assert(strips === 3, 'the family strip does not show every brand: ' + strips);
+});
+
 const failed = results.filter(r => !r[1]);
 console.log('');
 results.forEach(([name, ok, why]) => console.log(`${ok ? ' ok ' : 'FAIL'}  ${name}${why ? ' — ' + why : ''}`));

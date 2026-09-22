@@ -140,6 +140,7 @@
       <button data-view="alpha" aria-selected="false">Opacity &amp; overlays</button>
       <button data-view="gradients" aria-selected="false">Gradients</button>
       <button data-view="preview" aria-selected="false">Preview</button>
+      <button data-view="family" aria-selected="false">Family</button>
       <button data-view="export" aria-selected="false">Export</button>
       <span style="flex:1"></span>
       <div class="seg" id="themeSeg" role="group" aria-label="Theme shown">
@@ -214,6 +215,27 @@
       <div class="head"><h2>Preview</h2></div>
       <p class="note">One dense screen &mdash; sidebar, table with statuses, a form with an error and a disabled field, a chart on the chart tokens, text at three sizes &mdash; drawn only from tokens. Change a mapping and it moves here.</p>
       <div id="previewOut" style="display:grid;gap:18px"></div>
+    </section>
+
+    <section class="view" data-view="family">
+      <div class="head"><h2>Brand family</h2><span class="meta" id="famMeta"></span></div>
+      <p class="note">One parent and its sisters. A sister sets its own main hue and colourfulness &mdash; it may travel a long way &mdash; and takes everything else from the parent: the same neutrals, the same six functional colours, the same lightness steps, ramp shape and token mapping. That is what makes them read as one family.</p>
+      <div class="btns" style="margin:0 0 16px">
+        <button class="btn primary" id="btnFamAdd">Add a sister</button>
+        <button class="btn" id="btnFamSpread">Space them evenly</button>
+      </div>
+      <div id="famList" style="display:grid;gap:14px"></div>
+      <div class="card" style="margin-top:18px"><h3>Every sister next to the parent</h3>
+        <p class="hint" style="margin:0 0 10px">The same screen in each brand, so a hue that goes weak or shouty shows up beside the others.</p>
+        <div id="famStrip" style="display:grid;gap:14px"></div>
+      </div>
+      <div class="card" style="margin-top:14px"><h3>Does every brand read as strongly?</h3>
+        <div id="famParity"></div>
+      </div>
+      <div class="card" style="margin-top:14px"><h3>CSS for the whole family</h3>
+        <div class="btns" style="margin:0 0 10px"><button class="btn" data-copy="outFamily">Copy</button><button class="btn" data-dl="family">Download</button></div>
+        <pre id="outFamily"></pre>
+      </div>
     </section>
 
     <section class="view" data-view="export">

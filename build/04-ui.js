@@ -15,7 +15,8 @@
     darkMode:{lift:0.055, boost:1},
     map:{ primary:700, primaryDark:400, tint:100, tintDark:900, border:200, borderDark:800, ring:600, ringDark:400 },
     nudges:{},
-    share:{neutral:55, sup:22, main:15, a1:6, a2:2}
+    share:{neutral:55, sup:22, main:15, a1:6, a2:2},
+    family:{ sisters:[] }
   };
   var S = JSON.parse(JSON.stringify(DEFAULTS));
 
@@ -515,6 +516,140 @@
       '</div></div>';
   }
 
+  /* ---------- brand family ----------
+     A sister sets its own main hue and colourfulness. Everything else is the
+     parent's: neutrals, functional colours, steps, ramp shape, token mapping. */
+  function sisters(){ return (S.family && S.family.sisters) || []; }
+  function slug(n){ return String(n).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'brand'; }
+
+  /* run fn with the palette seen through a sister's eyes, then put the parent back */
+  function asSister(sis, fn){
+    if(!sis) return fn();
+    var keep = S, nh = neutralHue();
+    var alt = JSON.parse(JSON.stringify(S));
+    alt.main = { h: sis.h, c: sis.c, brand: sis.brand || null, pin: !!sis.brand };
+    if(alt.sup.rel === 'same')      alt.sup.h = sis.h;
+    else if(alt.sup.rel === 'near') alt.sup.h = (sis.h + 30) % 360;
+    else if(alt.sup.rel === 'far')  alt.sup.h = (sis.h + 150) % 360;
+    alt.neutral = { c: keep.neutral.c, from:'own', h: nh };   /* the parent's neutrals, whatever they came from */
+    S = alt;
+    try { return fn(); } finally { S = keep; }
+  }
+  function famMembers(){
+    return [{ id:'parent', name: S.name || 'Parent', h: S.main.h, c: S.main.c, parent:true }]
+      .concat(sisters().map(function(x){ return x; }));
+  }
+  function hueGap(a, b){ var d = Math.abs(((a - b) % 360 + 360) % 360); return d > 180 ? 360 - d : d; }
+  var FAM_MIN = 24;   /* two brands closer than this read as the same brand */
+
+  /* the hue furthest from everything already spoken for */
+  function freeHue(){
+    var taken = famMembers().map(function(m){ return m.h; }).concat(RESERVED);
+    var best = 0, bestD = -1;
+    for(var h = 0; h < 360; h += 2){
+      var d = Math.min.apply(null, taken.map(function(t){ return hueGap(h, t); }));
+      if(d > bestD){ bestD = d; best = h; }
+    }
+    return best;
+  }
+  function famWarnings(m){
+    var out = [];
+    famMembers().forEach(function(o){
+      if(o === m || o.id === m.id) return;
+      var d = hueGap(m.h, o.h);
+      if(d < FAM_MIN) out.push('Only ' + Math.round(d) + '° from ' + o.name + ' — they will be mistaken for each other.');
+    });
+    var clash = hueClash(m.h);
+    if(clash) out.push('Reads close to ' + clash + ', which is spoken for across the whole family.');
+    return out;
+  }
+
+  /* how loud a brand's primary button is against its own page */
+  function famPrimary(m, dark){
+    return asSister(m.parent ? null : m, function(){
+      var p = build(dark), t = tokens(p, dark);
+      return { fill: t.primary.hex, on: t['primary-foreground'].hex, bg: t.background.hex,
+               onFill: wcag(t['primary-foreground'].hex, t.primary.hex),
+               loud: wcag(t.primary.hex, t.background.hex) };
+    });
+  }
+
+  function famListHtml(){
+    var ms = famMembers();
+    return ms.map(function(m){
+      var warn = famWarnings(m);
+      var strip = asSister(m.parent ? null : m, function(){
+        var p = build(false);
+        return STEPS.map(function(st){
+          return '<span style="flex:1;height:26px;background:' + stepOf(p.main, st).hex + '"></span>';
+        }).join('');
+      });
+      var controls = m.parent
+        ? '<p class="hint" style="margin:0">The parent takes its hue from the Main control in the rail. Its neutrals and functional colours are the ones every sister inherits.</p>'
+        : '<div class="row" style="margin-top:4px"><label>Hue</label><input type="range" data-fam="h" data-id="' + m.id + '" min="0" max="360" step="1" value="' + Math.round(m.h) + '"><output>' + Math.round(m.h) + '</output></div>' +
+          '<div class="row"><label>Colourfulness</label><input type="range" data-fam="c" data-id="' + m.id + '" min="0.02" max="0.30" step="0.005" value="' + m.c + '"><output>' + m.c.toFixed(3).replace(/^0/,'') + '</output></div>';
+      return '<div class="card">' +
+        '<div class="pv-row" style="justify-content:space-between;align-items:baseline">' +
+          (m.parent
+            ? '<h3 style="margin:0">' + m.name + ' <span class="muted" style="font-weight:400">· parent</span></h3>'
+            : '<input type="text" data-fam="name" data-id="' + m.id + '" value="' + m.name + '" style="font-weight:600;max-width:15em">') +
+          '<span class="muted mono">' + Math.round(m.h) + '° · ' + (m.parent ? 'main' : slug(m.name)) + '</span>' +
+        '</div>' +
+        '<div style="display:flex;border-radius:8px;overflow:hidden;margin:10px 0 6px">' + strip + '</div>' +
+        controls +
+        (warn.length ? '<p class="hint" style="color:#d4423a">' + warn.join(' ') + '</p>' : '') +
+        (m.parent ? '' : '<div class="btns" style="margin-top:8px"><button class="btn mini" data-famdel="' + m.id + '">Remove</button></div>') +
+        '</div>';
+    }).join('');
+  }
+
+  function famStripHtml(dark){
+    return famMembers().map(function(m){
+      var html = asSister(m.parent ? null : m, function(){ return previewHtml(build(dark), dark); });
+      return '<div><p class="hint" style="margin:0 0 6px"><b>' + m.name + '</b> · ' + Math.round(m.h) + '°</p>' + html + '</div>';
+    }).join('');
+  }
+
+  function famParityHtml(dark){
+    var ms = famMembers(), base = famPrimary(ms[0], dark);
+    var rows = ms.map(function(m){
+      var v = famPrimary(m, dark);
+      var drift = Math.abs(v.loud - base.loud);
+      var note = m.parent ? 'the one the others are measured against'
+        : (drift > 1.2 ? 'reads ' + (v.loud < base.loud ? 'weaker' : 'louder') + ' than the parent'
+                       : (v.onFill < 4.5 ? 'its own label is short of 4.5' : 'in step'));
+      var ok = m.parent || (drift <= 1.2 && v.onFill >= 4.5);
+      return '<tr><td><span class="dot" style="background:' + v.fill + '"></span> ' + m.name + '</td>' +
+        '<td class="mono">' + v.loud.toFixed(2) + ':1</td>' +
+        '<td class="mono">' + v.onFill.toFixed(2) + ':1</td>' +
+        '<td style="color:' + (ok ? 'inherit' : '#d4423a') + '">' + note + '</td></tr>';
+    }).join('');
+    return '<table><thead><tr><th>Brand</th><th>Button against the page</th><th>Label on the button</th><th>Reading</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      '<p class="hint">A sister whose button is much quieter or much louder than the parent&rsquo;s will look like a different product, however close the hue is.</p>';
+  }
+
+  function famExport(){
+    var ms = famMembers();
+    return '/* ' + (S.name || 'Family') + ' — the family, generated by Palette (OKLCH) */\n' +
+      '/* Neutrals and functional colours come from the parent and are the same in every block. */\n\n' +
+      ms.map(function(m){
+        var sel = m.parent ? ':root' : '[data-brand="' + slug(m.name) + '"]';
+        return asSister(m.parent ? null : m, function(){
+          var L = build(false), D = build(true);
+          function block(p, s2, dark){
+            var t = tokens(p, dark), lines = [];
+            Object.keys(t).forEach(function(k){
+              var v = t[k];
+              lines.push('  --' + k + ': ' + (v.css || oklchCss(hexToOklch(v.hex).L, hexToOklch(v.hex).C, hexToOklch(v.hex).h, S.shape.gamut)) + ';');
+            });
+            return s2 + ' {\n' + lines.join('\n') + '\n}';
+          }
+          return '/* ' + m.name + ' — ' + Math.round(m.h) + '° */\n' +
+            block(L, sel, false) + '\n\n' + block(D, (m.parent ? '.dark' : sel + '.dark, .dark ' + sel), true);
+        });
+      }).join('\n\n') + '\n';
+  }
+
   function cssExport(){
     var L = build(false), D = build(true);
     function block(p, sel, dark){
@@ -646,8 +781,8 @@
       else { S.nudges[EDITING.role][EDITING.step] = cur; }
       render();
     }
-    el('edL').addEventListener('input', function(){ setNudge('dL', this.value); });
-    el('edC').addEventListener('input', function(){ setNudge('dC', this.value); });
+    el('edL').addEventListener('input', function(){ dragging('nudge:L'); setNudge('dL', this.value); });
+    el('edC').addEventListener('input', function(){ dragging('nudge:C'); setNudge('dC', this.value); });
     el('edCopy').addEventListener('click', function(){ navigator.clipboard && navigator.clipboard.writeText(sw.css); this.textContent = 'Copied'; });
     el('edReset').addEventListener('click', function(){
       if(S.nudges[EDITING.role]) delete S.nudges[EDITING.role][EDITING.step];
@@ -759,6 +894,14 @@
     el('gradOut').innerHTML = forThemes(L, D, function(p){ return '<div class="grid2">' + gradientsHtml(p) + '</div>'; });
     el('previewOut').innerHTML = forThemes(L, D, function(p, dk){ return previewHtml(p, dk); });
 
+    el('famList').innerHTML = famListHtml();
+    el('famStrip').innerHTML = forThemes(L, D, function(p, dk){ return famStripHtml(dk); });
+    el('famParity').innerHTML = forThemes(L, D, function(p, dk){ return famParityHtml(dk); });
+    el('outFamily').textContent = famExport();
+    el('famMeta').textContent = sisters().length
+      ? (sisters().length + (sisters().length === 1 ? ' sister' : ' sisters') + ' · shared neutrals and functional colours')
+      : 'just the parent so far';
+
     el('outCss').textContent = cssExport();
     el('outJson').textContent = jsonExport();
 
@@ -772,13 +915,19 @@
   /* ---------- history: the last 30 changes, with undo and redo ---------- */
   var HIST = [], HPOS = -1, RESTORING = false, LAST_PUSH = 0;
   var HIST_MAX = 30, COALESCE = 500;   /* one slider drag is one change, not forty */
+  /* only a continuous drag folds into one step; a click is always its own change,
+     so Remove then Undo works however fast the two come */
+  var GESTURE = null, LAST_GESTURE = null;
+  function dragging(tag){ GESTURE = tag; }
 
   function pushHistory(){
     if(RESTORING) return;
     var snap = JSON.stringify(S);
     if(HIST[HPOS] === snap) return;
     var now = Date.now();
-    if(HPOS >= 0 && now - LAST_PUSH < COALESCE){   /* still the same gesture — replace the top */
+    var same = GESTURE && GESTURE === LAST_GESTURE && now - LAST_PUSH < COALESCE;
+    LAST_GESTURE = GESTURE; GESTURE = null;
+    if(HPOS >= 0 && same){                         /* still the same drag — replace the top */
       HIST[HPOS] = snap; LAST_PUSH = now; histUi(); return;
     }
     HIST = HIST.slice(0, HPOS + 1);                /* a new change drops anything redone past here */
@@ -792,7 +941,7 @@
     HPOS = i; RESTORING = true;
     S = JSON.parse(HIST[i]); EDITING = null;
     syncControls(); render();
-    RESTORING = false; LAST_PUSH = 0;
+    RESTORING = false; LAST_PUSH = 0; GESTURE = null; LAST_GESTURE = null;
     try{ localStorage.setItem(STORE, JSON.stringify(S)); }catch(e){}
     histUi();
   }
@@ -847,6 +996,7 @@
     if(!it) return;
     CURRENT = id;
     S = JSON.parse(JSON.stringify(it.settings));
+    S.family = S.family || { sisters:[] };     /* palettes kept before families existed */
     EDITING = null;
     syncControls(); render();   /* a switch is a change, so it lands in history and can be undone */
     libUi();
@@ -888,6 +1038,44 @@
   el('libList').addEventListener('change', function(){
     var v = el('libList').value;
     if(v) libLoad(v); else { CURRENT = null; libUi(); }
+  });
+
+  /* ---------- family controls ---------- */
+  el('btnFamAdd').addEventListener('click', function(){
+    S.family = S.family || { sisters:[] };
+    var h = freeHue();
+    S.family.sisters.push({ id:'s' + Date.now().toString(36), name:'Sister ' + (S.family.sisters.length + 1), h:h, c:S.main.c });
+    render();
+  });
+  /* push the sisters apart so no two are mistaken for each other */
+  el('btnFamSpread').addEventListener('click', function(){
+    var ss = sisters(); if(!ss.length) return;
+    var step = 360 / (ss.length + 1);
+    ss.forEach(function(sis, i){
+      var h = (S.main.h + step * (i + 1)) % 360, guard = 0;
+      while(hueClash(h) && guard++ < 40) h = (h + 3) % 360;   /* step off a functional hue */
+      sis.h = Math.round(h);
+    });
+    render();
+  });
+  el('famList').addEventListener('input', function(e){
+    var i = e.target.closest('[data-fam]'); if(!i) return;
+    var sis = sisters().filter(function(x){ return x.id === i.dataset.id; })[0]; if(!sis) return;
+    if(i.dataset.fam === 'h'){ sis.h = +i.value; dragging('fam:' + i.dataset.id + ':h'); }
+    else if(i.dataset.fam === 'c'){ sis.c = +i.value; dragging('fam:' + i.dataset.id + ':c'); }
+    else return;                      /* the name is handled on change, so typing is not interrupted */
+    render();
+  });
+  el('famList').addEventListener('change', function(e){
+    var i = e.target.closest('[data-fam="name"]'); if(!i) return;
+    var sis = sisters().filter(function(x){ return x.id === i.dataset.id; })[0]; if(!sis) return;
+    sis.name = i.value.trim() || 'Sister';
+    render();
+  });
+  el('famList').addEventListener('click', function(e){
+    var b = e.target.closest('[data-famdel]'); if(!b) return;
+    S.family.sisters = sisters().filter(function(x){ return x.id !== b.dataset.famdel; });
+    render();          /* removing a sister is a change like any other, so undo brings it back */
   });
 
   /* which theme the views show; Both shows them side by side */
@@ -935,7 +1123,8 @@
   document.querySelectorAll('.rail input, .rail select').forEach(function(i){
     if(i.type === 'checkbox') return;   /* checkboxes own their state; a generic re-render would undo the click */
     var shareKey = SHARE_KEYS.filter(function(k){ return SHARE_INPUT[k] === i.id; })[0];
-    function handle(){
+    function handle(ev){
+      if(i.type === 'range' && ev && ev.type === 'input') dragging('rail:' + i.id);
       if(shareKey){
         S.share[shareKey] = parseFloat(i.value);
         balanceShares(shareKey);
@@ -984,11 +1173,12 @@
     if(cp){ navigator.clipboard && navigator.clipboard.writeText(el(cp.dataset.copy).textContent); cp.textContent='Copied'; setTimeout(function(){ cp.textContent='Copy'; },900); return; }
     var dl = e.target.closest('[data-dl]');
     if(dl){
-      var isCss = dl.dataset.dl === 'css';
-      var blob = new Blob([isCss ? cssExport() : jsonExport()], { type: isCss ? 'text/css' : 'application/json' });
+      var kind = dl.dataset.dl;
+      var text = kind === 'css' ? cssExport() : (kind === 'family' ? famExport() : jsonExport());
+      var blob = new Blob([text], { type: kind === 'json' ? 'application/json' : 'text/css' });
       var a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = S.name.toLowerCase().replace(/[^a-z0-9]+/g,'-') + (isCss ? '.css' : '.json');
+      a.download = slug(S.name) + (kind === 'json' ? '.json' : (kind === 'family' ? '.family.css' : '.css'));
       a.click();
     }
   });
@@ -1004,7 +1194,7 @@
     r.onload = function(){
       try{
         var d = JSON.parse(r.result);
-        if(d.settings){ S = d.settings; syncControls(); render(); }
+        if(d.settings){ S = d.settings; S.family = S.family || { sisters:[] }; syncControls(); render(); }
       }catch(err){ alert('That file is not a palette export.'); }
     };
     r.readAsText(f);
@@ -1030,6 +1220,7 @@
       S.map = S.map || JSON.parse(JSON.stringify(DEFAULTS.map));
       S.nudges = S.nudges || {};
       S.darkMode = S.darkMode || JSON.parse(JSON.stringify(DEFAULTS.darkMode));
+      S.family = S.family || { sisters:[] };
     }
   }catch(e){}
   syncControls();
