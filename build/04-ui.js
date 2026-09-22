@@ -413,33 +413,103 @@
     }).join('');
   }
 
+  /* a dense screen built only from tokens, so a mapping change has somewhere to show */
   function previewHtml(p, dark){
-    var t = tokens(p, dark), n = p.neutral;
+    var t = tokens(p, dark);
     var sh = S.share, total = sh.neutral+sh.sup+sh.main+sh.a1+sh.a2;
-    return '<div class="preview" style="background:'+t.background.hex+';color:'+t.foreground.hex+'">'+
-      '<div class="pv-bar" style="background:'+t.sidebar.hex+';color:'+t['sidebar-foreground'].hex+';border-bottom:1px solid '+t.border.hex+'">'+
-        '<span class="dot" style="background:'+t.primary.hex+'"></span><b>'+(dark?'Dark':'Light')+'</b>'+
-        '<span class="muted" style="margin-left:auto">'+Math.round(sh.main/total*100)+'% main · '+Math.round(sh.neutral/total*100)+'% neutral</span></div>'+
-      '<div class="pv-body">'+
-        '<div class="pv-card" style="background:'+t.card.hex+';border:1px solid '+t.border.hex+'">'+
-          '<b>A card on the page</b>'+
-          '<span class="muted" style="color:'+t['muted-foreground'].hex+'">Quiet supporting text sits at muted-foreground.</span>'+
-          '<div class="pv-row">'+
-            '<span class="pv-btn" style="background:'+t.primary.hex+';color:'+t['primary-foreground'].hex+'">Primary</span>'+
-            '<span class="pv-btn" style="background:'+t.secondary.hex+';color:'+t['secondary-foreground'].hex+'">Secondary</span>'+
-            '<span class="pv-btn" style="background:'+t.accent.hex+';color:'+t['accent-foreground'].hex+'">Accent</span>'+
-            '<span class="pv-btn" style="background:transparent;color:'+t.destructive.hex+';border:1px solid '+t.destructive.hex+'">Delete</span>'+
-          '</div>'+
+    function T(k){ return t[k].hex; }
+    function tk(k){ return ' data-token="'+k+'"'; }
+
+    var NAV = [['Overview',1],['Schools',0],['Programmes',0],['Reports',0],['Settings',0]];
+    var nav = NAV.map(function(n){
+      return n[1]
+        ? '<span class="pv-nav"'+tk('sidebar-accent')+' style="background:'+T('sidebar-accent')+';color:'+T('sidebar-accent-foreground')+';font-weight:650;box-shadow:inset 2px 0 0 '+T('sidebar-primary')+'">'+n[0]+'</span>'
+        : '<span class="pv-nav" style="color:'+T('sidebar-foreground')+';opacity:.72">'+n[0]+'</span>';
+    }).join('');
+
+    var ROWS = [
+      ['Northbridge Primary','success','Live'],
+      ['Harbour Secondary','warning','Review due'],
+      ['Ridgeway Academy','danger','Overdue'],
+      ['Eastfield College','pending','Awaiting reply'],
+      ['Lakeside Junior','fresh','New'],
+      ['Old Mill School','info','Draft']
+    ];
+    var rows = ROWS.map(function(r, i){
+      var fs = funcSet(p[r[1]], dark);
+      return '<tr>'+
+        '<td style="border-top-color:'+T('border')+'">'+r[0]+'</td>'+
+        '<td style="border-top-color:'+T('border')+'"><span class="pv-pill" data-func="'+r[1]+'" style="background:'+fs.surface.hex+';border-color:'+fs.border.hex+';color:'+fs.text.hex+'"><i style="background:'+fs.fill.hex+'"></i>'+r[2]+'</span></td>'+
+        '<td class="mono" style="border-top-color:'+T('border')+';color:'+T('muted-foreground')+';text-align:right">'+(112 - i*17)+'</td>'+
+      '</tr>';
+    }).join('');
+
+    var CHART = [['chart-1',72],['chart-2',54],['chart-3',88],['chart-4',36],['chart-5',63]];
+    var bars = CHART.map(function(c){
+      return '<span'+tk(c[0])+' style="background:'+T(c[0])+';height:'+c[1]+'%"></span>';
+    }).join('');
+    var legend = CHART.map(function(c){
+      return '<span style="color:'+T('muted-foreground')+'"><b style="background:'+T(c[0])+'"></b>'+c[0].replace('chart-','Series ')+'</span>';
+    }).join('');
+
+    var dangerText = stepOf(p.danger, dark?300:700).hex;
+
+    return '<div class="preview" style="background:'+T('background')+';color:'+T('foreground')+'">'+
+      '<div class="pv-app">'+
+        '<div class="pv-side"'+tk('sidebar')+' style="background:'+T('sidebar')+';color:'+T('sidebar-foreground')+';border-right:1px solid '+T('sidebar-border')+'">'+
+          '<span class="pv-brand"><span class="dot"'+tk('sidebar-primary')+' style="background:'+T('sidebar-primary')+'"></span>'+(dark?'Dark':'Light')+'</span>'+
+          nav+
         '</div>'+
-        FUNCTIONAL.slice(0,3).map(function(f){
-          var fs = funcSet(p[f.id], dark);
-          return '<div class="pv-row" style="background:'+fs.surface.hex+';border:1px solid '+fs.border.hex+';border-radius:8px;padding:9px 12px;color:'+fs.text.hex+'">'+
-            '<span class="dot" style="background:'+fs.fill.hex+'"></span><b>'+f.name+'</b><span style="opacity:.8">'+f.note+'</span></div>';
-        }).join('')+
-        '<div class="pv-row" style="gap:6px">'+
-          [50,100,200,300,400,500,600,700,800,900,950].map(function(st){
-            return '<span style="flex:1;height:20px;border-radius:4px;background:'+stepOf(p.main,st).hex+'"></span>';
-          }).join('')+
+        '<div class="pv-main">'+
+
+          '<div>'+
+            '<h3 class="pv-h1">Programme health</h3>'+
+            '<p class="pv-p" style="margin-top:4px">Three sizes of text on the page background, so you can see where reading gets hard.</p>'+
+            '<p class="pv-small"'+tk('muted-foreground')+' style="color:'+T('muted-foreground')+';margin-top:3px">'+
+              'Small print at muted-foreground — '+Math.round(sh.main/total*100)+'% main, '+Math.round(sh.neutral/total*100)+'% neutral by surface.</p>'+
+          '</div>'+
+
+          '<div class="pv-row">'+
+            '<span class="pv-btn"'+tk('primary')+' style="background:'+T('primary')+';color:'+T('primary-foreground')+'">Publish</span>'+
+            '<span class="pv-btn"'+tk('secondary')+' style="background:'+T('secondary')+';color:'+T('secondary-foreground')+'">Duplicate</span>'+
+            '<span class="pv-btn"'+tk('accent')+' style="background:'+T('accent')+';color:'+T('accent-foreground')+'">Tag</span>'+
+            '<span class="pv-btn"'+tk('destructive')+' style="background:transparent;color:'+T('destructive')+';border:1px solid '+T('destructive')+'">Delete</span>'+
+          '</div>'+
+
+          '<div class="pv-panel"'+tk('card')+' style="background:'+T('card')+';color:'+T('card-foreground')+';border:1px solid '+T('border')+'">'+
+            '<h4 class="pv-h2">Schools</h4>'+
+            '<table class="pv-table">'+
+              '<thead><tr><th style="color:'+T('muted-foreground')+'">School</th><th style="color:'+T('muted-foreground')+'">Status</th><th style="color:'+T('muted-foreground')+';text-align:right">Pupils</th></tr></thead>'+
+              '<tbody>'+rows+'</tbody>'+
+            '</table>'+
+          '</div>'+
+
+          '<div class="pv-cols">'+
+            '<div class="pv-panel"'+tk('popover')+' style="background:'+T('popover')+';color:'+T('popover-foreground')+';border:1px solid '+T('border')+'">'+
+              '<h4 class="pv-h2">Add a school</h4>'+
+              '<label class="pv-field"><span style="color:'+T('muted-foreground')+'">Name</span>'+
+                '<input class="pv-input" readonly value="Northbridge Primary"'+tk('input')+' style="background:'+T('background')+';color:'+T('foreground')+';border-color:'+T('input')+'"></label>'+
+              '<label class="pv-field"><span style="color:'+T('muted-foreground')+'">Contact (focused)</span>'+
+                '<input class="pv-input" readonly value="head@northbridge.sch"'+tk('ring')+' style="background:'+T('background')+';color:'+T('foreground')+';border-color:'+T('ring')+';box-shadow:0 0 0 3px '+T('ring')+'55"></label>'+
+              '<label class="pv-field"><span style="color:'+dangerText+'">Cohort size</span>'+
+                '<input class="pv-input" readonly value="0" style="background:'+T('background')+';color:'+T('foreground')+';border-color:'+T('destructive')+'">'+
+                '<span style="color:'+dangerText+'">Enter a number above zero.</span></label>'+
+              '<label class="pv-field"><span style="color:'+T('muted-foreground')+'">Region (disabled)</span>'+
+                '<input class="pv-input" disabled value="Set by your admin"'+tk('muted')+' style="background:'+T('muted')+';color:'+T('muted-foreground')+';border-color:'+T('border')+'"></label>'+
+            '</div>'+
+            '<div class="pv-panel" style="background:'+T('card')+';color:'+T('card-foreground')+';border:1px solid '+T('border')+'">'+
+              '<h4 class="pv-h2">Enrolment by term</h4>'+
+              '<div class="pv-chart">'+bars+'</div>'+
+              '<div class="pv-legend">'+legend+'</div>'+
+            '</div>'+
+          '</div>'+
+
+          '<div class="pv-row" style="gap:6px">'+
+            [50,100,200,300,400,500,600,700,800,900,950].map(function(st){
+              return '<span style="flex:1;height:14px;border-radius:3px;background:'+stepOf(p.main,st).hex+'"></span>';
+            }).join('')+
+          '</div>'+
+
         '</div>'+
       '</div></div>';
   }

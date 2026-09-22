@@ -228,6 +228,52 @@ await journey('hue turns along the ramp, within bounds', async () => {
   assert(Math.abs(turn(r.main)) > 6, 'hue turn did not respond to the control');
 });
 
+/* 9 — the preview is dense enough to judge, and a mapping change moves it */
+await journey('the preview shows every token and reacts to a mapping', async () => {
+  await click('#tabs button', 5);
+  const seen = () => evalJs(`[...document.querySelectorAll('#previewOut [data-token]')].map(el => el.dataset.token)`);
+  const MUST = ['sidebar','sidebar-primary','sidebar-accent','primary','secondary','accent','destructive',
+                'card','popover','input','ring','muted','muted-foreground','chart-1','chart-2','chart-3','chart-4','chart-5'];
+  const have = await seen();
+  for (const k of MUST) assert(have.includes(k), `the preview never uses ${k}`);
+
+  /* the dense parts are there to be read, not implied */
+  const parts = await evalJs(`(() => {
+    const p = document.getElementById('previewOut');
+    return { rows: p.querySelectorAll('.pv-table tbody tr').length,
+             pills: [...p.querySelectorAll('.pv-pill')].map(x => x.dataset.func),
+             bars: p.querySelectorAll('.pv-chart span').length,
+             nav: p.querySelectorAll('.pv-nav').length,
+             disabled: p.querySelectorAll('.pv-input[disabled]').length,
+             sizes: [...new Set([...p.querySelectorAll('.pv-h1,.pv-p,.pv-small')].map(x => getComputedStyle(x).fontSize))].length };
+  })()`);
+  assert(parts.rows >= 6, 'the table is not dense enough');
+  assert(new Set(parts.pills).size >= 6, 'the statuses do not cover the functional colours');
+  assert(parts.bars === 5, 'the chart does not use all five chart tokens');
+  assert(parts.nav >= 4, 'the sidebar has no navigation to mark active');
+  assert(parts.disabled >= 1, 'no disabled field in the form');
+  assert(parts.sizes === 3, 'text is not shown at three sizes');
+
+  /* dark is a real second rendering, not the same colours */
+  await click('#themeSeg button', 2);
+  const both = await evalJs(`(() => {
+    const p = [...document.querySelectorAll('#previewOut .preview')];
+    return { n: p.length, bg: p.map(x => x.style.background) };
+  })()`);
+  assert(both.n === 2, 'Both does not show light and dark previews');
+  assert(both.bg[0] !== both.bg[1], 'the dark preview uses the light background');
+
+  /* moving the primary mapping repaints the primary button */
+  await click('#themeSeg button', 0);
+  const btn = () => evalJs(`document.querySelector('#previewOut [data-token="primary"]').style.background`);
+  const before = await btn();
+  await evalJs(`(() => { const s = document.getElementById('map-primary');
+    const other = [...s.options].find(o => o.value !== s.value);
+    s.value = other.value; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await sleep(300);
+  assert(await btn() !== before, 'the primary mapping did not move the preview');
+});
+
 const failed = results.filter(r => !r[1]);
 console.log('');
 results.forEach(([name, ok, why]) => console.log(`${ok ? ' ok ' : 'FAIL'}  ${name}${why ? ' — ' + why : ''}`));

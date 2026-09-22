@@ -125,12 +125,37 @@
   .grad em{position:absolute;left:10px;bottom:8px;font-style:normal;font-size:.7rem;background:rgba(0,0,0,.5);color:#fff;padding:3px 8px;border-radius:999px}
   pre{margin:0;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto;font-size:.74rem;line-height:1.5;max-height:420px}
 
-  .preview{border-radius:12px;border:1px solid var(--line);overflow:hidden}
+  .preview{border-radius:12px;border:1px solid var(--line);overflow:hidden;font-size:13px;line-height:1.45}
   .pv-bar{display:flex;align-items:center;gap:10px;padding:12px 14px;font-size:.78rem}
   .pv-body{padding:18px 16px 20px;display:grid;gap:12px}
   .pv-card{border-radius:10px;padding:14px;display:grid;gap:8px}
   .pv-btn{display:inline-block;border-radius:8px;padding:8px 14px;font-size:.78rem;font-weight:600}
   .pv-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+  /* the dense app screen */
+  .pv-app{display:grid;grid-template-columns:148px 1fr;min-height:520px}
+  .pv-side{padding:14px 10px;display:flex;flex-direction:column;gap:2px;font-size:.76rem}
+  .pv-side .pv-brand{display:flex;align-items:center;gap:7px;font-weight:700;padding:2px 8px 12px}
+  .pv-nav{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:7px}
+  .pv-main{padding:16px 16px 20px;display:grid;gap:14px;align-content:start;min-width:0}
+  .pv-h1{font-size:22px;font-weight:700;letter-spacing:-.01em;margin:0}
+  .pv-h2{font-size:15px;font-weight:650;margin:0}
+  .pv-p{font-size:13px;margin:0}
+  .pv-small{font-size:11px;margin:0}
+  .pv-panel{border-radius:10px;padding:12px;display:grid;gap:10px;min-width:0}
+  .pv-table{width:100%;border-collapse:collapse;font-size:12px}
+  .pv-table th{text-align:left;font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;padding:0 8px 7px}
+  .pv-table td{padding:7px 8px;border-top-width:1px;border-top-style:solid}
+  .pv-pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 8px;font-size:10.5px;font-weight:600;border-width:1px;border-style:solid}
+  .pv-pill i{width:6px;height:6px;border-radius:50%;background:currentColor;display:block}
+  .pv-field{display:grid;gap:4px;font-size:11.5px}
+  .pv-input{border-radius:7px;padding:7px 9px;border-width:1px;border-style:solid;font-size:12px}
+  .pv-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .pv-chart{display:flex;align-items:flex-end;gap:8px;height:104px;padding-top:4px}
+  .pv-chart span{flex:1;border-radius:4px 4px 0 0;min-height:4px}
+  .pv-legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:10.5px}
+  .pv-legend b{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle}
+  @media (max-width:720px){ .pv-app{grid-template-columns:1fr} .pv-cols{grid-template-columns:1fr} }
   .swatch-inline{display:inline-flex;align-items:center;gap:7px;font-size:.76rem;color:var(--ink-2)}
   .muted{color:var(--ink-3)}
   .hint{font-size:.74rem;color:var(--ink-3);margin-top:6px}
