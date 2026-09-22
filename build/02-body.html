@@ -11,6 +11,28 @@
     </fieldset>
 
     <fieldset>
+      <legend>Library &mdash; palettes you keep</legend>
+      <div class="field"><label for="libList">Saved here</label><select id="libList"></select></div>
+      <div class="btns" style="margin-top:8px">
+        <button class="btn" id="btnLibSave">Keep this one</button>
+        <button class="btn" id="btnLibDup">Duplicate</button>
+        <button class="btn" id="btnLibDel">Delete</button>
+      </div>
+      <p class="hint" id="libMeta"></p>
+      <p class="hint">Kept in this browser, under the palette&rsquo;s name. Switching loads it straight away, and the switch itself can be undone.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>History</legend>
+      <div class="btns" style="margin-top:0">
+        <button class="btn" id="btnUndo">Undo</button>
+        <button class="btn" id="btnRedo">Redo</button>
+      </div>
+      <p class="hint" id="histMeta"></p>
+      <p class="hint">The last 30 changes, with <kbd>&#8984;Z</kbd> and <kbd>&#8679;&#8984;Z</kbd>. A whole slider drag counts as one.</p>
+    </fieldset>
+
+    <fieldset>
       <legend>Main — identity and primary buttons</legend>
       <div class="chip" id="chipMain"></div>
       <div class="field"><label for="xMain">Brand hex</label><input type="text" id="xMain" placeholder="#2450E6" spellcheck="false"></div>

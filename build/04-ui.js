@@ -3,6 +3,7 @@
   var $ = function(s){ return document.querySelector(s); };
   var el = function(id){ return document.getElementById(id); };
   var STORE = 'palette-studio-v1';
+  var LIB   = 'palette-library-v1';   /* named palettes kept in this browser */
   var THEME = 'light';   /* which theme the views show: light | dark | both */
 
   var DEFAULTS = {
@@ -763,8 +764,131 @@
 
     editorHtml(L);
     applyTheme();
+    pushHistory();
+    libUi();          /* so the library line always says whether this differs from what you kept */
     try{ localStorage.setItem(STORE, JSON.stringify(S)); }catch(e){}
   }
+
+  /* ---------- history: the last 30 changes, with undo and redo ---------- */
+  var HIST = [], HPOS = -1, RESTORING = false, LAST_PUSH = 0;
+  var HIST_MAX = 30, COALESCE = 500;   /* one slider drag is one change, not forty */
+
+  function pushHistory(){
+    if(RESTORING) return;
+    var snap = JSON.stringify(S);
+    if(HIST[HPOS] === snap) return;
+    var now = Date.now();
+    if(HPOS >= 0 && now - LAST_PUSH < COALESCE){   /* still the same gesture — replace the top */
+      HIST[HPOS] = snap; LAST_PUSH = now; histUi(); return;
+    }
+    HIST = HIST.slice(0, HPOS + 1);                /* a new change drops anything redone past here */
+    HIST.push(snap);
+    if(HIST.length > HIST_MAX + 1) HIST.shift();
+    HPOS = HIST.length - 1; LAST_PUSH = now;
+    histUi();
+  }
+  function goTo(i){
+    if(i < 0 || i >= HIST.length || i === HPOS) return;
+    HPOS = i; RESTORING = true;
+    S = JSON.parse(HIST[i]); EDITING = null;
+    syncControls(); render();
+    RESTORING = false; LAST_PUSH = 0;
+    try{ localStorage.setItem(STORE, JSON.stringify(S)); }catch(e){}
+    histUi();
+  }
+  function histUi(){
+    var back = HPOS, fwd = HIST.length - 1 - HPOS;
+    el('btnUndo').disabled = back <= 0;
+    el('btnRedo').disabled = fwd <= 0;
+    el('btnUndo').textContent = 'Undo' + (back > 0 ? ' (' + back + ')' : '');
+    el('btnRedo').textContent = 'Redo' + (fwd > 0 ? ' (' + fwd + ')' : '');
+    el('histMeta').textContent = back === 0
+      ? 'Nothing to undo yet.'
+      : back + (back === 1 ? ' change' : ' changes') + ' back' + (fwd ? ', ' + fwd + ' forward' : '') + '.';
+  }
+  el('btnUndo').addEventListener('click', function(){ goTo(HPOS - 1); });
+  el('btnRedo').addEventListener('click', function(){ goTo(HPOS + 1); });
+  document.addEventListener('keydown', function(e){
+    if(!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return;
+    var t = e.target;
+    if(t && /^(INPUT|TEXTAREA)$/.test(t.tagName) && t.type === 'text') return;   /* let a text field undo its own typing */
+    e.preventDefault();
+    goTo(e.shiftKey ? HPOS + 1 : HPOS - 1);
+  });
+
+  /* ---------- library: named palettes kept in this browser ---------- */
+  var CURRENT = null;   /* id of the library entry this palette came from */
+
+  function libRead(){
+    try{ var d = JSON.parse(localStorage.getItem(LIB) || 'null'); return (d && d.items) ? d.items : []; }
+    catch(e){ return []; }
+  }
+  function libWrite(items){
+    try{ localStorage.setItem(LIB, JSON.stringify({ items: items })); }catch(e){}
+  }
+  function libId(){ return 'p' + Date.now().toString(36) + Math.floor(Math.random()*1e4).toString(36); }
+  function libUi(){
+    var items = libRead(), sel = el('libList');
+    sel.innerHTML = '<option value="">— not saved —</option>' + items.map(function(it){
+      return '<option value="' + it.id + '"' + (it.id === CURRENT ? ' selected' : '') + '>' + it.name + '</option>';
+    }).join('');
+    var here = items.filter(function(it){ return it.id === CURRENT; })[0];
+    var dirty = here && JSON.stringify(here.settings) !== JSON.stringify(S);
+    el('libMeta').textContent = items.length === 0
+      ? 'Nothing kept yet. Keep this one and it stays here between visits.'
+      : items.length + (items.length === 1 ? ' palette' : ' palettes') + ' kept'
+        + (here ? ' · on “' + here.name + '”' + (dirty ? ', changed since you kept it' : '') : ' · this one is not among them') + '.';
+    el('btnLibDel').disabled = !here;
+    el('btnLibSave').textContent = here && !dirty ? 'Kept' : (here ? 'Update “' + here.name + '”' : 'Keep this one');
+    resetDeleteButton();
+  }
+  function libLoad(id){
+    var it = libRead().filter(function(x){ return x.id === id; })[0];
+    if(!it) return;
+    CURRENT = id;
+    S = JSON.parse(JSON.stringify(it.settings));
+    EDITING = null;
+    syncControls(); render();   /* a switch is a change, so it lands in history and can be undone */
+    libUi();
+  }
+  el('btnLibSave').addEventListener('click', function(){
+    var items = libRead();
+    var here = items.filter(function(it){ return it.id === CURRENT; })[0];
+    var byName = items.filter(function(it){ return it.name === S.name; })[0];
+    /* a new name means a new palette: renaming should never quietly overwrite the one you had */
+    var target = (here && here.name === S.name) ? here : byName;
+    if(target){ target.name = S.name; target.settings = JSON.parse(JSON.stringify(S)); target.saved = Date.now(); CURRENT = target.id; }
+    else { var it = { id: libId(), name: S.name, settings: JSON.parse(JSON.stringify(S)), saved: Date.now() }; items.push(it); CURRENT = it.id; }
+    libWrite(items); libUi();
+  });
+  el('btnLibDup').addEventListener('click', function(){
+    var items = libRead();
+    var base = S.name.replace(/ copy( \d+)?$/, ''), name = base + ' copy', n = 2;
+    while(items.some(function(it){ return it.name === name; })){ name = base + ' copy ' + (n++); }
+    S.name = name;
+    var it = { id: libId(), name: name, settings: JSON.parse(JSON.stringify(S)), saved: Date.now() };
+    items.push(it); CURRENT = it.id;
+    libWrite(items);
+    syncControls(); render(); libUi();
+  });
+  /* deleting is the one thing here that cannot be undone, so it asks once */
+  var ARMED = false;
+  function resetDeleteButton(){
+    ARMED = false;
+    var b = el('btnLibDel');
+    b.textContent = 'Delete'; b.classList.remove('danger');
+  }
+  el('btnLibDel').addEventListener('click', function(){
+    var b = el('btnLibDel');
+    if(!ARMED){ ARMED = true; b.textContent = 'Delete for good?'; b.classList.add('danger'); return; }
+    libWrite(libRead().filter(function(it){ return it.id !== CURRENT; }));
+    CURRENT = null;          /* the colours stay on screen; only the saved copy goes */
+    libUi();
+  });
+  el('libList').addEventListener('change', function(){
+    var v = el('libList').value;
+    if(v) libLoad(v); else { CURRENT = null; libUi(); }
+  });
 
   /* which theme the views show; Both shows them side by side */
   function applyTheme(){
@@ -910,6 +1034,8 @@
   }catch(e){}
   syncControls();
   render();
+  histUi();
+  libUi();
 })();
 </script>
 </body>

@@ -18,6 +18,8 @@ Colour is generated in OKLCH and stays there: every ramp sits on the same lightn
 - **Opacity and overlays.** Every role at 4–80% over each surface, with the exact solid it composites to and the ramp step it matches (so a tint can be swapped for a token), so a tint can be matched back to a real step. Drop in an image and the lightest and darkest pixels under the caption area are measured, and the scrim needed for white text is reported.
 - **Gradients** interpolated in OKLCH, with a banding note and where white text survives.
 - **A preview worth trusting.** One dense screen rather than a few swatches: a sidebar with an active item, a table of six rows carrying all six functional statuses, a form with a focused field, an error and a disabled field, a five-series chart on the chart tokens, and body text at three sizes. Drawn only from tokens, in light and dark, so a mapping change has somewhere to show.
+- **A library of palettes.** Keep the current palette under its name, switch between kept ones, duplicate, and delete. Kept in this browser, and the line under the list says whether what is on screen still matches what you kept. Renaming and keeping makes a new palette rather than overwriting the old one; deleting asks once and removes only the saved copy, never the colours on screen.
+- **Undo and redo** over the last 30 changes, with ⌘Z and ⇧⌘Z. A whole slider drag counts as one change, a new change after undoing drops the branch ahead of it, and switching library palettes can be undone like anything else.
 - **Export** as a shadcn `globals.css` (`:root` and `.dark`, all in OKLCH, plus the raw ramps as custom properties) or as JSON. Save and load a palette file; the last state is remembered in the browser.
 
 - **Nudge one step.** Click any swatch to open an editor and move that step's lightness or colourfulness on its own; nudged steps carry a dashed outline, and a reset puts them back.
@@ -33,7 +35,7 @@ python3 -m http.server 8829     # from this folder, in another terminal
 node journeys.mjs               # or: node journeys.mjs http://host/page
 ```
 
-Nine journeys: a brand colour survives being worked around and can be recovered; the pin toggles with a real click; every token mapping moves something on screen; a step can be nudged and reset; the theme switch reaches every tab; work survives a reload; the defaults pass their own contrast audit; the hue turns along a ramp without leaving its family; the preview uses every token and reacts to a mapping. Exit code 1 if any fail.
+Eleven journeys: a brand colour survives being worked around and can be recovered; the pin toggles with a real click; every token mapping moves something on screen; a step can be nudged and reset; the theme switch reaches every tab; work survives a reload; the defaults pass their own contrast audit; the hue turns along a ramp without leaving its family; the preview uses every token and reacts to a mapping; the library keeps, switches, duplicates and deletes without losing work; undo and redo walk the history, by button and by keyboard. Exit code 1 if any fail.
 
 Each of those exists because a spot check missed it. Anything added from here should come with a journey, and every new control should answer three questions: what does it change on screen, how is it undone, and what does it look like in a strange state.
 

@@ -69,7 +69,7 @@ const type = async (id_, value) => {
 const reset = async () => {
   await send('Page.navigate', { url: URL_ + (URL_.includes('?') ? '&' : '?') + 'j=' + Date.now() });
   await sleep(1400);
-  await evalJs(`localStorage.removeItem('palette-studio-v1')`);
+  await evalJs(`localStorage.removeItem('palette-studio-v1'); localStorage.removeItem('palette-library-v1')`);
   await send('Page.navigate', { url: URL_ + (URL_.includes('?') ? '&' : '?') + 'j=' + Date.now() });
   await sleep(1400);
 };
@@ -272,6 +272,115 @@ await journey('the preview shows every token and reacts to a mapping', async () 
     s.value = other.value; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
   await sleep(300);
   assert(await btn() !== before, 'the primary mapping did not move the preview');
+});
+
+/* 10 — a palette can be kept, switched away from, and come back the same */
+await journey('the library keeps palettes and switches between them', async () => {
+  await type('pName', 'Harbour');
+  await setRange('hMain', 200);
+  await click('#btnLibSave');
+  let state = await evalJs(`({ options: [...document.getElementById('libList').options].map(o => o.text),
+                               meta: document.getElementById('libMeta').textContent })`);
+  assert(state.options.includes('Harbour'), 'the palette was not kept');
+  assert(/1 palette kept/.test(state.meta), 'the library line does not say what it holds: ' + state.meta);
+
+  /* a second, clearly different palette */
+  await type('pName', 'Ember');
+  await setRange('hMain', 30);
+  await click('#btnLibSave');
+  state = await evalJs(`[...document.getElementById('libList').options].map(o => o.text)`);
+  assert(state.includes('Harbour') && state.includes('Ember'), 'keeping a second palette lost the first');
+
+  /* switching back brings its colours with it */
+  await evalJs(`(() => { const s = document.getElementById('libList');
+    s.value = [...s.options].find(o => o.text === 'Harbour').value;
+    s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await sleep(320);
+  let hue = await evalJs(`document.getElementById('hMain').value`);
+  assert(hue === '200', 'switching back did not restore the hue, got ' + hue);
+
+  /* changing it says so, rather than pretending it is still what you kept */
+  await setRange('hMain', 120);
+  let meta = await evalJs(`document.getElementById('libMeta').textContent`);
+  assert(/changed since you kept it/.test(meta), 'the library did not notice the change: ' + meta);
+
+  /* duplicate makes a separate copy under its own name */
+  await click('#btnLibDup');
+  state = await evalJs(`({ names: [...document.getElementById('libList').options].map(o => o.text),
+                           name: document.getElementById('pName').value })`);
+  assert(state.name === 'Harbour copy', 'the duplicate is not named as a copy: ' + state.name);
+  assert(state.names.filter(n => /^Harbour/.test(n)).length === 2, 'the duplicate replaced the original');
+
+  /* delete asks once, then removes only the saved copy */
+  await click('#btnLibDel');
+  const armed = await evalJs(`document.getElementById('btnLibDel').textContent`);
+  assert(/for good/.test(armed), 'delete did not ask first');
+  await click('#btnLibDel');
+  state = await evalJs(`({ names: [...document.getElementById('libList').options].map(o => o.text),
+                           hue: document.getElementById('hMain').value })`);
+  assert(!state.names.includes('Harbour copy'), 'the copy was not deleted');
+  assert(state.names.includes('Harbour') && state.names.includes('Ember'), 'delete took the wrong palettes');
+  assert(state.hue === '120', 'deleting the saved copy also wiped the colours on screen');
+
+  /* and the library survives a reload */
+  await send('Page.navigate', { url: URL_ + '?r=' + Date.now() });
+  await sleep(1500);
+  state = await evalJs(`[...document.getElementById('libList').options].map(o => o.text)`);
+  assert(state.includes('Harbour') && state.includes('Ember'), 'the library did not survive a reload');
+});
+
+/* 11 — changes can be walked back and forward, and a drag counts once */
+await journey('undo and redo walk the last changes', async () => {
+  let ui = await evalJs(`({ undo: document.getElementById('btnUndo').disabled,
+                            redo: document.getElementById('btnRedo').disabled })`);
+  assert(ui.undo && ui.redo, 'there is something to undo before anything happened');
+
+  await setRange('hMain', 300);
+  await sleep(600);
+  await setRange('hMain', 40);
+  await sleep(600);
+  assert(await evalJs(`document.getElementById('hMain').value`) === '40', 'the hue did not move');
+
+  await click('#btnUndo');
+  assert(await evalJs(`document.getElementById('hMain').value`) === '300', 'undo did not go back one change');
+  await click('#btnUndo');
+  assert(await evalJs(`document.getElementById('hMain').value`) === '250', 'undo did not reach the start');
+  ui = await evalJs(`document.getElementById('btnUndo').disabled`);
+  assert(ui === true, 'undo is still offered at the start of history');
+
+  await click('#btnRedo');
+  assert(await evalJs(`document.getElementById('hMain').value`) === '300', 'redo did not come forward');
+
+  /* the ramps really follow, not just the slider */
+  const swatch = () => evalJs(`document.querySelectorAll('#rampsLight .ramp')[0].querySelectorAll('.sw span')[5].textContent`);
+  const at300 = await swatch();
+  await click('#btnUndo');
+  assert(await swatch() !== at300, 'undo moved the control but not the colours');
+
+  /* a new change after undoing drops the redo branch */
+  await setRange('cMain', 0.24);
+  ui = await evalJs(`document.getElementById('btnRedo').disabled`);
+  assert(ui === true, 'redo still points at a branch that was written over');
+
+  /* one drag is one change, not forty */
+  const before = await evalJs(`document.getElementById('btnUndo').textContent`);
+  for (const v of [100, 110, 120, 130, 140]) {
+    await evalJs(`(() => { const el = document.getElementById('hMain'); el.value = '${v}';
+      el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    await sleep(60);
+  }
+  await sleep(600);
+  await click('#btnUndo');
+  assert(await evalJs(`document.getElementById('hMain').value`) !== '130', 'a drag left a step behind for every frame');
+
+  /* and the keyboard does the same thing as the button */
+  await setRange('cMain', 0.08);
+  await sleep(600);
+  const keyed = await evalJs(`document.getElementById('cMain').value`);
+  await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'z', code: 'KeyZ', windowsVirtualKeyCode: 90, nativeVirtualKeyCode: 90, modifiers: 4 });
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'z', code: 'KeyZ', windowsVirtualKeyCode: 90, nativeVirtualKeyCode: 90, modifiers: 4 });
+  await sleep(320);
+  assert(await evalJs(`document.getElementById('cMain').value`) !== keyed, 'the keyboard shortcut did nothing');
 });
 
 const failed = results.filter(r => !r[1]);
