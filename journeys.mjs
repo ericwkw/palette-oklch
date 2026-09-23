@@ -879,6 +879,75 @@ await journey('state colours can be moved off the brand', async () => {
   assert(back === '145,75,27,235,295,185', 'Back to defaults did not restore every state colour: ' + back);
 });
 
+/* 22 — the rail folds, undo says what it undoes, the ramps show colour first,
+        and the tabs have an order */
+await journey('the tool is possible to get around', async () => {
+  /* the rail arrives folded, so the whole of it is reachable */
+  let rail = await evalJs(`(() => {
+    const secs = [...document.querySelectorAll('fieldset[data-sec]')];
+    return { total: secs.length,
+             open: secs.filter(f => f.hasAttribute('data-open')).map(f => f.dataset.sec),
+             summaries: secs.filter(f => !f.hasAttribute('data-open'))
+               .map(f => f.querySelector('.sec-sum').textContent.trim()).filter(Boolean).length,
+             railHeight: document.querySelector('.rail').scrollHeight };
+  })()`);
+  assert(rail.total >= 10, 'the rail lost its sections');
+  assert(rail.open.length < rail.total, 'every section is open, so nothing was folded');
+  assert(rail.open.includes('history'), 'undo is folded away by default');
+  assert(rail.summaries >= 5, 'a folded section says nothing about what is inside it');
+
+  /* folding is remembered across a reload */
+  await click('fieldset[data-sec="shape"] .sec-toggle');
+  let open = await evalJs(`document.querySelector('fieldset[data-sec="shape"]').hasAttribute('data-open')`);
+  assert(open, 'the section did not open');
+  await send('Page.navigate', { url: URL_ + '?f=' + Date.now() });
+  await sleep(1500);
+  open = await evalJs(`document.querySelector('fieldset[data-sec="shape"]').hasAttribute('data-open')`);
+  assert(open, 'what was open was forgotten on reload');
+
+  /* undo names the change rather than counting it */
+  await setRange('hMain', 300);
+  await sleep(600);
+  let undo = await evalJs(`({ text: document.getElementById('btnUndo').textContent,
+                              title: document.getElementById('btnUndo').title })`);
+  assert(/hue/.test(undo.text), 'undo does not say what it would undo: ' + undo.text);
+  await click('#btnLibSave');
+  await sleep(200);
+  await click('#tabs button', 6);
+  await click('#btnFamAdd');
+  undo = await evalJs(`document.getElementById('btnUndo').textContent`);
+  assert(/sister/.test(undo), 'undo does not name the last action: ' + undo);
+  await click('#btnUndo');
+  const redo = await evalJs(`document.getElementById('btnRedo').textContent`);
+  assert(/sister/.test(redo), 'redo does not name what it would put back: ' + redo);
+
+  /* the ramps lead with colour: the values are there but not shouting */
+  await click('#tabs button', 0);
+  let sw = await evalJs(`(() => {
+    const s = document.querySelectorAll('#rampsLight .sw')[3];
+    const cs = getComputedStyle(s.querySelector('span'));
+    return { opacity: +cs.opacity, text: s.querySelector('span').textContent };
+  })()`);
+  assert(/^#/.test(sw.text), 'the value is gone from the markup, not merely quiet');
+  assert(sw.opacity < 0.2, 'every hex is still shouting at full strength: ' + sw.opacity);
+  await click('#showValues');
+  sw = await evalJs(`+getComputedStyle(document.querySelectorAll('#rampsLight .sw')[3].querySelector('span')).opacity`);
+  assert(sw > 0.5, 'the show-every-value switch does nothing: ' + sw);
+
+  /* the work has an order, it reflects the state, and it goes somewhere */
+  const steps = await evalJs(`[...document.querySelectorAll('#steps li')].map(li => ({
+    cls: li.className, title: li.querySelector('.t').textContent, note: li.querySelector('.s').textContent.trim() }))`);
+  assert(steps.length >= 4, 'there is still no suggested order: ' + steps.length);
+  assert(steps[0].cls === 'todo' && /paste/.test(steps[0].note),
+    'step one does not ask for a brand colour on an untouched palette: ' + steps[0].note);
+  await type('xMain', '#0075C9');
+  const after = await evalJs(`[...document.querySelectorAll('#steps li')].map(li => li.className)`);
+  assert(after[0] === 'done', 'pasting a brand colour did not tick the first step');
+  await click('#steps [data-goto="contrast"]');
+  const view = await evalJs(`document.querySelector('section.view.on').dataset.view`);
+  assert(view === 'contrast', 'a step does not take you to the tab that does it: ' + view);
+});
+
 const failed = results.filter(r => !r[1]);
 console.log('');
 results.forEach(([name, ok, why]) => console.log(`${ok ? ' ok ' : 'FAIL'}  ${name}${why ? ' — ' + why : ''}`));

@@ -4,14 +4,15 @@
   <aside class="rail">
     <div class="brand"><h1>Palette</h1><span>OKLCH studio</span></div>
     <p class="sub">Ramps on fixed lightness steps (shadcn / Tailwind 50–950), roles on top, light and dark from one source.</p>
+    <div class="btns" style="margin:0 0 4px"><button class="btn mini" id="btnSecAll">Open every section</button></div>
 
-    <fieldset>
-      <legend>Palette name</legend>
+    <fieldset data-sec="name" data-open="1">
+      <legend><button class="sec-toggle" type="button" aria-expanded="true"><span class="sec-name">Palette name</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
       <div class="field"><label for="pName">Name</label><input type="text" id="pName" value="Untitled"></div>
     </fieldset>
 
-    <fieldset>
-      <legend>Library &mdash; palettes you keep</legend>
+    <fieldset data-sec="library" data-open="1">
+      <legend><button class="sec-toggle" type="button" aria-expanded="true"><span class="sec-name">Library &mdash; palettes you keep</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
       <div class="field"><label for="libList">Saved here</label><select id="libList"></select></div>
       <div class="btns" style="margin-top:8px">
         <button class="btn" id="btnLibSave">Keep this one</button>
@@ -22,8 +23,8 @@
       <p class="hint">Kept in this browser, under the palette&rsquo;s name. Switching loads it straight away, and the switch itself can be undone.</p>
     </fieldset>
 
-    <fieldset>
-      <legend>History</legend>
+    <fieldset data-sec="history" data-open="1">
+      <legend><button class="sec-toggle" type="button" aria-expanded="true"><span class="sec-name">History</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
       <div class="btns" style="margin-top:0">
         <button class="btn" id="btnUndo">Undo</button>
         <button class="btn" id="btnRedo">Redo</button>
@@ -32,8 +33,8 @@
       <p class="hint">The last 30 changes, with <kbd>&#8984;Z</kbd> and <kbd>&#8679;&#8984;Z</kbd>. A whole slider drag counts as one.</p>
     </fieldset>
 
-    <fieldset>
-      <legend>Main — identity and primary buttons</legend>
+    <fieldset data-sec="main" data-open="1">
+      <legend><button class="sec-toggle" type="button" aria-expanded="true"><span class="sec-name">Main — identity and primary buttons</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
       <div class="chip" id="chipMain"></div>
       <div class="field"><label for="xMain">Brand hex</label><input type="text" id="xMain" placeholder="#2450E6" spellcheck="false"></div>
       <div class="anchor" id="anMain"></div>
@@ -43,8 +44,8 @@
       <p class="hint">Paste a brand hex and the ramp is built around it: the hue and colourfulness come from your colour, the lightness comes from the shared steps. The line above shows your colour beside the step it lands on, and whether the two match.</p>
     </fieldset>
 
-    <fieldset>
-      <legend>Supporting — structure and secondary surfaces</legend>
+    <fieldset data-sec="sup">
+      <legend><button class="sec-toggle" type="button" aria-expanded="false"><span class="sec-name">Supporting — structure and secondary surfaces</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
       <div class="chip" id="chipSup"></div>
       <div class="field"><label for="xSup">Brand hex</label><input type="text" id="xSup" placeholder="#2450E6" spellcheck="false"></div>
       <div class="anchor" id="anSup"></div>
@@ -61,8 +62,8 @@
       <p class="hint">Relation sets the hue from the main colour. Pick Custom to move it yourself.</p>
     </fieldset>
 
-    <fieldset>
-      <legend>Accent 1 — the highlight you meet often</legend>
+    <fieldset data-sec="a1">
+      <legend><button class="sec-toggle" type="button" aria-expanded="false"><span class="sec-name">Accent 1 — the highlight you meet often</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
       <div class="chip" id="chipA1"></div>
       <div class="field"><label for="xA1">Brand hex</label><input type="text" id="xA1" placeholder="#2450E6" spellcheck="false"></div>
       <div class="anchor" id="anA1"></div>
@@ -71,8 +72,8 @@
       <div class="row"><label for="cA1">Colourfulness</label><input type="range" id="cA1" min="0.02" max="0.32" step="0.005" value="0.18"><output id="ocA1">.180</output></div>
     </fieldset>
 
-    <fieldset>
-      <legend>Accent 2 — the rare, strongest mark</legend>
+    <fieldset data-sec="a2">
+      <legend><button class="sec-toggle" type="button" aria-expanded="false"><span class="sec-name">Accent 2 — the rare, strongest mark</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
       <div class="chip" id="chipA2"></div>
       <div class="field"><label for="xA2">Brand hex</label><input type="text" id="xA2" placeholder="#2450E6" spellcheck="false"></div>
       <div class="anchor" id="anA2"></div>
@@ -82,8 +83,8 @@
       <p class="hint">One accent appears often — a tag, a marker. The other is kept for the single most important thing in a view.</p>
     </fieldset>
 
-    <fieldset>
-      <legend>Neutrals — paper, panels, hairlines, text</legend>
+    <fieldset data-sec="neutral">
+      <legend><button class="sec-toggle" type="button" aria-expanded="false"><span class="sec-name">Neutrals — paper, panels, hairlines, text</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
       <div class="chip" id="chipNeu"></div>
       <div class="row"><label for="cNeu">Tint <button class="term" data-term="tint" title="What does this mean?">?</button></label><input type="range" id="cNeu" min="0" max="0.05" step="0.002" value="0.012"><output id="ocNeu">.012</output></div>
       <div class="field"><label for="hNeu">Hue from</label>
@@ -92,8 +93,8 @@
       <p class="hint">A little tint keeps greys from looking dead. Zero gives true grey.</p>
     </fieldset>
 
-    <fieldset>
-      <legend>Ramp shape — how the shades behave</legend>
+    <fieldset data-sec="shape">
+      <legend><button class="sec-toggle" type="button" aria-expanded="false"><span class="sec-name">Ramp shape — how the shades behave</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
       <div class="row"><label for="cPeak">Strongest at <button class="term" data-term="peak" title="What does this mean?">?</button></label><input type="range" id="cPeak" min="0" max="10" step="1" value="6"><output id="ocPeak">600</output></div>
       <div class="row"><label for="cFall">Dark fade <button class="term" data-term="falloff" title="What does this mean?">?</button></label><input type="range" id="cFall" min="0.2" max="1.6" step="0.05" value="0.85"><output id="ocFall">.85</output></div>
       <div class="row"><label for="cTwist">Hue turn <button class="term" data-term="twist" title="What does this mean?">?</button></label><input type="range" id="cTwist" min="0" max="2" step="0.05" value="1"><output id="ocTwist">1.00</output></div>
@@ -103,16 +104,16 @@
       <p class="hint" id="gamutNote">sRGB keeps every value safe everywhere. In P3 swatches are painted in OKLCH and a ▲ marks the ones a plain sRGB screen cannot show; hex stays as the closest sRGB fallback.</p>
     </fieldset>
 
-    <fieldset>
-      <legend>Dark mode — same hues, different curve</legend>
+    <fieldset data-sec="dark">
+      <legend><button class="sec-toggle" type="button" aria-expanded="false"><span class="sec-name">Dark mode — same hues, different curve</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
       <p class="hint" style="margin-top:8px">Every hue and colourfulness above is shared by both themes. Only the lightness curve differs, and tokens read the ramp from the opposite end: paper is step 50 in light, step 950 in dark.</p>
       <div class="row"><label for="dLift">Deep end lift <button class="term" data-term="lift" title="What does this mean?">?</button></label><input type="range" id="dLift" min="0" max="0.14" step="0.005" value="0.055"><output id="odLift">.055</output></div>
       <div class="row"><label for="dBoost">Colourfulness</label><input type="range" id="dBoost" min="0.6" max="1.4" step="0.02" value="1"><output id="odBoost">1.00</output></div>
       <p class="hint">Lift keeps dark surfaces apart from each other; colourfulness compensates for colours looking weaker on a dark ground.</p>
     </fieldset>
 
-    <fieldset>
-      <legend>Share of surface <button class="term" data-term="share" title="What does this mean?">?</button></legend>
+    <fieldset data-sec="share">
+      <legend><button class="sec-toggle" type="button" aria-expanded="false"><span class="sec-name">Share of surface <button class="term" data-term="share" title="What does this mean?">?</button></span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
       <div class="share" id="railShare" style="height:16px;margin:2px 0 10px"></div>
       <div class="row"><label for="sNeutral">Neutral</label><input type="range" id="sNeutral" min="0" max="100" step="1" value="55"><output id="osNeutral">55</output></div>
       <div class="row"><label for="sSup">Supporting</label><input type="range" id="sSup" min="0" max="100" step="1" value="22"><output id="osSup">22</output></div>
@@ -133,6 +134,7 @@
   </aside>
 
   <main class="main">
+    <ol class="steps" id="steps"></ol>
     <div class="tabs" id="tabs">
       <button data-view="ramps" aria-selected="true">Ramps</button>
       <button data-view="roles" aria-selected="false">Roles &amp; tokens</button>
@@ -153,17 +155,18 @@
 
     <section class="view on" data-view="ramps">
       <div class="head"><h2>Ramps</h2><span class="muted mono" id="rampMeta"></span></div>
-      <p class="note">Every ramp shares the same lightness steps, so a shade means the same weight whatever the hue. Chroma peaks near the middle and eases off at both ends. Click any swatch to copy its value.</p>
+      <p class="note">Every ramp shares the same lightness steps, so a shade means the same weight whatever the hue. Chroma peaks near the middle and eases off at both ends. Hover a swatch for its step and value, click it to copy, click again to nudge it.</p>
+      <div class="btns" style="margin:0 0 12px"><label class="check" style="margin:0"><input type="checkbox" id="showValues"> Show every value at once</label></div>
       <div class="card" data-theme="light">
         <div class="steps-head" id="stepsHead"></div>
-        <div id="rampsLight"></div>
+        <div id="rampsLight" class="ramps"></div>
         <div id="stepEditor" class="editor" hidden></div>
       </div>
       <div class="card dark-card" data-theme="dark">
         <h3>Dark mode</h3>
         <p class="cap">Same hues, same step order: 50 stays the lightest. The curve lifts the deep end and eases the light end, so dark surfaces stay separable.</p>
         <div class="steps-head" id="stepsHeadDark"></div>
-        <div id="rampsDark"></div>
+        <div id="rampsDark" class="ramps"></div>
       </div>
     </section>
 

@@ -1402,6 +1402,7 @@
     el('stepsHeadDark').innerHTML = stepsHeadHtml();
     el('rampsLight').innerHTML = rampsHtml(L,false);
     el('rampsDark').innerHTML = rampsHtml(D,true);
+    applyValues();
 
     },
     roles: function(L, D){
@@ -1518,6 +1519,8 @@
     if(el('shareCheck')) el('shareCheck').innerHTML = shareCheckHtml();
 
 
+    railSummaries(L);
+    el('steps').innerHTML = stepsHtml();
     Object.keys(PAINT).forEach(function(k){ STALE[k] = true; });
     PAINT.ramps(L, D);            /* the ramps are the tool's own subject, always current */
     STALE.ramps = false;
@@ -1537,19 +1540,24 @@
      so Remove then Undo works however fast the two come */
   var GESTURE = null, LAST_GESTURE = null;
   function dragging(tag){ GESTURE = tag; }
+  /* what the next entry in the history should be called, so Undo can say it */
+  var NEXT_LABEL = null;
+  function describe(text){ NEXT_LABEL = text; }
 
   function pushHistory(){
     if(RESTORING) return;
     var snap = JSON.stringify(S);
-    if(HIST[HPOS] === snap) return;
+    var label = NEXT_LABEL; NEXT_LABEL = null;
+    if(HIST[HPOS] && HIST[HPOS].snap === snap) return;
     var now = Date.now();
     var same = GESTURE && GESTURE === LAST_GESTURE && now - LAST_PUSH < COALESCE;
     LAST_GESTURE = GESTURE; GESTURE = null;
     if(HPOS >= 0 && same){                         /* still the same drag — replace the top */
-      HIST[HPOS] = snap; LAST_PUSH = now; histUi(); return;
+      HIST[HPOS] = { snap: snap, label: label || HIST[HPOS].label };
+      LAST_PUSH = now; histUi(); return;
     }
     HIST = HIST.slice(0, HPOS + 1);                /* a new change drops anything redone past here */
-    HIST.push(snap);
+    HIST.push({ snap: snap, label: label || 'a change' });
     if(HIST.length > HIST_MAX + 1) HIST.shift();
     HPOS = HIST.length - 1; LAST_PUSH = now;
     histUi();
@@ -1557,7 +1565,7 @@
   function goTo(i){
     if(i < 0 || i >= HIST.length || i === HPOS) return;
     HPOS = i; RESTORING = true;
-    S = JSON.parse(HIST[i]); EDITING = null;
+    S = JSON.parse(HIST[i].snap); EDITING = null;
     syncControls(); render();
     RESTORING = false; LAST_PUSH = 0; GESTURE = null; LAST_GESTURE = null;
     try{ localStorage.setItem(STORE, JSON.stringify(S)); }catch(e){}
@@ -1565,10 +1573,14 @@
   }
   function histUi(){
     var back = HPOS, fwd = HIST.length - 1 - HPOS;
+    var undoing = back > 0 ? HIST[HPOS].label : null;      /* the change you are about to walk back out of */
+    var redoing = fwd > 0 ? HIST[HPOS + 1].label : null;
     el('btnUndo').disabled = back <= 0;
     el('btnRedo').disabled = fwd <= 0;
-    el('btnUndo').textContent = 'Undo' + (back > 0 ? ' (' + back + ')' : '');
-    el('btnRedo').textContent = 'Redo' + (fwd > 0 ? ' (' + fwd + ')' : '');
+    el('btnUndo').textContent = undoing ? 'Undo ' + undoing : 'Undo';
+    el('btnRedo').textContent = redoing ? 'Redo ' + redoing : 'Redo';
+    el('btnUndo').title = undoing ? 'Undo ' + undoing + ' — ' + back + ' to walk back through' : '';
+    el('btnRedo').title = redoing ? 'Redo ' + redoing : '';
     el('histMeta').textContent = back === 0
       ? 'Nothing to undo yet.'
       : back + (back === 1 ? ' change' : ' changes') + ' back' + (fwd ? ', ' + fwd + ' forward' : '') + '.';
@@ -1617,6 +1629,7 @@
     S.family = S.family || { sisters:[] };     /* palettes kept before families existed */
     S.func = S.func || {};
     EDITING = null;
+    describe('switching to \u201c' + it.name + '\u201d');
     syncControls(); render();   /* a switch is a change, so it lands in history and can be undone */
     libUi();
   }
@@ -1664,7 +1677,7 @@
     S.family = S.family || { sisters:[] };
     var h = freeHue();
     S.family.sisters.push({ id:'s' + Date.now().toString(36), name:'Sister ' + (S.family.sisters.length + 1), h:h, c:S.main.c });
-    render();
+    describe('adding a sister'); render();
   });
   /* push the sisters apart so no two are mistaken for each other */
   el('btnFamSpread').addEventListener('click', function(){
@@ -1680,8 +1693,8 @@
   el('famList').addEventListener('input', function(e){
     var i = e.target.closest('[data-fam]'); if(!i) return;
     var sis = sisters().filter(function(x){ return x.id === i.dataset.id; })[0]; if(!sis) return;
-    if(i.dataset.fam === 'h'){ sis.h = +i.value; dragging('fam:' + i.dataset.id + ':h'); }
-    else if(i.dataset.fam === 'c'){ sis.c = +i.value; dragging('fam:' + i.dataset.id + ':c'); }
+    if(i.dataset.fam === 'h'){ sis.h = +i.value; dragging('fam:' + i.dataset.id + ':h'); describe(sis.name + '\u2019s hue'); }
+    else if(i.dataset.fam === 'c'){ sis.c = +i.value; dragging('fam:' + i.dataset.id + ':c'); describe(sis.name + '\u2019s colourfulness'); }
     else return;                      /* the name is handled on change, so typing is not interrupted */
     render();
   });
@@ -1693,8 +1706,9 @@
   });
   el('famList').addEventListener('click', function(e){
     var b = e.target.closest('[data-famdel]'); if(!b) return;
+    var gone = sisters().filter(function(x){ return x.id === b.dataset.famdel; })[0];
     S.family.sisters = sisters().filter(function(x){ return x.id !== b.dataset.famdel; });
-    render();          /* removing a sister is a change like any other, so undo brings it back */
+    describe('removing ' + (gone ? gone.name : 'a sister')); render();          /* removing a sister is a change like any other, so undo brings it back */
   });
 
   /* ---------- the words ----------
@@ -1754,12 +1768,152 @@
     openGloss(t.dataset.term);
   });
 
+  /* the name a control goes by, for the history label */
+  function controlName(input){
+    var sec = input.closest('fieldset[data-sec]');
+    var group = sec ? (sec.querySelector('.sec-name') || {}).textContent : '';
+    group = (group || '').split('\u2014')[0].trim().toLowerCase();
+    var wrap = input.closest('.row, .field');
+    var lab = wrap && wrap.querySelector('label');
+    var name = lab ? lab.textContent.replace(/\?$/, '').trim().toLowerCase() : input.id;
+    if(input.id === 'pName') return 'the name';
+    return group && group !== name ? name + ' on ' + group : name;
+  }
+
+  /* ---------- the order the work goes in ----------
+     Eight tabs and no suggestion of a path. These four say what to do next and
+     whether it has been done, and take you to the tab that does it. */
+  function stepsHtml(){
+    var pinned = BRAND_ROLES.filter(function(r){ return S[r[0]] && S[r[0]].brand; });
+    var reach = brandReach();
+    var unreached = reach.filter(function(r){ return !r.used.length; });
+    var L = build(false), D = build(true);
+    function fails(dark){
+      var t = tokens(dark ? D : L, dark);
+      return TOKEN_PAIRS.filter(function(pair){
+        var fg = t[pair[0]], bg = t[pair[1]];
+        return fg && bg && wcag(fg.hex, bg.hex) < needOf(pair[2]);
+      }).length;
+    }
+    var bad = fails(false) + fails(true);
+    var clashes = FUNCTIONAL.filter(function(f){ return funcWarnings(f).length; }).length;
+
+    var steps = [
+      { view:'ramps', title:'Give it your colours',
+        state: pinned.length ? 'done' : 'todo',
+        note: pinned.length ? pinned.length + ' pinned' : 'paste a brand hex' },
+      { view:'roles', title:'Check they are used',
+        state: !pinned.length ? 'todo' : (unreached.length ? 'warn' : 'done'),
+        note: !pinned.length ? 'nothing pinned yet'
+              : (unreached.length ? unreached.length + ' unused' : 'all in use') },
+      { view:'contrast', title:'Clear the audit',
+        state: bad ? 'warn' : 'done',
+        note: bad ? bad + ' short' : 'all clear' },
+      { view:'roles', title:'Keep states distinct',
+        state: clashes ? 'warn' : 'done',
+        note: clashes ? clashes + ' too close' : 'no clashes' },
+      { view:'export', title:'Hand it over',
+        state: 'todo', note: 'css, Tailwind, Figma' }
+    ];
+    return steps.map(function(st, i){
+      var mark = st.state === 'done' ? '✓' : (st.state === 'warn' ? '!' : '→');
+      return '<li class="' + st.state + '"><button data-goto="' + st.view + '">' +
+        '<span class="n">' + (i + 1) + '</span>' +
+        '<span class="t">' + st.title + '</span>' +
+        '<span class="s">' + mark + ' ' + st.note + '</span>' +
+        '</button></li>';
+    }).join('');
+  }
+  document.addEventListener('click', function(e){
+    var b = e.target.closest('[data-goto]'); if(!b) return;
+    var tab = document.querySelector('#tabs button[data-view="' + b.dataset.goto + '"]');
+    if(tab) tab.click();
+    var main = document.querySelector('.main');
+    if(main && main.scrollIntoView) main.scrollIntoView({ block:'start' });
+  });
+
+  /* show every value at once, for the times you are reading rather than looking */
+  var SHOW_VALUES = false;
+  try{ SHOW_VALUES = localStorage.getItem('palette-values-v1') === '1'; }catch(e){}
+  function applyValues(){
+    document.querySelectorAll('.ramps').forEach(function(r){ r.classList.toggle('show-values', SHOW_VALUES); });
+    var box = el('showValues'); if(box) box.checked = SHOW_VALUES;
+  }
+  el('showValues').addEventListener('change', function(){
+    SHOW_VALUES = el('showValues').checked;
+    try{ localStorage.setItem('palette-values-v1', SHOW_VALUES ? '1' : '0'); }catch(e){}
+    applyValues();
+  });
+
+  /* ---------- the rail folds ----------
+     Eleven sections in one column is a scroll-and-hunt. Each folds to a line
+     that still says what is inside it, and what is open is remembered. */
+  var RAIL_KEY = 'palette-rail-v1';
+  function railState(){
+    try{ return JSON.parse(localStorage.getItem(RAIL_KEY) || 'null') || null; }catch(e){ return null; }
+  }
+  function railSave(){
+    var open = {};
+    document.querySelectorAll('fieldset[data-sec]').forEach(function(f){ open[f.dataset.sec] = f.hasAttribute('data-open'); });
+    try{ localStorage.setItem(RAIL_KEY, JSON.stringify(open)); }catch(e){}
+  }
+  function railRestore(){
+    var open = railState(); if(!open) return;
+    document.querySelectorAll('fieldset[data-sec]').forEach(function(f){
+      var want = open[f.dataset.sec];
+      if(want === undefined) return;
+      if(want) f.setAttribute('data-open',''); else f.removeAttribute('data-open');
+      var b = f.querySelector('.sec-toggle');
+      if(b) b.setAttribute('aria-expanded', String(!!want));
+    });
+  }
+  /* what a folded section says about itself */
+  function railSummaries(L){
+    function dot(hex){ return '<i style="background:' + hex + '"></i>'; }
+    var moved = Object.keys(S.func || {}).length;
+    var sum = {
+      name: S.name || 'Untitled',
+      library: (function(){ var n = libRead().length; return n ? n + ' kept' : 'none kept'; })(),
+      history: (function(){ var b = HPOS > 0 ? HPOS : 0; return b ? b + ' to undo' : 'nothing to undo'; })(),
+      main: dot(stepOf(L.main, 600).hex) + Math.round(S.main.h) + '°',
+      sup:  dot(stepOf(L.sup, 500).hex) + Math.round(S.sup.h) + '°',
+      a1:   dot(stepOf(L.a1, 500).hex) + Math.round(S.a1.h) + '°',
+      a2:   dot(stepOf(L.a2, 600).hex) + Math.round(S.a2.h) + '°',
+      neutral: dot(stepOf(L.neutral, 300).hex) + (S.neutral.c > 0.001 ? 'tinted' : 'true grey'),
+      shape: 'peak ' + STEPS[S.shape.peak] + ' · ' + (S.shape.gamut === 'p3' ? 'P3' : 'sRGB'),
+      dark: 'lift ' + S.darkMode.lift.toFixed(3).replace(/^0/,''),
+      share: Math.round(S.share.neutral) + '% neutral · ' + Math.round(S.share.main) + '% main'
+    };
+    document.querySelectorAll('fieldset[data-sec]').forEach(function(f){
+      var box = f.querySelector('.sec-sum');
+      if(box) box.innerHTML = sum[f.dataset.sec] === undefined ? '' : sum[f.dataset.sec];
+    });
+  }
+  document.addEventListener('click', function(e){
+    var b = e.target.closest('.sec-toggle'); if(!b) return;
+    var f = b.closest('fieldset[data-sec]');
+    var open = f.hasAttribute('data-open');
+    if(open) f.removeAttribute('data-open'); else f.setAttribute('data-open','');
+    b.setAttribute('aria-expanded', String(!open));
+    railSave();
+  });
+  el('btnSecAll').addEventListener('click', function(){
+    var any = document.querySelector('fieldset[data-sec]:not([data-open])');
+    document.querySelectorAll('fieldset[data-sec]').forEach(function(f){
+      if(any) f.setAttribute('data-open',''); else f.removeAttribute('data-open');
+      var b = f.querySelector('.sec-toggle'); if(b) b.setAttribute('aria-expanded', String(!!any));
+    });
+    el('btnSecAll').textContent = any ? 'Fold every section' : 'Open every section';
+    railSave();
+  });
+
   /* ---------- functional colours ---------- */
   function setFunc(id, key, value){
     S.func = S.func || {};
     S.func[id] = S.func[id] || {};
     S.func[id][key] = value;
     dragging('fx:' + id + ':' + key);
+    describe((FUNCTIONAL.filter(function(f){ return f.id === id; })[0] || {}).name + (key === 'h' ? '\u2019s hue' : '\u2019s colourfulness'));
     render();
   }
   document.addEventListener('input', function(e){
@@ -1768,8 +1922,8 @@
   });
   document.addEventListener('click', function(e){
     var r = e.target.closest('[data-fxreset]');
-    if(r){ if(S.func) delete S.func[r.dataset.fxreset]; render(); return; }
-    if(e.target.id === 'btnFuncReset'){ S.func = {}; render(); return; }
+    if(r){ if(S.func) delete S.func[r.dataset.fxreset]; describe('a state colour back to its default'); render(); return; }
+    if(e.target.id === 'btnFuncReset'){ S.func = {}; describe('the state colours back to their defaults'); render(); return; }
     if(e.target.id === 'btnFuncClear'){
       /* walk each state colour outward from where it is until nothing is close */
       S.func = S.func || {};
@@ -1792,6 +1946,7 @@
           S.func[f.id].h = Math.round(chosen);
         }
       });
+      describe('moving the state colours off the brand');
       render();
       return;
     }
@@ -1802,7 +1957,7 @@
   document.addEventListener('click', function(e){
     var b = e.target.closest('[data-fixmap]'); if(!b) return;
     S.map[b.dataset.fixmap] = +b.dataset.fixstep;
-    render();
+    describe('taking step ' + b.dataset.fixstep); render();
   });
 
   /* ---------- export controls ---------- */
@@ -1857,7 +2012,11 @@
 
   [['pinMain','main'],['pinSup','sup'],['pinA1','a1'],['pinA2','a2']].forEach(function(p){
     var box = el(p[0]); if(!box) return;
-    box.addEventListener('change', function(){ S[p[1]].pin = box.checked; render(); });
+    box.addEventListener('change', function(){
+      S[p[1]].pin = box.checked;
+      describe(box.checked ? 'pinning your exact colour' : 'unpinning your exact colour');
+      render();
+    });
   });
 
   /* paste a brand hex: its hue and chroma drive the ramp, the lightness steps stay fixed */
@@ -1869,6 +2028,7 @@
         var hex = (v[0] === '#' ? v : '#' + v).toUpperCase();
         var c = hexToOklch(hex);
         S[pair[1]].brand = hex;               /* the colour you gave, kept exactly */
+        describe('pasting ' + hex);
         S[pair[1]].h = c.h;
         S[pair[1]].c = Math.min(c.C, pair[1] === 'sup' ? 0.30 : 0.32);
         if(pair[1] === 'sup') S.sup.rel = 'custom';
@@ -1884,6 +2044,7 @@
     var shareKey = SHARE_KEYS.filter(function(k){ return SHARE_INPUT[k] === i.id; })[0];
     function handle(ev){
       if(i.type === 'range' && ev && ev.type === 'input') dragging('rail:' + i.id);
+      describe(controlName(i));
       if(shareKey){
         S.share[shareKey] = parseFloat(i.value);
         balanceShares(shareKey);
@@ -1899,16 +2060,18 @@
     if(back){
       var k = back.dataset.restore, c = hexToOklch(S[k].brand);
       S[k].h = c.h; S[k].c = Math.min(c.C, 0.32); S[k].pin = true;
+      describe('going back to ' + S[k].brand.toUpperCase());
       if(k === 'sup') S.sup.rel = 'custom';
       syncControls(); render(); return;
     }
     var clear = e.target.closest('[data-clearbrand]');
-    if(clear){ S[clear.dataset.clearbrand].brand = null; syncControls(); render(); return; }
+    if(clear){ S[clear.dataset.clearbrand].brand = null; describe('forgetting a brand colour'); syncControls(); render(); return; }
   });
   document.addEventListener('change', function(e){
     var sel = e.target.closest('[data-map]');
     if(!sel) return;
     S.map[sel.dataset.map] = parseInt(sel.value, 10);
+    describe('what ' + (MAP_FIELDS.filter(function(f){ return f[0] === sel.dataset.map; })[0] || [0,'a token'])[1].toLowerCase() + ' uses');
     render();
   });
   el('tabs').addEventListener('click', function(e){
@@ -1975,7 +2138,7 @@
     syncControls(); render();
   });
   el('btnReset').addEventListener('click', function(){
-    S = JSON.parse(JSON.stringify(DEFAULTS)); EDITING = null; syncControls(); render();
+    S = JSON.parse(JSON.stringify(DEFAULTS)); EDITING = null; describe('the reset'); syncControls(); render();
   });
 
   try{
@@ -1990,6 +2153,7 @@
       S.func = S.func || {};
     }
   }catch(e){}
+  railRestore();
   syncControls();
   render();
   histUi();
