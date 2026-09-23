@@ -682,61 +682,184 @@
     return JSON.stringify({ name:S.name, settings:S, steps:STEPS, light:pack(L), dark:pack(D) }, null, 2);
   }
 
-  /* ---------- scrim check ---------- */
-  var imgData = null, imgUrl = null;
+  /* ---------- scrim check ----------
+     A caption over a photograph fails on the bright pixels behind it, and
+     only on the ones it actually covers. So: a region you drag, and
+     percentiles rather than the single brightest pixel in the picture. */
+  var imgUrl = null, imgPx = null;                 /* { w, h, lum:Float32Array, hex:[] } */
+  var REGION = { x:0.04, y:0.66, w:0.56, h:0.26 }; /* fractions of the image */
   var SCRIMS = [0, 0.2, 0.35, 0.5, 0.65];
+  var LEVEL = -60;                                  /* APCA Lc 60 — body text */
+
+  function hex3(r,g,b){
+    return '#' + [r,g,b].map(function(v){ return (v < 16 ? '0' : '') + v.toString(16); }).join('');
+  }
+  /* the smallest black scrim at which white text clears the level over this colour */
+  function scrimFor(hex){
+    for(var a = 0; a <= 0.9; a += 0.01){
+      if(apca('#ffffff', composite('#000000', a, hex)) <= LEVEL) return a;
+    }
+    return null;
+  }
+  /* what the region really looks like: the value at each percentile of its pixels */
+  function regionStats(){
+    if(!imgPx) return null;
+    var x0 = Math.max(0, Math.floor(REGION.x * imgPx.w)), y0 = Math.max(0, Math.floor(REGION.y * imgPx.h));
+    var x1 = Math.min(imgPx.w, Math.ceil((REGION.x + REGION.w) * imgPx.w));
+    var y1 = Math.min(imgPx.h, Math.ceil((REGION.y + REGION.h) * imgPx.h));
+    var list = [];
+    for(var y = y0; y < y1; y++){
+      for(var x = x0; x < x1; x++){
+        var i = y * imgPx.w + x;
+        list.push({ Y: imgPx.lum[i], hex: imgPx.hex[i] });
+      }
+    }
+    if(!list.length) return null;
+    list.sort(function(a, b){ return a.Y - b.Y; });
+    function at(q){ return list[Math.min(list.length - 1, Math.round(q * (list.length - 1)))]; }
+    return { n:list.length, p5:at(0.05), p50:at(0.5), p95:at(0.95), p100:at(1) };
+  }
+
+  function scrimStatsHtml(){
+    var st = regionStats();
+    if(!st) return '';
+    var need95 = scrimFor(st.p95.hex), needMax = scrimFor(st.p100.hex), need50 = scrimFor(st.p50.hex);
+    function pct(a){ return a === null ? 'never' : Math.round(a * 100) + '%'; }
+    var rows = [
+      ['Half the pixels are darker than', st.p50, need50],
+      ['95th percentile — the bright end', st.p95, need95],
+      ['The single brightest pixel', st.p100, needMax]
+    ].map(function(r){
+      return '<tr><td>' + r[0] + '</td>' +
+        '<td><span class="dot" style="background:' + r[1].hex + '"></span> <span class="mono">' + r[1].hex.toUpperCase() + '</span></td>' +
+        '<td class="mono">' + pct(r[2]) + '</td></tr>';
+    }).join('');
+    var head;
+    if(need95 === null){
+      head = '<p class="cap">White text never clears Lc 60 over this region, at any scrim. Use a panel behind the caption, or dark text on a light scrim.</p>';
+    } else if(need95 === 0){
+      head = '<p class="cap"><b>No scrim needed here.</b> White text clears Lc 60 over 95% of the pixels under the box as it is' +
+        (needMax ? ', though the single brightest pixel would want ' + pct(needMax) + '' : '') + '.</p>';
+    } else {
+      head = '<p class="cap">Take a <b>' + Math.round(need95 * 100) + '% black scrim</b> for white text here. That covers 95% of the pixels under the box' +
+        (needMax !== null && needMax > need95
+          ? '; the single brightest would want ' + pct(needMax) + ', which is usually one glint rather than something anyone reads against'
+          : '') + '.</p>';
+    }
+    return head +
+      '<table id="scrimStats"><thead><tr><th>In the box</th><th>Colour</th><th>Scrim white text needs</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      '<p class="hint">' + st.n + ' pixels sampled from the box. Drag it to where the caption will really sit; the numbers follow.</p>';
+  }
+
+  function shotHtml(){
+    if(!imgUrl) return '';
+    var st = regionStats(), a = st ? scrimFor(st.p95.hex) : 0;
+    if(a === null) a = 0.65;
+    return '<div class="shot" id="shot">' +
+        '<img src="' + imgUrl + '" alt="">' +
+        '<div class="region" id="region" style="left:' + (REGION.x*100) + '%;top:' + (REGION.y*100) + '%;width:' + (REGION.w*100) + '%;height:' + (REGION.h*100) + '%;background:rgba(0,0,0,' + a + ')">' +
+          '<span class="cap-demo">Caption text here</span><span class="grip"></span>' +
+        '</div>' +
+      '</div>' +
+      '<p class="hint" style="margin:8px 0 14px">The box carries the scrim it recommends, so you are reading the real thing.</p>';
+  }
+
+  /* the same region at each scrim, to judge by eye as well as by number */
   function scrimPreviewHtml(){
     if(!imgUrl) return '';
+    var st = regionStats();
     return '<div class="grid3" style="margin:4px 0 14px">' + SCRIMS.map(function(a){
-      var pass = imgData ? imgData.every(function(b){ return apca('#ffffff', composite('#000000', a, b.hex)) <= -60; }) : null;
+      var pass = st ? apca('#ffffff', composite('#000000', a, st.p95.hex)) <= LEVEL : null;
+      var worst = st ? apca('#ffffff', composite('#000000', a, st.p100.hex)) <= LEVEL : null;
       return '<figure style="margin:0">' +
         '<div style="position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--line);aspect-ratio:4/3">' +
           '<img src="' + imgUrl + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block">' +
           '<div style="position:absolute;inset:0;background:rgba(0,0,0,' + a + ')"></div>' +
-          '<span style="position:absolute;left:10px;bottom:10px;color:#fff;font-size:.82rem;font-weight:600;text-shadow:none">Caption text here</span>' +
+          '<span style="position:absolute;left:10px;bottom:10px;color:#fff;font-size:.82rem;font-weight:600">Caption text here</span>' +
         '</div>' +
         '<figcaption class="hint" style="margin-top:6px">' + Math.round(a*100) + '% black scrim ' +
-          (pass === null ? '' : (pass ? '<span class="pill pass">passes</span>' : '<span class="pill fail">fails somewhere</span>')) +
+          (pass === null ? '' : (pass ? '<span class="pill pass">' + (worst ? 'clear' : 'clear for 95%') + '</span>' : '<span class="pill fail">too light</span>')) +
         '</figcaption></figure>';
     }).join('') + '</div>';
   }
+
   function scrimHtml(){
-    var p = build(false);
-    var bands = imgData || [{ name:'light patch', hex:'#E9EDF2' }, { name:'dark patch', hex:'#1B222B' }];
-    return bands.map(function(b){
-      var need = null;
-      for(var a=0; a<=0.9; a+=0.05){
-        var c = composite('#000000', a, b.hex);
-        if(apca('#ffffff', c) <= -60){ need = a; break; }
-      }
+    if(imgPx) return shotHtml() + scrimStatsHtml() + scrimPreviewHtml();
+    /* no image: a light and a dark patch, so the panel still says something */
+    return [{ name:'light patch', hex:'#E9EDF2' }, { name:'dark patch', hex:'#1B222B' }].map(function(b){
+      var need = scrimFor(b.hex);
       return '<div class="pv-row" style="margin:8px 0"><span class="dot" style="background:'+b.hex+';width:22px;height:22px"></span>'+
         '<b>'+b.name+'</b><span class="mono">'+b.hex.toUpperCase()+'</span>'+
         '<span class="pill '+(need===null?'fail':(need<=0.4?'pass':'mid'))+'">'+
         (need===null ? 'white text never passes' : 'white text passes at ' + Math.round(need*100) + '% black scrim') + '</span></div>';
-    }).join('') + scrimPreviewHtml() + '<p class="hint">Measured with APCA Lc 60, the body-text level. A caption sitting over the brightest part of an image is the case that fails first.</p>';
+    }).join('') + '<p class="hint">Measured with APCA Lc 60, the body-text level. Drop an image in to measure its own pixels instead.</p>';
+  }
+
+  function readImage(src){
+    var img = new Image();
+    img.onload = function(){
+      var w = 240, h = Math.max(1, Math.round(240 * img.height / img.width));
+      var c = document.createElement('canvas'); c.width = w; c.height = h;
+      var ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0, w, h);
+      var d = ctx.getImageData(0, 0, w, h).data;
+      var lum = new Float32Array(w * h), hexes = new Array(w * h);
+      for(var i = 0, j = 0; i < d.length; i += 4, j++){
+        var hx = hex3(d[i], d[i+1], d[i+2]);
+        hexes[j] = hx; lum[j] = relLum(hx);
+      }
+      imgPx = { w:w, h:h, lum:lum, hex:hexes };
+      render();
+    };
+    img.onerror = function(){ imgPx = null; };
+    img.src = src;
   }
   el('imgIn').addEventListener('change', function(e){
     var file = e.target.files && e.target.files[0]; if(!file) return;
     if(imgUrl) URL.revokeObjectURL(imgUrl);
     imgUrl = URL.createObjectURL(file);
-    var img = new Image();
-    img.onload = function(){
-      var c = document.createElement('canvas'), w = 120, h = Math.max(1, Math.round(120 * img.height / img.width));
-      c.width = w; c.height = h;
-      var ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0, w, h);
-      /* sample the lower third, where captions usually sit */
-      var d = ctx.getImageData(0, Math.floor(h*0.6), w, Math.max(1, Math.floor(h*0.4))).data;
-      var lightest = null, darkest = null, lMax = -1, lMin = 2;
-      for(var i=0;i<d.length;i+=4){
-        var hex = '#' + [d[i],d[i+1],d[i+2]].map(function(v){ return (v<16?'0':'')+v.toString(16); }).join('');
-        var Y = relLum(hex);
-        if(Y > lMax){ lMax = Y; lightest = hex; }
-        if(Y < lMin){ lMin = Y; darkest = hex; }
-      }
-      imgData = [{ name:'lightest pixel under the caption', hex:lightest }, { name:'darkest pixel under the caption', hex:darkest }];
-      render();
-    };
-    img.src = imgUrl;
+    readImage(imgUrl);
+  });
+
+  /* drag the box, or its corner, and the measurement follows.
+     The pointer leaves the box as soon as you drag it, so the move and the
+     release are followed on the document; those two listeners are attached
+     once, and only the box changes when the panel is rebuilt. */
+  var DRAG = null;
+  function wireRegion(){
+    var box = el('region'); if(!box) return;
+    box.addEventListener('pointerdown', function(e){
+      var shot = el('shot'); if(!shot) return;
+      DRAG = { mode: e.target.classList.contains('grip') ? 'size' : 'move',
+               x:e.clientX, y:e.clientY, r:shot.getBoundingClientRect(),
+               reg:{ x:REGION.x, y:REGION.y, w:REGION.w, h:REGION.h } };
+      e.preventDefault();
+    });
+  }
+  document.addEventListener('pointermove', function(e){
+    if(!DRAG) return;
+    var box = el('region'); if(!box){ DRAG = null; return; }
+    var dx = (e.clientX - DRAG.x) / DRAG.r.width, dy = (e.clientY - DRAG.y) / DRAG.r.height;
+    if(DRAG.mode === 'move'){
+      REGION.x = Math.min(1 - DRAG.reg.w, Math.max(0, DRAG.reg.x + dx));
+      REGION.y = Math.min(1 - DRAG.reg.h, Math.max(0, DRAG.reg.y + dy));
+    } else {
+      REGION.w = Math.min(1 - REGION.x, Math.max(0.05, DRAG.reg.w + dx));
+      REGION.h = Math.min(1 - REGION.y, Math.max(0.04, DRAG.reg.h + dy));
+    }
+    /* the box moves with the pointer; the panel below is rebuilt when it is let go */
+    box.style.left = (REGION.x*100) + '%'; box.style.top = (REGION.y*100) + '%';
+    box.style.width = (REGION.w*100) + '%'; box.style.height = (REGION.h*100) + '%';
+    var st = regionStats();
+    if(st){
+      var a = scrimFor(st.p95.hex);
+      box.style.background = 'rgba(0,0,0,' + (a === null ? 0.65 : a) + ')';
+    }
+  });
+  document.addEventListener('pointerup', function(){
+    if(!DRAG) return;
+    DRAG = null;
+    el('scrimOut').innerHTML = scrimHtml();
+    wireRegion();
   });
 
   /* every view follows the Light / Dark / Both switch */
@@ -891,6 +1014,7 @@
 
     el('alphaMatrix').innerHTML = forThemes(L, D, function(p, dk){ return alphaHtml(p, dk); });
     el('scrimOut').innerHTML = scrimHtml();
+    wireRegion();
     el('gradOut').innerHTML = forThemes(L, D, function(p){ return '<div class="grid2">' + gradientsHtml(p) + '</div>'; });
     el('previewOut').innerHTML = forThemes(L, D, function(p, dk){ return previewHtml(p, dk); });
 

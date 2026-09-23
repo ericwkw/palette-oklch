@@ -470,6 +470,73 @@ await journey('the family holds its contrast parity', async () => {
   assert(strips === 3, 'the family strip does not show every brand: ' + strips);
 });
 
+/* 14 — the image check measures the region you point at, by percentile */
+await journey('the scrim check follows the caption box and ignores one glint', async () => {
+  await click('#tabs button', 3);
+
+  /* a test image made on the spot: dark left half, bright right half,
+     and a single white pixel in the dark half to stand for a glint */
+  const loaded = await evalJs(`(async () => {
+    const c = document.createElement('canvas'); c.width = 240; c.height = 160;
+    const g = c.getContext('2d');
+    g.fillStyle = '#101418'; g.fillRect(0, 0, 170, 160);
+    g.fillStyle = '#EFF3F7'; g.fillRect(170, 0, 70, 160);
+    g.fillStyle = '#ffffff'; g.fillRect(20, 120, 1, 1);          /* the glint */
+    const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+    const file = new File([blob], 'test.png', { type: 'image/png' });
+    const dt = new DataTransfer(); dt.items.add(file);
+    const input = document.getElementById('imgIn');
+    input.files = dt.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+  assert(loaded, 'the test image was not handed to the tool');
+  await sleep(700);
+
+  const shot = await evalJs(`!!document.getElementById('region')`);
+  assert(shot, 'no caption box appeared over the image');
+
+  /* the box starts over the dark part: one glint must not drive the recommendation */
+  const read = () => evalJs(`(() => {
+    const rows = [...document.querySelectorAll('#scrimStats tbody tr')].map(r => [...r.children].map(c => c.textContent.trim()));
+    return { rows, cap: document.querySelector('#scrimOut .cap').textContent };
+  })()`);
+  let r = await read();
+  assert(r.rows.length === 3, 'the percentile table is missing');
+  assert(/95th percentile/.test(r.rows[1][0]), 'there is no 95th percentile row');
+  const p95 = parseInt(r.rows[1][2], 10), brightest = parseInt(r.rows[2][2], 10);
+  assert(brightest > p95, 'the brightest pixel asks no more than the 95th percentile — percentiles are not being used');
+  assert(/95%/.test(r.cap), 'the recommendation does not say what it covers: ' + r.cap);
+  assert(/single brightest/.test(r.cap), 'the recommendation does not set the glint apart: ' + r.cap);
+
+  /* drag the box across to the bright half: it must ask for much more scrim */
+  const drag = async (toX) => {
+    await evalJs(`document.getElementById('shot').scrollIntoView({ block: 'center' })`);
+    await sleep(200);
+    const geom = await evalJs(`(() => { const s = document.getElementById('shot').getBoundingClientRect();
+      const b = document.getElementById('region').getBoundingClientRect();
+      return { sx: s.left, sw: s.width, bx: b.left + b.width / 2, by: b.top + b.height / 2 }; })()`);
+    const targetX = geom.sx + geom.sw * toX;
+    await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: geom.bx, y: geom.by, button: 'left', clickCount: 1 });
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: targetX, y: geom.by, button: 'left', buttons: 1 });
+    await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: targetX, y: geom.by, button: 'left' });
+    await sleep(400);
+  };
+  await drag(0.72);
+  const after = await read();
+  const movedTo = parseInt(after.rows[1][2], 10);
+  assert(movedTo > p95 + 10, `the box moved onto the bright half but the scrim barely changed: ${p95}% then ${movedTo}%`);
+
+  /* the box on screen wears the scrim it recommends */
+  const worn = await evalJs(`document.getElementById('region').style.background`);
+  assert(/rgba\(0, ?0, ?0, ?0?\.[0-9]+\)/.test(worn), 'the box does not show the scrim it recommends: ' + worn);
+
+  /* and the five sample tiles say which of them clear it */
+  const tiles = await evalJs(`[...document.querySelectorAll('#scrimOut figcaption')].map(f => f.textContent.trim())`);
+  assert(tiles.length === 5, 'the scrim tiles are missing');
+  assert(tiles.some(t => /too light/.test(t)), 'no tile is reported as too light over a bright picture');
+});
+
 const failed = results.filter(r => !r[1]);
 console.log('');
 results.forEach(([name, ok, why]) => console.log(`${ok ? ' ok ' : 'FAIL'}  ${name}${why ? ' — ' + why : ''}`));

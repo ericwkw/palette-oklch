@@ -199,7 +199,7 @@
       <p class="note">A colour at an alpha over a known background composites to an exact solid — shown here so a tint can be matched back to a real ramp step. Over photographs there is no single background, so drop an image in and the worst case is measured from its own pixels.</p>
       <div class="card"><h3>Alpha over surfaces</h3><div id="alphaMatrix"></div></div>
       <div class="card"><h3>Scrims over an image</h3>
-        <p class="cap">No image loaded uses a light-and-dark test pattern. With an image, the lightest and darkest bands under the caption area are measured, and the scrim needed for white text to pass is reported.</p>
+        <p class="cap">No image loaded uses a light-and-dark test pattern. With an image, drag the box to where the caption will really sit &mdash; the pixels inside it are measured by percentile, so one glint of sunlight does not decide the scrim for the whole picture.</p>
         <div class="field" style="grid-template-columns:7em minmax(0,1fr)"><label for="imgIn">Image</label><input type="file" id="imgIn" accept="image/*"></div>
         <div id="scrimOut"></div>
       </div>

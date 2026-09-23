@@ -157,6 +157,11 @@
   .pv-legend b{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle}
   @media (max-width:720px){ .pv-app{grid-template-columns:1fr} .pv-cols{grid-template-columns:1fr} }
   .swatch-inline{display:inline-flex;align-items:center;gap:7px;font-size:.76rem;color:var(--ink-2)}
+  .shot{position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--line);max-width:520px;user-select:none;touch-action:none}
+  .shot img{display:block;width:100%}
+  .region{position:absolute;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.55),0 0 0 9999px rgba(0,0,0,.28);cursor:move;border-radius:3px}
+  .region .grip{position:absolute;right:-7px;bottom:-7px;width:14px;height:14px;border-radius:3px;background:#fff;border:1px solid rgba(0,0,0,.5);cursor:nwse-resize}
+  .region .cap-demo{position:absolute;left:6px;bottom:5px;right:6px;color:#fff;font-size:.8rem;font-weight:600;pointer-events:none}
   kbd{font-family:var(--mono);font-size:.68rem;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 5px;background:var(--bg)}
   .btn[disabled]{opacity:.42;cursor:default}
   .btn.danger{border-color:#d4423a;color:#d4423a}
