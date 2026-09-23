@@ -1245,6 +1245,90 @@ await journey('the strongest step is the one the control reports', async () => {
   }
 });
 
+/* 31 — how the steps are spaced is visible, and it is a choice */
+await journey('step spacing is shown, and can be changed', async () => {
+  const read = () => evalJs(`(() => {
+    const sw = [...document.querySelectorAll('#rampsLight .ramp')[4].querySelectorAll('.sw')]
+      .map(s => s.querySelector('span').textContent.replace(' ▲','').trim());
+    const ratios = [], gaps = [];
+    for (let i = 1; i < sw.length; i++) ratios.push(+wcag(sw[i-1], sw[i]).toFixed(3));
+    document.getElementById('gapsLight').querySelectorAll('span').forEach((s, i) => {
+      if (i > 0) gaps.push(parseFloat(s.textContent));
+    });
+    return { ratios, gaps, note: document.getElementById('spacingNote').textContent,
+             tight: document.querySelectorAll('#gapsLight .tight').length,
+             strip: document.getElementById('gapsLight').textContent }; })()`);
+
+  /* the default curve is uneven, and the tool now says so instead of implying otherwise */
+  let d = await read();
+  assert(d.gaps.length === 10, 'the gaps between steps are not shown: ' + d.gaps.length);
+  const spread = Math.max(...d.gaps) / Math.min(...d.gaps);
+  assert(spread > 2, 'the default curve looks even, which it is not: ' + spread.toFixed(2));
+  assert(/Tailwind/.test(d.note) && /close together/.test(d.note),
+    'the rail does not explain the default spacing: ' + d.note);
+  assert(d.tight > 0, 'the steps that are nearly the same colour are not marked');
+  assert(/Step spacing/.test(d.strip), 'the strip does not say where to change it');
+
+  /* even lightness: equal gaps all the way down */
+  await evalJs(`(() => { const s = document.getElementById('spacing');
+    s.value = 'even'; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await sleep(400);
+  d = await read();
+  const evenSpread = Math.max(...d.gaps) / Math.min(...d.gaps);
+  assert(evenSpread < 1.05, 'even spacing is not even: ' + evenSpread.toFixed(3));
+  assert(/same distance in lightness/.test(d.note), 'the note did not follow the choice: ' + d.note);
+  assert(d.tight === 0, 'even spacing still marks steps as too close');
+
+  /* even contrast: every neighbouring pair at the same ratio */
+  await evalJs(`(() => { const s = document.getElementById('spacing');
+    s.value = 'contrast'; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await sleep(400);
+  d = await read();
+  const lo = Math.min(...d.ratios), hi = Math.max(...d.ratios);
+  assert(hi - lo < 0.05, `contrast spacing is not even: ${lo} to ${hi}`);
+  assert(lo > 1.2, 'contrast spacing left neighbours indistinguishable: ' + lo);
+  assert(/same contrast/.test(d.note), 'the note did not follow the choice: ' + d.note);
+
+  /* the choice survives a reload and reaches the export */
+  await send('Page.navigate', { url: URL_ + '?sp=' + Date.now() });
+  await sleep(1600);
+  const kept = await evalJs(`document.getElementById('spacing').value`);
+  assert(kept === 'contrast', 'the spacing was forgotten on reload: ' + kept);
+  await click('#tabs button', 7);
+  const css = await evalJs(`document.getElementById('outCss').textContent`);
+  const ls = [...css.matchAll(/--neutral-[0-9]+: oklch[(]([0-9.]+)%/g)].map(m => +m[1]);
+  assert(ls.length === 11, 'the neutral ramp is not in the export');
+  const stepGaps = ls.slice(1).map((v, i) => +(ls[i] - v).toFixed(2));
+  assert(Math.max(...stepGaps) / Math.min(...stepGaps) < 1.6,
+    'the export still carries the old spacing: ' + stepGaps.join(', '));
+});
+
+/* 32 — a nudge says what it did to its neighbours */
+await journey('the step editor reports the gaps a nudge creates', async () => {
+  await click('#rampsLight .sw', 5);
+  let ed = await evalJs(`document.getElementById('stepEditor').textContent`);
+  assert(/in keeping with the rest/.test(ed), 'an untouched step is not reported as normal: ' + ed);
+
+  /* push it most of the way to its lighter neighbour */
+  await setRange('edL', 0.06);
+  await sleep(400);
+  ed = await evalJs(`(() => { const box = document.getElementById('stepEditor');
+    return { text: box.textContent,
+             pills: [...box.querySelectorAll('.pill')].map(p => p.className + ' ' + p.textContent) }; })()`);
+  assert(ed.pills.length === 2, 'the editor does not report both neighbours: ' + ed.pills.length);
+  assert(/points/.test(ed.pills[0]) && /:1/.test(ed.pills[0]),
+    'the editor does not give the gap and the contrast: ' + ed.pills[0]);
+  assert(/much wider|the same colour/.test(ed.text),
+    'a lopsided ramp is reported as fine: ' + ed.text);
+  assert(ed.pills.some(p => /fail|mid/.test(p)), 'neither neighbour is flagged after a big nudge');
+
+  /* and putting it back clears the warning */
+  await click('#edReset');
+  await sleep(400);
+  ed = await evalJs(`document.getElementById('stepEditor').textContent`);
+  assert(/in keeping with the rest/.test(ed), 'the warning survived the reset: ' + ed);
+});
+
 const failed = results.filter(r => !r[1]);
 console.log('');
 results.forEach(([name, ok, why]) => console.log(`${ok ? ' ok ' : 'FAIL'}  ${name}${why ? ' — ' + why : ''}`));

@@ -4,8 +4,31 @@
    ============================================================ */
 var STEPS = [50,100,200,300,400,500,600,700,800,900,950];
 /* lightness targets, light theme; dark theme mirrors them */
-var L_LIGHT = [0.977,0.949,0.897,0.830,0.748,0.652,0.558,0.472,0.395,0.325,0.255];
-var L_DARK  = L_LIGHT;  /* the dark curve is derived from the light one in makeRamp */
+/* Three ways of spacing eleven steps between the same two ends.
+   Tailwind's own curve is tight at the pale end and wide through the middle;
+   the other two are there because that is a choice, not a law. */
+var L_TAILWIND = [0.977,0.949,0.897,0.830,0.748,0.652,0.558,0.472,0.395,0.325,0.255];
+var L_EVEN = (function(){
+  var a = L_TAILWIND[0], b = L_TAILWIND[L_TAILWIND.length-1], n = L_TAILWIND.length, out = [];
+  for(var i=0;i<n;i++) out.push(a + (b-a) * (i/(n-1)));
+  return out;
+})();
+/* equal WCAG ratio between neighbours: luminance plus 0.05 in geometric steps,
+   and for a grey the OKLab lightness is the cube root of the luminance */
+var L_CONTRAST = (function(){
+  var n = L_TAILWIND.length, out = [];
+  var y0 = Math.pow(L_TAILWIND[0],3), y1 = Math.pow(L_TAILWIND[n-1],3);
+  var k = Math.pow((y0+0.05)/(y1+0.05), 1/(n-1));
+  for(var i=0;i<n;i++){
+    var y = (y0+0.05) / Math.pow(k,i) - 0.05;
+    out.push(Math.pow(Math.max(y,0), 1/3));
+  }
+  return out;
+})();
+var SPACINGS = { tailwind:L_TAILWIND, even:L_EVEN, contrast:L_CONTRAST };
+var SPACING = 'tailwind';                      /* the UI sets this before each build */
+function stepLs(){ return SPACINGS[SPACING] || L_TAILWIND; }
+var L_LIGHT = L_TAILWIND;   /* kept for anything that wants the published curve */
 
 function clamp(x,a,b){ return x<a?a:(x>b?b:x); }
 function srgbFromLinear(c){ return c<=0.0031308 ? 12.92*c : 1.055*Math.pow(c,1/2.4)-0.055; }
@@ -141,7 +164,7 @@ function twistedHue(hue, i, steps, twist, pivot){
 function makeRamp(hue, chroma, opts){
   opts = opts || {};
   var dark = !!opts.dark, space = opts.space || 'srgb';
-  var Ls = dark ? L_DARK : L_LIGHT;
+  var Ls = stepLs();
   var peak = opts.peak === undefined ? 6 : opts.peak;
   var fall = opts.falloff === undefined ? 0.85 : opts.falloff;
   var lift = opts.lift === undefined ? 0.055 : opts.lift;     /* how far the dark end lifts */

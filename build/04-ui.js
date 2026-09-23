@@ -15,7 +15,7 @@
     main:{h:250,c:0.16,brand:null,pin:true}, sup:{h:280,c:0.09,rel:'near',brand:null,pin:true},
     a1:{h:55,c:0.18,brand:null,pin:true}, a2:{h:340,c:0.20,brand:null,pin:true},
     neutral:{c:0.012, from:'main', h:250},
-    shape:{peak:6, falloff:0.85, gamut:'srgb', twist:1},
+    shape:{peak:6, falloff:0.85, gamut:'srgb', twist:1, spacing:'tailwind'},
     darkMode:{lift:0.055, boost:1},
     map:{ primary:700, primaryDark:400, tint:100, tintDark:900, border:200, borderDark:800, ring:600, ringDark:400, chart:600, chartDark:400 },
     nudges:{},
@@ -58,6 +58,7 @@
     out.shape.falloff = num(sh.falloff, d.shape.falloff, 0.1, 2);
     out.shape.twist = num(sh.twist, d.shape.twist, 0, 3);
     out.shape.gamut = sh.gamut === 'p3' ? 'p3' : 'srgb';
+    out.shape.spacing = SPACINGS[sh.spacing] ? sh.spacing : d.shape.spacing;
     var dm = raw.darkMode || {};
     out.darkMode.lift = num(dm.lift, d.darkMode.lift, 0, 0.3);
     out.darkMode.boost = num(dm.boost, d.darkMode.boost, 0.3, 2);
@@ -138,6 +139,7 @@
     el('relSup').value = S.sup.rel;
     el('hNeu').value = S.neutral.from;
     el('gamut').value = S.shape.gamut;
+    if(el('spacing')) el('spacing').value = S.shape.spacing || 'tailwind';
     [['pinMain','main'],['pinSup','sup'],['pinA1','a1'],['pinA2','a2']].forEach(function(p){
       var box = el(p[0]); if(!box) return;
       box.checked = S[p[1]].pin !== false;
@@ -175,6 +177,7 @@
     S.sup.rel = el('relSup').value;
     S.neutral.from = el('hNeu').value;
     S.shape.gamut = el('gamut').value;
+    if(el('spacing')) S.shape.spacing = el('spacing').value;
     if(S.sup.rel === 'same') S.sup.h = S.main.h;
     if(S.sup.rel === 'near') S.sup.h = (S.main.h + 30) % 360;
     if(S.sup.rel === 'far')  S.sup.h = (S.main.h + 150) % 360;
@@ -190,7 +193,7 @@
     if(!b || S[key].pin === false || dark) return null;
     var c = hexToOklch(b), idx = 0, best = 9;
     for(var i=0;i<STEPS.length;i++){
-      var d = Math.abs(L_LIGHT[i] - c.L);
+      var d = Math.abs(stepLs()[i] - c.L);
       if(d < best){ best = d; idx = i; }
     }
     return { index:idx, L:c.L, C:c.C, hex:b.toUpperCase() };
@@ -225,6 +228,7 @@
     return out;
   }
   function build(dark){
+    SPACING = (S.shape && SPACINGS[S.shape.spacing]) ? S.shape.spacing : 'tailwind';
     var dm = S.darkMode || { lift:0.055, boost:1 };
     var tw = S.shape.twist === undefined ? 1 : S.shape.twist;
     var base = { dark:dark, space:S.shape.gamut, peak:S.shape.peak, falloff:S.shape.falloff, lift:dm.lift, boost:dm.boost };
@@ -1439,6 +1443,31 @@
     var f = FUNCTIONAL.filter(function(x){ return x.id === k; })[0];
     return f ? f.name : k;
   }
+  /* a nudge moves one step but changes two gaps; say what they became */
+  function neighbourNoteHtml(ramp, step){
+    var i = STEPS.indexOf(step);
+    var gaps = [];
+    for(var j = 1; j < ramp.length; j++) gaps.push((ramp[j-1].L - ramp[j].L) * 100);
+    var typical = gaps.slice().sort(function(a,b){ return a-b; })[Math.floor(gaps.length/2)];
+    var sides = [];
+    if(i > 0) sides.push({ to: STEPS[i-1], gap: gaps[i-1], ratio: wcag(ramp[i-1].hex, ramp[i].hex) });
+    if(i < ramp.length - 1) sides.push({ to: STEPS[i+1], gap: gaps[i], ratio: wcag(ramp[i].hex, ramp[i+1].hex) });
+    var tight = sides.filter(function(x){ return x.gap < typical * 0.5; });
+    var wide  = sides.filter(function(x){ return x.gap > typical * 1.9; });
+    var cells = sides.map(function(x){
+      var cls = x.gap < typical * 0.5 ? 'fail' : (x.gap > typical * 1.9 ? 'mid' : 'pass');
+      return '<span class="swatch-inline">to <b>' + x.to + '</b>: <span class="pill ' + cls + '">' +
+        x.gap.toFixed(1) + ' points · ' + x.ratio.toFixed(2) + ':1</span></span>';
+    }).join('');
+    var say = tight.length
+      ? 'This step is now close enough to ' + tight.map(function(x){ return x.to; }).join(' and ') + ' to look like the same colour.'
+      : (wide.length
+          ? 'The gap to ' + wide.map(function(x){ return x.to; }).join(' and ') + ' is much wider than the rest of the ramp.'
+          : 'Both gaps are in keeping with the rest of the ramp (about ' + typical.toFixed(1) + ' points).');
+    return '<div class="pv-row" style="gap:12px;margin:2px 0 4px">' + cells + '</div>' +
+      '<p class="hint" style="margin:0' + (tight.length || wide.length ? ';color:var(--bad)' : '') + '">' + say + '</p>';
+  }
+
   function editorHtml(L){
     var box = el('stepEditor');
     if(!EDITING){ box.hidden = true; box.innerHTML = ''; return; }
@@ -1455,6 +1484,7 @@
       '<button class="btn" id="edClose">Close</button></div>' +
       '<div class="row"><label for="edL">Lightness</label><input type="range" id="edL" min="-0.12" max="0.12" step="0.005" value="'+(n.dL||0)+'"><output>'+(n.dL>0?'+':'')+(n.dL||0).toFixed(3)+'</output></div>' +
       '<div class="row"><label for="edC">Colourfulness</label><input type="range" id="edC" min="-0.10" max="0.10" step="0.005" value="'+(n.dC||0)+'"><output>'+(n.dC>0?'+':'')+(n.dC||0).toFixed(3)+'</output></div>' +
+      neighbourNoteHtml(ramp, EDITING.step) +
       '<p class="hint">Nudges this one step only; the rest of the ramp stays where it is. A dashed outline marks steps you have moved.</p>';
     function setNudge(key, val){
       S.nudges[EDITING.role] = S.nudges[EDITING.role] || {};
@@ -1546,6 +1576,8 @@
     el('stepsHeadDark').innerHTML = stepsHeadHtml();
     el('rampsLight').innerHTML = rampsHtml(L,false);
     el('rampsDark').innerHTML = rampsHtml(D,true);
+    el('gapsLight').innerHTML = spacingStripHtml(L);
+    el('gapsDark').innerHTML = spacingStripHtml(D);
     applyValues();
 
     },
@@ -1671,6 +1703,7 @@
 
     railSummaries(L);
     peakNote(L);
+    spacingNote(L);
     el('steps').innerHTML = stepsHtml();
     Object.keys(PAINT).forEach(function(k){ STALE[k] = true; });
     PAINT.ramps(L, D);            /* the ramps are the tool's own subject, always current */
@@ -1909,6 +1942,8 @@
   var GLOSSARY = [
     ['oklch', 'OKLCH', 'the colour notation used throughout',
       'Three numbers: lightness, how colourful, and which hue. Unlike RGB or HSL, a change in lightness means the same amount of change to the eye whatever the hue — which is why every ramp here can sit on the same lightness steps and still look even.'],
+    ['spacing', 'Step spacing', 'how the eleven steps are placed',
+      'The steps run between the same pale and deep ends whichever you choose; what changes is where they sit in between. Tailwind’s own curve bunches the pale steps together and spreads the middle ones, which suits tints and surfaces. Even lightness places them at equal distances. Even contrast places them so each neighbouring pair sits at the same contrast ratio, which is the one to pick when a step number needs to predict readability.'],
     ['ramp', 'Ramp', 'one colour, eleven shades',
       'A single hue drawn out across eleven fixed lightness steps, numbered 50 (palest) to 950 (deepest). Every ramp uses the same steps, so step 600 of one colour carries the same visual weight as step 600 of another.'],
     ['chroma', 'Colourfulness', 'chroma, in OKLCH',
@@ -2076,6 +2111,40 @@
         ' cannot hold that much colour there, so the strongest step is ' + got + '.';
   }
 
+  /* what the spacing you chose actually does to the eleven steps */
+  function spacingFacts(L){
+    var n = L.neutral, gaps = [], ratios = [];
+    for(var i = 1; i < n.length; i++){
+      gaps.push((n[i-1].L - n[i].L) * 100);
+      ratios.push(wcag(n[i-1].hex, n[i].hex));
+    }
+    var lo = Math.min.apply(null, gaps), hi = Math.max.apply(null, gaps);
+    var rlo = Math.min.apply(null, ratios), rhi = Math.max.apply(null, ratios);
+    return { gaps:gaps, ratios:ratios, lo:lo, hi:hi, rlo:rlo, rhi:rhi, spread: hi / (lo || 1) };
+  }
+  function spacingNote(L){
+    var box = el('spacingNote'); if(!box) return;
+    var f = spacingFacts(L);
+    var kind = (S.shape.spacing || 'tailwind');
+    var says = kind === 'even'
+      ? 'Every step is the same distance in lightness from the next: ' + f.lo.toFixed(1) + ' points throughout.'
+      : kind === 'contrast'
+        ? 'Every neighbouring pair sits at about the same contrast: ' + f.rlo.toFixed(2) + ' to ' + f.rhi.toFixed(2) + ':1.'
+        : 'Tailwind’s own curve: the pale steps are close together (' + f.lo.toFixed(1) +
+          ' points apart) and the middle ones far apart (' + f.hi.toFixed(1) + '), so 50 and 100 read almost the same while 400 and 500 clearly differ.';
+    box.innerHTML = says + ' <span class="muted">Gaps: ' + f.gaps.map(function(g){ return g.toFixed(1); }).join(' · ') + '</span>';
+  }
+  /* the same facts, under the ramps, where the steps are being looked at */
+  function spacingStripHtml(L){
+    var f = spacingFacts(L);
+    return '<div class="gapstrip"><span></span>' + f.gaps.map(function(g, i){
+      var tight = g < f.hi * 0.55;
+      return '<span class="' + (tight ? 'tight' : '') + '" title="' + f.ratios[i].toFixed(2) + ':1 between these two">' + g.toFixed(1) + '</span>';
+    }).join('') + '</div>' +
+      '<p class="hint" style="margin:6px 0 0">Lightness between neighbouring steps, in points. ' +
+      (f.spread > 1.6 ? 'The narrow ones are marked: those steps are nearly the same colour. Change <b>Step spacing</b> in the rail if you would rather they were even.' : 'They are within a third of each other all the way along.') + '</p>';
+  }
+
   /* ---------- the order the work goes in ----------
      Eight tabs and no suggestion of a path. These four say what to do next and
      whether it has been done, and take you to the tab that does it. */
@@ -2176,7 +2245,7 @@
       a1:   dot(stepOf(L.a1, 500).hex) + Math.round(S.a1.h) + '°',
       a2:   dot(stepOf(L.a2, 600).hex) + Math.round(S.a2.h) + '°',
       neutral: dot(stepOf(L.neutral, 300).hex) + (S.neutral.c > 0.001 ? 'tinted' : 'true grey'),
-      shape: 'peak ' + deliveredPeak(L) + ' · ' + (S.shape.gamut === 'p3' ? 'P3' : 'sRGB'),
+      shape: (S.shape.spacing === 'even' ? 'even' : S.shape.spacing === 'contrast' ? 'even contrast' : 'Tailwind') + ' · peak ' + deliveredPeak(L) + ' · ' + (S.shape.gamut === 'p3' ? 'P3' : 'sRGB'),
       dark: 'lift ' + S.darkMode.lift.toFixed(3).replace(/^0/,''),
       share: Math.round(S.share.neutral) + '% neutral · ' + Math.round(S.share.main) + '% main'
     };
