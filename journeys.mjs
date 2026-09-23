@@ -537,6 +537,106 @@ await journey('the scrim check follows the caption box and ignores one glint', a
   assert(tiles.some(t => /too light/.test(t)), 'no tile is reported as too light over a bright picture');
 });
 
+/* 15 — every export is usable, and the link brings the palette with it */
+await journey('the exports parse and the link round-trips', async () => {
+  await type('pName', 'Harbour');
+  await type('xMain', '#0075C9');
+  await click('#tabs button', 7);
+
+  /* the shadcn stylesheet carries every token name a shadcn project expects */
+  const SHADCN = ['background','foreground','card','card-foreground','popover','popover-foreground',
+    'primary','primary-foreground','secondary','secondary-foreground','muted','muted-foreground',
+    'accent','accent-foreground','destructive','destructive-foreground','border','input','ring',
+    'chart-1','chart-2','chart-3','chart-4','chart-5','sidebar','sidebar-foreground',
+    'sidebar-primary','sidebar-primary-foreground','sidebar-accent','sidebar-accent-foreground',
+    'sidebar-border','sidebar-ring'];
+  const css = await evalJs(`document.getElementById('outCss').textContent`);
+  for (const t of SHADCN) {
+    assert(css.includes('  --' + t + ': '), `globals.css is missing --${t}`);
+  }
+  assert(/\.dark \{/.test(css), 'globals.css has no .dark block');
+  assert((css.match(/oklch\(/g) || []).length > 60, 'the stylesheet is not in OKLCH');
+
+  /* the browser itself is the parser: every declared colour must be a colour it accepts */
+  const bad = await evalJs(`(() => {
+    const css = document.getElementById('outCss').textContent;
+    const el = document.createElement('div');
+    const out = [];
+    for (const [, name, value] of css.matchAll(/--([a-z0-9-]+):\s*([^;]+);/g)) {
+      if (!/^(oklch|#|rgb)/.test(value.trim())) continue;
+      el.style.color = '';
+      el.style.color = value.trim();
+      if (!el.style.color) out.push(name + ': ' + value.trim());
+    }
+    return out;
+  })()`);
+  assert(bad.length === 0, 'the browser rejects these values: ' + bad.slice(0, 3).join(' | '));
+
+  /* Tailwind v4, then v3 */
+  let tw = await evalJs(`document.getElementById('outTw').textContent`);
+  assert(/@theme inline \{/.test(tw), 'the v4 export has no @theme block');
+  assert(/--color-primary: var\(--primary\);/.test(tw), 'the v4 export does not map the tokens');
+  assert(/--color-main-500:/.test(tw), 'the v4 export does not carry the ramps');
+  await click('#twSeg button', 1);
+  tw = await evalJs(`document.getElementById('outTw').textContent`);
+  assert(/module\.exports/.test(tw), 'the v3 export is not a config file');
+  const v3ok = await evalJs(`(() => { const src = document.getElementById('outTw').textContent;
+    const module = { exports: {} };
+    try { new Function('module', 'exports', src)(module, module.exports); }
+    catch (e) { return 'threw: ' + e.message; }
+    const c = module.exports.theme.extend.colors;
+    if (!c.primary) return 'no primary';
+    if (!c.main || !c.main['500']) return 'no ramp steps';
+    if (c['muted-foreground'] !== 'var(--muted-foreground)') return 'semantics do not point at the variables';
+    return true; })()`);
+  assert(v3ok === true, 'the v3 config does not run: ' + v3ok);
+
+  /* Figma variables: real JSON, two modes, a hex per mode */
+  const fig = await evalJs(`(() => { try {
+      const d = JSON.parse(document.getElementById('outFigma').textContent);
+      const sem = d.variables.filter(v => v.name.startsWith('semantic/'));
+      const ramp = d.variables.filter(v => v.name.startsWith('ramp/'));
+      const brand = d.variables.filter(v => v.name.startsWith('brand/'));
+      const badHex = d.variables.filter(v => !/^#[0-9A-F]{6}$/.test(v.valuesByMode.Light) || !/^#[0-9A-F]{6}$/.test(v.valuesByMode.Dark));
+      const differs = sem.filter(v => v.valuesByMode.Light !== v.valuesByMode.Dark).length;
+      return { modes: d.modes, sem: sem.length, ramp: ramp.length, brand: brand.length, badHex: badHex.length, differs };
+    } catch (e) { return 'not JSON: ' + e.message; } })()`);
+  assert(typeof fig === 'object', String(fig));
+  assert(fig.modes.join() === 'Light,Dark', 'the Figma export has the wrong modes: ' + fig.modes);
+  assert(fig.sem === 32, 'the Figma export is missing semantic variables: ' + fig.sem);
+  assert(fig.ramp === 121, 'the Figma export is missing ramp steps: ' + fig.ramp);
+  assert(fig.brand === 1, 'the pasted brand colour is not exported as a variable');
+  assert(fig.badHex === 0, fig.badHex + ' Figma values are not plain hex');
+  assert(fig.differs > 10, 'the two Figma modes hold the same colours');
+
+  /* the sheet is drawn, and is not a blank rectangle */
+  const sheet = await evalJs(`(() => {
+    const c = document.getElementById('sheet');
+    const g = c.getContext('2d');
+    const d = g.getImageData(0, 0, c.width, c.height).data;
+    const seen = new Set();
+    for (let i = 0; i < d.length; i += 4 * 97) seen.add(d[i] + ',' + d[i+1] + ',' + d[i+2]);
+    return { w: c.width, h: c.height, colours: seen.size };
+  })()`);
+  assert(sheet.w > 800 && sheet.h > 400, 'the sheet is the wrong size: ' + sheet.w + 'x' + sheet.h);
+  assert(sheet.colours > 40, 'the sheet is nearly blank: ' + sheet.colours + ' colours');
+
+  /* the link carries the whole palette, and loading it brings the palette back */
+  const link = await evalJs(`document.getElementById('outLink').textContent`);
+  assert(/#(z|j)=/.test(link), 'the link carries no palette: ' + link);
+  assert(link.length < 4000, 'the link is too long to send: ' + link.length);
+
+  await send('Page.navigate', { url: link });
+  await sleep(1800);
+  const back = await evalJs(`({ name: document.getElementById('pName').value,
+                                hue: document.getElementById('hMain').value,
+                                brand: document.getElementById('xMain').value,
+                                hash: location.hash })`);
+  assert(back.name === 'Harbour', 'the link lost the name: ' + back.name);
+  assert(back.brand.toUpperCase() === '#0075C9', 'the link lost the brand colour: ' + back.brand);
+  assert(back.hash === '', 'the link was not cleared from the address bar after loading');
+});
+
 const failed = results.filter(r => !r[1]);
 console.log('');
 results.forEach(([name, ok, why]) => console.log(`${ok ? ' ok ' : 'FAIL'}  ${name}${why ? ' — ' + why : ''}`));

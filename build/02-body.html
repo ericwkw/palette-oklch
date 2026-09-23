@@ -239,9 +239,36 @@
     </section>
 
     <section class="view" data-view="export">
-      <div class="head"><h2>Export</h2></div>
-      <p class="note">shadcn / Tailwind theme in OKLCH, with <code>:root</code> and <code>.dark</code>, plus the raw ramps as JSON.</p>
-      <div class="card"><h3>shadcn globals.css</h3><div class="btns" style="margin:0 0 10px"><button class="btn" data-copy="outCss">Copy</button><button class="btn" data-dl="css">Download</button></div><pre id="outCss"></pre></div>
+      <div class="head"><h2>Export</h2><span class="meta" id="exportMeta"></span></div>
+      <p class="note">The same palette in the shapes the next person needs it in: a stylesheet to paste, a Tailwind theme, variables for Figma, a link to send, and a sheet to print.</p>
+
+      <div class="card"><h3>Send this palette to someone</h3>
+        <p class="cap">The whole state travels in the link &mdash; nothing is uploaded, and nothing is stored on a server. Open it and the tool comes up exactly as it is here.</p>
+        <div class="btns" style="margin:0 0 10px"><button class="btn primary" id="btnLink">Copy link</button><button class="btn" id="btnLinkOpen">Open in a new tab</button></div>
+        <pre id="outLink" style="max-height:88px"></pre>
+      </div>
+
+      <div class="card"><h3>shadcn <code>globals.css</code></h3>
+        <p class="cap">All thirty shadcn token names, light and dark, in OKLCH. Fonts and radius beyond <code>--radius</code> are left to the project.</p>
+        <div class="btns" style="margin:0 0 10px"><button class="btn" data-copy="outCss">Copy</button><button class="btn" data-dl="css">Download</button></div><pre id="outCss"></pre></div>
+
+      <div class="card"><h3>Tailwind</h3>
+        <div class="seg" id="twSeg" role="group" aria-label="Tailwind version" style="margin:0 0 10px">
+          <button data-tw="v4" aria-selected="true">v4 &mdash; @theme</button>
+          <button data-tw="v3" aria-selected="false">v3 &mdash; config file</button>
+        </div>
+        <p class="cap" id="twNote"></p>
+        <div class="btns" style="margin:0 0 10px"><button class="btn" data-copy="outTw">Copy</button><button class="btn" data-dl="tw">Download</button></div><pre id="outTw"></pre></div>
+
+      <div class="card"><h3>Figma variables</h3>
+        <p class="cap">One collection with a Light and a Dark mode, so a token switches mode in Figma the way it switches class in the browser. Import with a variables-import plugin.</p>
+        <div class="btns" style="margin:0 0 10px"><button class="btn" data-copy="outFigma">Copy</button><button class="btn" data-dl="figma">Download</button></div><pre id="outFigma"></pre></div>
+
+      <div class="card"><h3>A sheet to print or paste</h3>
+        <p class="cap">Every ramp with its steps and hex values, drawn as one image.</p>
+        <div class="btns" style="margin:0 0 10px"><button class="btn" id="btnSheet">Download PNG</button></div>
+        <canvas id="sheet" style="max-width:100%;border:1px solid var(--line);border-radius:10px"></canvas></div>
+
       <div class="card"><h3>Ramps &amp; tokens JSON</h3><div class="btns" style="margin:0 0 10px"><button class="btn" data-copy="outJson">Copy</button><button class="btn" data-dl="json">Download</button></div><pre id="outJson"></pre></div>
     </section>
   </main>

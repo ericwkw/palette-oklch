@@ -516,6 +516,183 @@
       '</div></div>';
   }
 
+  /* ---------- Tailwind ---------- */
+  var TW = 'v4';
+  var RAMP_KEYS = ['main','sup','a1','a2','neutral'].concat(FUNCTIONAL.map(function(f){ return f.id; }));
+  /* the shadcn token names, checked against a published shadcn theme */
+  var TOKEN_NAMES = ['background','foreground','card','card-foreground','popover','popover-foreground',
+    'primary','primary-foreground','secondary','secondary-foreground','muted','muted-foreground',
+    'accent','accent-foreground','destructive','destructive-foreground','border','input','ring',
+    'chart-1','chart-2','chart-3','chart-4','chart-5','sidebar','sidebar-foreground',
+    'sidebar-primary','sidebar-primary-foreground','sidebar-accent','sidebar-accent-foreground',
+    'sidebar-border','sidebar-ring'];
+
+  function twExport(){
+    var L = build(false);
+    if(TW === 'v4'){
+      /* v4 reads the theme from CSS: every token becomes a --color-* so
+         bg-primary, text-muted-foreground and friends resolve */
+      var ramps = RAMP_KEYS.map(function(k){
+        return L[k].map(function(st){ return '  --color-' + k + '-' + st.step + ': ' + st.css + ';'; }).join('\n');
+      }).join('\n');
+      var toks = TOKEN_NAMES.map(function(n){ return '  --color-' + n + ': var(--' + n + ');'; }).join('\n');
+      return '/* Tailwind v4 — paste under your globals.css, after the :root and .dark blocks.\n' +
+        '   The token colours follow the theme, so they change with .dark on their own. */\n\n' +
+        '@theme inline {\n' + toks + '\n  --radius-lg: var(--radius);\n}\n\n' +
+        '/* the raw ramps, for the times a step is wanted by name */\n@theme {\n' + ramps + '\n}\n';
+    }
+    var colors = RAMP_KEYS.map(function(k){
+      return '        ' + k + ': {\n' + L[k].map(function(st){
+        return '          ' + st.step + ": '" + st.hex + "',";
+      }).join('\n') + '\n        },';
+    }).join('\n');
+    var semLines = TOKEN_NAMES.map(function(n){
+      return "        '" + n + "': 'var(--" + n + ")',";
+    }).join('\n');
+    return '// Tailwind v3 — tailwind.config.js\n' +
+      '// The semantic colours point at the CSS variables, so they follow .dark.\n' +
+      '// The ramps are literal, for the times a step is wanted by name.\n\n' +
+      'module.exports = {\n  darkMode: [\'class\'],\n  theme: {\n    extend: {\n      colors: {\n' +
+      semLines + '\n' + colors + '\n      },\n    },\n  },\n};\n';
+  }
+
+  /* ---------- Figma variables ----------
+     One collection, two modes. Hex with no alpha, which every importer reads. */
+  function figmaExport(){
+    var L = build(false), D = build(true);
+    var tl = tokens(L, false), td = tokens(D, true);
+    var vars = TOKEN_NAMES.map(function(n){
+      return { name: 'semantic/' + n, type: 'COLOR',
+               valuesByMode: { Light: tl[n].hex.toUpperCase(), Dark: td[n].hex.toUpperCase() } };
+    });
+    RAMP_KEYS.forEach(function(k){
+      L[k].forEach(function(st, i){
+        vars.push({ name: 'ramp/' + k + '/' + st.step, type: 'COLOR',
+                    valuesByMode: { Light: st.hex.toUpperCase(), Dark: D[k][i].hex.toUpperCase() } });
+      });
+    });
+    ['main','sup','a1','a2'].forEach(function(k){
+      if(S[k] && S[k].brand) vars.push({ name: 'brand/' + k, type: 'COLOR',
+        valuesByMode: { Light: S[k].brand.toUpperCase(), Dark: S[k].brand.toUpperCase() } });
+    });
+    return JSON.stringify({
+      name: S.name || 'Palette',
+      collection: S.name || 'Palette',
+      modes: ['Light', 'Dark'],
+      variables: vars
+    }, null, 2);
+  }
+
+  /* ---------- a link that carries the whole palette ---------- */
+  function b64url(bytes){
+    var bin = '';
+    for(var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+  function unb64url(str){
+    var b = atob(str.replace(/-/g,'+').replace(/_/g,'/'));
+    var out = new Uint8Array(b.length);
+    for(var i = 0; i < b.length; i++) out[i] = b.charCodeAt(i);
+    return out;
+  }
+  function shareLink(){
+    /* z: deflated, j: plain — the reader is told which it is getting */
+    var json = JSON.stringify(S);
+    var base = location.origin + location.pathname;
+    return Promise.resolve().then(function(){
+      if(typeof CompressionStream === 'undefined') throw 0;
+      var cs = new CompressionStream('deflate-raw');
+      var w = cs.writable.getWriter();
+      w.write(new TextEncoder().encode(json)); w.close();
+      return new Response(cs.readable).arrayBuffer();
+    }).then(function(buf){
+      return base + '#z=' + b64url(new Uint8Array(buf));
+    }).catch(function(){
+      return base + '#j=' + b64url(new TextEncoder().encode(json));
+    });
+  }
+  function readLink(){
+    var h = location.hash || '';
+    var m = h.match(/[#&](z|j)=([A-Za-z0-9\-_]+)/);
+    if(!m) return Promise.resolve(null);
+    var bytes = unb64url(m[2]);
+    if(m[1] === 'j') return Promise.resolve(new TextDecoder().decode(bytes));
+    if(typeof DecompressionStream === 'undefined') return Promise.resolve(null);
+    var ds = new DecompressionStream('deflate-raw');
+    var w = ds.writable.getWriter();
+    w.write(bytes); w.close();
+    return new Response(ds.readable).arrayBuffer().then(function(buf){
+      return new TextDecoder().decode(new Uint8Array(buf));
+    }).catch(function(){ return null; });
+  }
+
+  /* ---------- a sheet to print ---------- */
+  function drawSheet(){
+    var c = el('sheet'); if(!c) return;
+    var L = build(false), D = build(true);
+    var pad = 28, rowH = 46, gap = 12, labelW = 132, stepW = 76;
+    var rows = RAMP_KEYS.length;
+    var w = pad*2 + labelW + stepW*STEPS.length;
+    var h = pad*2 + 66 + rows*(rowH+gap) + 74;
+    var dpr = 2;
+    c.width = w*dpr; c.height = h*dpr;
+    c.style.width = '100%';
+    var g = c.getContext('2d');
+    g.scale(dpr, dpr);
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
+
+    g.fillStyle = '#111418';
+    g.font = '600 22px ui-sans-serif, system-ui, sans-serif';
+    g.fillText(S.name || 'Untitled', pad, pad + 20);
+    g.fillStyle = '#6b7480';
+    g.font = '13px ui-sans-serif, system-ui, sans-serif';
+    g.fillText('OKLCH ramps on the shadcn steps · ' + Math.round(S.main.h) + '° main · ' +
+      (S.shape.gamut === 'p3' ? 'Display P3' : 'sRGB'), pad, pad + 42);
+
+    g.font = '11px ui-monospace, SFMono-Regular, monospace';
+    STEPS.forEach(function(st, i){
+      g.fillStyle = '#6b7480';
+      g.fillText(String(st), pad + labelW + i*stepW + 4, pad + 62);
+    });
+
+    RAMP_KEYS.forEach(function(k, r){
+      var y = pad + 72 + r*(rowH+gap);
+      g.fillStyle = '#111418';
+      g.font = '600 13px ui-sans-serif, system-ui, sans-serif';
+      g.fillText(roleLabel(k), pad, y + 20);
+      g.fillStyle = '#6b7480';
+      g.font = '11px ui-monospace, SFMono-Regular, monospace';
+      g.fillText(Math.round(L[k][0].h) + '°', pad, y + 36);
+      L[k].forEach(function(st, i){
+        var x = pad + labelW + i*stepW;
+        g.fillStyle = st.hex; g.fillRect(x, y, stepW - 4, rowH);
+        /* whichever of ink or paper reads better on this step, rather than a guess at the middle */
+        g.fillStyle = wcag('#111418', st.hex) >= wcag('#ffffff', st.hex) ? '#111418' : '#ffffff';
+        g.font = '10px ui-monospace, SFMono-Regular, monospace';
+        g.fillText(st.hex.toUpperCase(), x + 6, y + rowH - 8);
+      });
+    });
+
+    /* the tokens that matter most, light and dark, as a footer strip */
+    var fy = pad + 72 + rows*(rowH+gap) + 8;
+    var tl = tokens(L, false), td = tokens(D, true);
+    [['Light', tl], ['Dark', td]].forEach(function(pair, i){
+      var y = fy + i*30;
+      g.fillStyle = '#111418';
+      g.font = '600 12px ui-sans-serif, system-ui, sans-serif';
+      g.fillText(pair[0], pad, y + 16);
+      ['background','foreground','primary','secondary','accent','destructive','border','ring'].forEach(function(n, j){
+        var x = pad + 60 + j*84;
+        g.fillStyle = pair[1][n].hex; g.fillRect(x, y, 18, 18);
+        g.strokeStyle = '#d7dce2'; g.strokeRect(x + 0.5, y + 0.5, 17, 17);
+        g.fillStyle = '#6b7480';
+        g.font = '10px ui-sans-serif, system-ui, sans-serif';
+        g.fillText(n, x + 24, y + 13);
+      });
+    });
+    return c;
+  }
+
   /* ---------- brand family ----------
      A sister sets its own main hue and colourfulness. Everything else is the
      parent's: neutrals, functional colours, steps, ramp shape, token mapping. */
@@ -1028,6 +1205,14 @@
 
     el('outCss').textContent = cssExport();
     el('outJson').textContent = jsonExport();
+    el('outTw').textContent = twExport();
+    el('outFigma').textContent = figmaExport();
+    el('twNote').textContent = TW === 'v4'
+      ? 'Tailwind v4 reads its theme from CSS. Paste this under globals.css; the token colours follow .dark on their own.'
+      : 'Tailwind v3 reads a config file. The semantic colours point at the CSS variables, so they follow .dark; the ramps are literal.';
+    el('exportMeta').textContent = STEPS.length + ' steps · ' + RAMP_KEYS.length + ' ramps · ' + TOKEN_NAMES.length + ' shadcn tokens';
+    drawSheet();
+    shareLink().then(function(u){ var box = el('outLink'); if(box) box.textContent = u; });
 
     editorHtml(L);
     applyTheme();
@@ -1202,6 +1387,38 @@
     render();          /* removing a sister is a change like any other, so undo brings it back */
   });
 
+  /* ---------- export controls ---------- */
+  el('twSeg').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-tw]'); if(!b) return;
+    TW = b.dataset.tw;
+    [].forEach.call(el('twSeg').children, function(x){ x.setAttribute('aria-selected', String(x === b)); });
+    el('outTw').textContent = twExport();
+    el('twNote').textContent = TW === 'v4'
+      ? 'Tailwind v4 reads its theme from CSS. Paste this under globals.css; the token colours follow .dark on their own.'
+      : 'Tailwind v3 reads a config file. The semantic colours point at the CSS variables, so they follow .dark; the ramps are literal.';
+  });
+  el('btnLink').addEventListener('click', function(){
+    var b = el('btnLink');
+    shareLink().then(function(u){
+      el('outLink').textContent = u;
+      if(navigator.clipboard) navigator.clipboard.writeText(u);
+      b.textContent = 'Link copied';
+      setTimeout(function(){ b.textContent = 'Copy link'; }, 1200);
+    });
+  });
+  el('btnLinkOpen').addEventListener('click', function(){
+    shareLink().then(function(u){ window.open(u, '_blank'); });
+  });
+  el('btnSheet').addEventListener('click', function(){
+    var c = drawSheet(); if(!c) return;
+    c.toBlob(function(blob){
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = slug(S.name) + '-palette.png';
+      a.click();
+    });
+  });
+
   /* which theme the views show; Both shows them side by side */
   function applyTheme(){
     /* the ramp cards are written into the page, so they are filtered here;
@@ -1298,11 +1515,15 @@
     var dl = e.target.closest('[data-dl]');
     if(dl){
       var kind = dl.dataset.dl;
-      var text = kind === 'css' ? cssExport() : (kind === 'family' ? famExport() : jsonExport());
-      var blob = new Blob([text], { type: kind === 'json' ? 'application/json' : 'text/css' });
+      var text = { css: cssExport, family: famExport, tw: twExport, figma: figmaExport, json: jsonExport }[kind]();
+      var type = (kind === 'json' || kind === 'figma') ? 'application/json'
+               : (kind === 'tw' && TW === 'v3') ? 'text/javascript' : 'text/css';
+      var blob = new Blob([text], { type: type });
       var a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = slug(S.name) + (kind === 'json' ? '.json' : (kind === 'family' ? '.family.css' : '.css'));
+      var ext = { json:'.json', family:'.family.css', figma:'.figma-variables.json',
+                  tw: TW === 'v4' ? '.theme.css' : '.tailwind.config.js', css:'.css' }[kind];
+      a.download = slug(S.name) + ext;
       a.click();
     }
   });
@@ -1351,6 +1572,24 @@
   render();
   histUi();
   libUi();
+
+  /* a shared link wins over what is remembered here, and is then cleared from
+     the address bar so a later reload shows your own work, not the snapshot */
+  readLink().then(function(json){
+    if(!json) return;
+    try{
+      var d = JSON.parse(json);
+      if(!d || !d.main) return;
+      S = d;
+      S.map = S.map || JSON.parse(JSON.stringify(DEFAULTS.map));
+      S.nudges = S.nudges || {};
+      S.darkMode = S.darkMode || JSON.parse(JSON.stringify(DEFAULTS.darkMode));
+      S.family = S.family || { sisters:[] };
+      EDITING = null;
+      syncControls(); render(); histUi(); libUi();
+      if(history.replaceState) history.replaceState(null, '', location.pathname + location.search);
+    }catch(e){}
+  });
 })();
 </script>
 </body>
