@@ -710,6 +710,81 @@ await journey('ten brands and the tool still moves', async () => {
   assert(strips === 10, 'not every brand is drawn: ' + strips);
 });
 
+/* 18 — a pinned brand colour is followed all the way into the interface */
+await journey('the tool says whether the brand colour reaches the interface', async () => {
+  await type('xSup', '#F4A300');          /* lands mid-ramp, where no token reads */
+  await click('#tabs button', 1);
+
+  let state = await evalJs(`(() => {
+    const rows = [...document.querySelectorAll('#brandReach > div')];
+    return rows.map(r => ({ text: r.textContent, pill: (r.querySelector('.pill') || {}).textContent }));
+  })()`);
+  assert(state.length === 1, 'the brand reach check found the wrong number of pinned colours: ' + state.length);
+  assert(state[0].pill === 'never appears', 'a colour no token uses is reported as reaching the interface');
+  assert(/step 400/.test(state[0].text), 'the check does not say which step it landed on');
+
+  /* the rail says the same thing, where the colour was pasted */
+  const rail = await evalJs(`document.getElementById('anSup').textContent`);
+  assert(/no token uses it/.test(rail), 'the rail does not warn that the colour is unused: ' + rail);
+
+  /* and the offer is real: take it, and the colour is in the stylesheet as a token */
+  await click('#brandReach [data-fixmap]');
+  state = await evalJs(`(() => {
+    const r = document.querySelector('#brandReach > div:nth-child(1)');
+    return { pill: r.querySelector('.pill').textContent, text: r.textContent };
+  })()`);
+  assert(state.pill === 'reaches the interface', 'taking the offer did not make the colour reach anything');
+  assert(/secondary/.test(state.text), 'the check does not name the token now using it: ' + state.text);
+
+  await click('#tabs button', 7);
+  const inCss = await evalJs(`(() => { const css = document.getElementById('outCss').textContent;
+    const body = css.slice(css.indexOf(':root {', css.indexOf('--sup-50')));
+    return /oklch/.test(body); })()`);
+  assert(inCss, 'the stylesheet did not rebuild');
+  const secondary = await evalJs(`(() => { const css = document.getElementById('outCss').textContent;
+    const m = css.match(/--secondary: ([^;]+);/); return m ? m[1] : null; })()`);
+  const step = await evalJs(`document.getElementById('map-tint').value`);
+  assert(step === '400', 'the tint mapping did not move to the brand step: ' + step);
+  assert(secondary, 'the stylesheet has no --secondary');
+});
+
+/* 19 — a failing pair names itself and can be fixed from where it is reported */
+await journey('a failing contrast pair offers the fix that mends it', async () => {
+  await click('#tabs button', 1);
+  /* push the chart series pale enough to fail against the page */
+  await evalJs(`(() => { const s = document.getElementById('map-chart');
+    s.value = '400'; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await sleep(300);
+  await click('#tabs button', 2);
+
+  let audit = await evalJs(`(() => {
+    const cap = document.querySelector('#ctTokens .cap');
+    const fails = [...document.querySelectorAll('#ctTokens tr.row-fail')].map(r => r.textContent);
+    const offer = document.querySelector('#ctTokens tr.row-fail [data-fixmap]');
+    return { cap: cap.textContent, fails: fails.length,
+             named: /chart-1/.test(cap.textContent),
+             offer: offer ? offer.textContent : null };
+  })()`);
+  assert(audit.fails > 0, 'a pale chart series against the page is reported as passing');
+  assert(audit.named, 'the summary does not name what fell short: ' + audit.cap);
+  assert(audit.offer && /step/.test(audit.offer), 'the failing row offers no way out: ' + audit.offer);
+
+  await click('#ctTokens tr.row-fail [data-fixmap]');
+  audit = await evalJs(`(() => ({ cap: document.querySelector('#ctTokens .cap').textContent,
+                                  fails: document.querySelectorAll('#ctTokens tr.row-fail').length }))()`);
+  assert(audit.fails === 0, 'taking the offered step did not clear the failure');
+  assert(/clears its level/.test(audit.cap), 'the summary still reports a failure: ' + audit.cap);
+
+  /* and the mapping control moved with it, rather than the fix being invisible */
+  await click('#tabs button', 1);
+  const chart = await evalJs(`document.getElementById('map-chart').value`);
+  assert(chart !== '400', 'the chart mapping did not move: ' + chart);
+
+  /* the chart tokens are mappable at all — the audit cannot flag what it cannot fix */
+  const fields = await evalJs(`[...document.querySelectorAll('[data-map]')].map(s => s.dataset.map)`);
+  assert(fields.includes('chart') && fields.includes('chartDark'), 'the chart tokens have no mapping control');
+});
+
 const failed = results.filter(r => !r[1]);
 console.log('');
 results.forEach(([name, ok, why]) => console.log(`${ok ? ' ok ' : 'FAIL'}  ${name}${why ? ' — ' + why : ''}`));

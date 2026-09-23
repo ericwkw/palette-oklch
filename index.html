@@ -178,6 +178,8 @@
   #glossList dt span{font-weight:400;color:var(--ink-3);font-size:.76rem;margin-left:6px}
   #glossList dd{margin:3px 0 0;color:var(--ink-2);font-size:.82rem;line-height:1.55}
   #glossList div.lit{background:var(--bg);border-radius:8px;padding:6px 10px;margin:0 -10px}
+  tr.row-fail td{background:color-mix(in oklab, #d4423a 7%, transparent)}
+  .cap.fail-cap{color:#b83029}
   kbd{font-family:var(--mono);font-size:.68rem;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 5px;background:var(--bg)}
   .btn[disabled]{opacity:.42;cursor:default}
   .btn.danger{border-color:#d4423a;color:#d4423a}
@@ -359,8 +361,13 @@
       <div class="head"><h2>Roles &amp; tokens</h2></div>
       <p class="note">Roles name what a colour is for; tokens are what a product uses. Ramp steps are the primitives underneath, so a palette swap never changes a token name.</p>
       <div class="card"><h3>Share of surface</h3><div class="share" id="shareBar"></div><div class="legend" id="shareLegend"></div></div>
+      <div class="card"><h3>Where your brand colours land</h3>
+        <p class="cap">Pinning a hex into a ramp is not the same as a token using it. This is the check: does the exact colour you were given appear anywhere a product would actually draw it?</p>
+        <div id="brandReach"></div>
+      </div>
+
       <div class="card"><h3>Which step each token uses</h3>
-        <p class="cap">These four decide the primary button, the tinted surface behind secondary and accent, the hairline on every border and input, and the focus ring. Change one and watch the row below, the preview and the export move with it.</p>
+        <p class="cap">These decide the primary button, the tinted surface behind secondary and accent, the hairline on every border and input, the focus ring, and the five chart series. Change one and watch the row below, the preview and the export move with it. A step marked <em>your brand colour</em> is the one your pasted hex landed on.</p>
         <div class="grid3" id="mapControls"></div>
         <div id="mapDemo" style="margin-top:14px"></div>
       </div>
@@ -684,7 +691,7 @@ function hueClash(h){
     neutral:{c:0.012, from:'main', h:250},
     shape:{peak:6, falloff:0.85, gamut:'srgb', twist:1},
     darkMode:{lift:0.055, boost:1},
-    map:{ primary:700, primaryDark:400, tint:100, tintDark:900, border:200, borderDark:800, ring:600, ringDark:400 },
+    map:{ primary:700, primaryDark:400, tint:100, tintDark:900, border:200, borderDark:800, ring:600, ringDark:400, chart:600, chartDark:400 },
     nudges:{},
     share:{neutral:55, sup:22, main:15, a1:6, a2:2},
     family:{ sisters:[] }
@@ -835,8 +842,8 @@ function hueClash(h){
     var n = p.neutral;
     var m = S.map || {};
     var S_ = dark
-      ? { paper:950, panel:900, hairline:m.borderDark||800, quiet:400, ink:50, fill:m.primaryDark||400, tint:m.tintDark||900, tintText:200, ring:m.ringDark||400 }
-      : { paper:50,  panel:100, hairline:m.border||200,     quiet:700, ink:950, fill:m.primary||700,     tint:m.tint||100,    tintText:900, ring:m.ring||600 };
+      ? { paper:950, panel:900, hairline:m.borderDark||800, quiet:400, ink:50, fill:m.primaryDark||400, tint:m.tintDark||900, tintText:200, ring:m.ringDark||400, chart:m.chartDark||400 }
+      : { paper:50,  panel:100, hairline:m.border||200,     quiet:700, ink:950, fill:m.primary||700,     tint:m.tint||100,    tintText:900, ring:m.ring||600,     chart:m.chart||600 };
     function fillPair(ramp){
       var f = stepOf(ramp, S_.fill);
       return [f, { hex:textOn(f.hex,p) }];
@@ -852,8 +859,8 @@ function hueClash(h){
       'accent': stepOf(p.a1,S_.tint), 'accent-foreground': stepOf(p.a1,S_.tintText),
       'destructive': dest[0], 'destructive-foreground': dest[1],
       'border': stepOf(n,S_.hairline), 'input': stepOf(n,S_.hairline), 'ring': stepOf(p.main, S_.ring),
-      'chart-1': stepOf(p.main,500), 'chart-2': stepOf(p.sup,500), 'chart-3': stepOf(p.a1,500),
-      'chart-4': stepOf(p.a2,500), 'chart-5': stepOf(p.success,500),
+      'chart-1': stepOf(p.main,S_.chart), 'chart-2': stepOf(p.sup,S_.chart), 'chart-3': stepOf(p.a1,S_.chart),
+      'chart-4': stepOf(p.a2,S_.chart), 'chart-5': stepOf(p.success,S_.chart),
       'sidebar': stepOf(n,S_.panel), 'sidebar-foreground': stepOf(n,S_.ink),
       'sidebar-primary': prim[0], 'sidebar-primary-foreground': prim[1],
       'sidebar-accent': stepOf(p.sup,S_.tint), 'sidebar-accent-foreground': stepOf(p.sup,S_.tintText),
@@ -982,27 +989,144 @@ function hueClash(h){
     ['chart-2','background','ui'],
     ['chart-3','background','ui']
   ];
+  /* ---------- does the brand colour reach the interface? ----------
+     Pinning a hex into a ramp is not the same as a token using it. A colour
+     pinned at step 400 while every token reads 100 and 700 appears nowhere. */
+  var BRAND_ROLES = [['main','Main'],['sup','Supporting'],['a1','Accent 1'],['a2','Accent 2']];
+  function brandStepOf(role){
+    var conf = S[role];
+    if(!conf || !conf.brand || conf.pin === false) return null;
+    return nearestStep(build(false)[role], conf.brand).step;
+  }
+  /* the mapping controls that can be pointed at a given role */
+  var ROLE_FIELDS = { main: ['primary','primaryDark','ring','ringDark','chart','chartDark'],
+                      sup:  ['tint','tintDark'], a1: [], a2: [] };
+
+  function brandReach(){
+    var L = build(false), D = build(true);
+    var tl = tokens(L, false), td = tokens(D, true);
+    return BRAND_ROLES.map(function(r){
+      var conf = S[r[0]], hex = conf && conf.brand;
+      if(!hex || conf.pin === false) return null;
+      var up = hex.toUpperCase();
+      var step = nearestStep(L[r[0]], hex).step;
+      var used = [];
+      TOKEN_NAMES.forEach(function(n){
+        if(tl[n] && tl[n].hex.toUpperCase() === up) used.push(n);
+        else if(td[n] && td[n].hex.toUpperCase() === up && used.indexOf(n + ' (dark)') === -1) used.push(n + ' (dark)');
+      });
+      /* which control could be pointed at this step, if none is already */
+      var offers = (ROLE_FIELDS[r[0]] || []).map(function(f){
+        var def = MAP_FIELDS.filter(function(x){ return x[0] === f; })[0];
+        if(!def || fieldOptions(f).indexOf(step) === -1) return null;
+        return { field: f, label: def[1], already: S.map[f] === step };
+      }).filter(Boolean);
+      return { key:r[0], name:r[1], hex:up, step:step, used:used, offers:offers };
+    }).filter(Boolean);
+  }
+
+  function brandReachHtml(){
+    var rows = brandReach();
+    if(!rows.length){
+      return '<p class="cap">No brand colour is pinned yet. Paste one into a role in the rail and this will say exactly where it ends up.</p>';
+    }
+    return rows.map(function(r){
+      var body;
+      if(r.used.length){
+        body = '<p class="cap" style="margin:6px 0 0">Used by ' +
+          r.used.map(function(n){ return '<code>' + n + '</code>'; }).join(', ') + '.</p>';
+      } else {
+        var offers = r.offers.filter(function(o){ return !o.already; });
+        body = '<p class="cap fail-cap" style="margin:6px 0 0">No token uses this colour. It sits in the ramp at step ' + r.step +
+          ', and nothing reads step ' + r.step + ' of ' + r.name + '.</p>' +
+          (offers.length
+            ? '<div class="btns" style="margin-top:8px">' + offers.map(function(o){
+                return '<button class="btn mini" data-fixmap="' + o.field + '" data-fixstep="' + r.step + '">Point ' + o.label.toLowerCase() + ' at it</button>';
+              }).join('') + '</div>'
+            : '<p class="hint" style="margin-top:6px">' + (r.offers.length
+                ? 'Every control that could reach it already points elsewhere on purpose.'
+                : 'No token reads this role directly — ' + r.name + ' reaches the interface through tinted surfaces, which use the pale end. Move your colour to the pale end, or use it as artwork rather than as a token.') + '</p>');
+      }
+      return '<div style="padding:10px 0;border-top:1px solid var(--line)">' +
+        '<div class="pv-row" style="gap:10px">' +
+          '<span class="dot" style="background:' + r.hex + ';width:22px;height:22px"></span>' +
+          '<b>' + r.name + '</b><span class="mono">' + r.hex + '</span>' +
+          '<span class="muted">step ' + r.step + '</span>' +
+          '<span class="pill ' + (r.used.length ? 'pass' : 'fail') + '" style="margin-left:auto">' +
+            (r.used.length ? 'reaches the interface' : 'never appears') + '</span>' +
+        '</div>' + body + '</div>';
+    }).join('');
+  }
+  /* the short version, for the rail: does this one land anywhere? */
+  function reachNote(key){
+    var r = brandReach().filter(function(x){ return x.key === key; })[0];
+    if(!r) return '';
+    return r.used.length
+      ? ' · used by <b>' + r.used[0] + (r.used.length > 1 ? '</b> and ' + (r.used.length - 1) + ' more' : '</b>')
+      : ' · <b style="color:#b83029">no token uses it</b>';
+  }
+
+  /* which mapping control, if any, could rescue a failing pair */
+  var PAIR_FIX = {
+    'primary-foreground|primary': ['primary','primaryDark'],
+    'secondary-foreground|secondary': ['tint','tintDark'],
+    'accent-foreground|accent': ['tint','tintDark'],
+    'ring|background': ['ring','ringDark'],
+    'chart-1|background': ['chart','chartDark'],
+    'chart-2|background': ['chart','chartDark'],
+    'chart-3|background': ['chart','chartDark'],
+    'border|background': ['border','borderDark'],
+    'border|card': ['border','borderDark']
+  };
+  function needOf(kind){ return kind === 'text' ? 4.5 : (kind === 'ui' ? 3 : 1.2); }
+  /* the first step offered by that control at which the pair clears its level */
+  function stepThatFixes(pair, dark){
+    var fix = PAIR_FIX[pair[0] + '|' + pair[1]];
+    if(!fix) return null;
+    var field = dark ? fix[1] : fix[0];
+    var opts = fieldOptions(field);
+    if(!opts.length) return null;
+    var was = S.map[field], need = needOf(pair[2]), found = null;
+    for(var i = 0; i < opts.length; i++){
+      S.map[field] = opts[i];
+      var t = tokens(build(dark), dark);
+      if(t[pair[0]] && t[pair[1]] && wcag(t[pair[0]].hex, t[pair[1]].hex) >= need){ found = opts[i]; break; }
+    }
+    S.map[field] = was;
+    return found === null ? null : { field: field, step: found };
+  }
+
   function tokenAuditHtml(p, dark){
     var t = tokens(p, dark);
+    var failed = [];
     var rows = TOKEN_PAIRS.map(function(pair){
       var fg = t[pair[0]], bg = t[pair[1]];
       if(!fg || !bg) return '';
       var r = wcag(fg.hex,bg.hex), lc = apca(fg.hex,bg.hex), kind = pair[2];
-      var need = kind === 'text' ? 4.5 : (kind === 'ui' ? 3 : 1.2);   /* hairlines are guidance, not a rule */
+      var need = needOf(kind);
       var cls = r >= need ? 'pass' : (r >= need * 0.8 ? 'mid' : 'fail');
-      return '<tr><td><span class="dot" style="background:'+fg.hex+'"></span><code>'+pair[0]+'</code></td>'+
+      var fix = '';
+      if(r < need){
+        failed.push(pair);
+        var f = stepThatFixes(pair, dark);
+        fix = f
+          ? '<button class="btn mini" data-fixmap="' + f.field + '" data-fixstep="' + f.step + '">Take step ' + f.step + '</button>'
+          : '<span class="muted">move the ramp itself</span>';
+      }
+      return '<tr' + (r < need ? ' class="row-fail"' : '') + '>' +
+        '<td><span class="dot" style="background:'+fg.hex+'"></span><code>'+pair[0]+'</code></td>'+
         '<td><span class="dot" style="background:'+bg.hex+'"></span><code>'+pair[1]+'</code></td>'+
         '<td class="muted">'+need.toFixed(1)+' · '+(kind === 'text' ? 'text' : (kind === 'ui' ? 'UI mark' : 'hairline'))+'</td>'+
-        '<td><span class="pill '+cls+'">'+r.toFixed(2)+' · Lc '+Math.round(lc)+'</span></td></tr>';
+        '<td><span class="pill '+cls+'">'+r.toFixed(2)+' · Lc '+Math.round(lc)+'</span></td>'+
+        '<td>'+fix+'</td></tr>';
     }).join('');
-    var fails = TOKEN_PAIRS.filter(function(pair){
-      var fg = t[pair[0]], bg = t[pair[1]];
-      if(!fg || !bg) return false;
-      var need = pair[2] === 'text' ? 4.5 : (pair[2] === 'ui' ? 3 : 1.2);
-      return wcag(fg.hex,bg.hex) < need;
-    }).length;
-    return '<p class="cap">' + (fails ? fails + ' of ' + TOKEN_PAIRS.length + ' token pairs fall short.' : 'Every token pair clears its level.') + '</p>' +
-      '<table><thead><tr><th>Foreground</th><th>Background</th><th>Needs</th><th>Result</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    var head = failed.length
+      ? '<p class="cap fail-cap">' + failed.length + ' of ' + TOKEN_PAIRS.length + ' pairs fall short: ' +
+          failed.map(function(f){ return '<code>' + f[0] + '</code> on <code>' + f[1] + '</code>'; }).join(', ') +
+          '. Each row below says what would fix it.</p>'
+      : '<p class="cap">Every token pair clears its level.</p>';
+    return head +
+      '<table><thead><tr><th>Foreground</th><th>Background</th><th>Needs</th><th>Result</th><th>If it fails</th></tr></thead><tbody>'+rows+'</tbody></table>';
   }
   function contrastFillHtml(p, dark){
     var base = dark ? 500 : 600;
@@ -1771,24 +1895,41 @@ function hueClash(h){
     ['border','Hairline · light', [100,200,300]],
     ['borderDark','Hairline · dark', [700,800,900]],
     ['ring','Focus ring · light', [500,600,700]],
-    ['ringDark','Focus ring · dark', [300,400,500]]
+    ['ringDark','Focus ring · dark', [300,400,500]],
+    ['chart','Chart series · light', [400,500,600,700]],
+    ['chartDark','Chart series · dark', [300,400,500,600]]
   ];
   /* which ramp each mapped token reads, so the control can show the colour it produces */
   var MAP_SOURCE = { primary:'main', primaryDark:'main', tint:'sup', tintDark:'sup',
-                     border:'neutral', borderDark:'neutral', ring:'main', ringDark:'main' };
+                     border:'neutral', borderDark:'neutral', ring:'main', ringDark:'main',
+                     chart:'main', chartDark:'main' };   /* the five series all take the same step */
+  /* the steps a control offers: its usual range, plus the step a pinned brand
+     colour landed on — otherwise a brand colour in the middle of the ramp can
+     never be chosen, and the tool can only tell you it is unreachable */
+  function fieldOptions(field){
+    var def = MAP_FIELDS.filter(function(f){ return f[0] === field; })[0];
+    if(!def) return [];
+    var opts = def[2].slice();
+    var role = MAP_SOURCE[field], conf = S[role];
+    if(conf && conf.brand && conf.pin !== false){
+      var step = nearestStep(build(false)[role], conf.brand).step;
+      if(opts.indexOf(step) === -1){ opts.push(step); opts.sort(function(a,b){ return a-b; }); }
+    }
+    return opts;
+  }
   function mapControlsHtml(L, D){
     return MAP_FIELDS.map(function(f){
       var dark = /Dark$/.test(f[0]);
       var sw = stepOf((dark ? D : L)[MAP_SOURCE[f[0]]], S.map[f[0]]);
       return '<div class="field" style="grid-template-columns:minmax(0,1fr)"><label for="map-'+f[0]+'">'+f[1]+'</label>' +
         '<select id="map-'+f[0]+'" data-map="'+f[0]+'">' +
-        f[2].map(function(v){ return '<option value="'+v+'"'+(S.map[f[0]] === v ? ' selected' : '')+'>'+v+'</option>'; }).join('') +
+        fieldOptions(f[0]).map(function(v){ return '<option value="'+v+'"'+(S.map[f[0]] === v ? ' selected' : '')+'>'+v+(v === brandStepOf(MAP_SOURCE[f[0]]) ? ' — your brand colour' : '')+'</option>'; }).join('') +
         '</select>' +
         '<span class="swatch-inline" style="margin-top:6px"><span class="dot" style="background:'+sw.hex+'"></span><span class="mono">'+sw.hex.toUpperCase()+'</span></span>' +
         '</div>';
     }).join('');
   }
-  /* the four things the mapping actually changes, drawn live */
+  /* the things the mapping actually changes, drawn live */
   function mapDemoHtml(p, dark){
     var t = tokens(p, dark);
     return '<div class="preview" style="background:'+t.background.hex+';color:'+t.foreground.hex+';padding:16px">' +
@@ -1797,6 +1938,10 @@ function hueClash(h){
         '<span class="pv-btn" style="background:'+t.secondary.hex+';color:'+t['secondary-foreground'].hex+'">Tinted surface</span>' +
         '<span style="display:inline-flex;align-items:center;gap:8px;font-size:.78rem">Hairline<span style="display:inline-block;width:64px;height:1px;background:'+t.border.hex+'"></span></span>' +
         '<span class="pv-btn" style="background:transparent;color:'+t.foreground.hex+';border:1px solid '+t.border.hex+';box-shadow:0 0 0 3px '+t.ring.hex+'">Focused field</span>' +
+        '<span style="display:inline-flex;align-items:center;gap:5px;font-size:.78rem">Chart series' +
+          [1,2,3,4,5].map(function(n){
+            return '<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:'+t['chart-'+n].hex+'"></span>';
+          }).join('') + '</span>' +
       '</div></div>';
   }
 
@@ -1816,6 +1961,7 @@ function hueClash(h){
 
     },
     roles: function(L, D){
+    el('brandReach').innerHTML = brandReachHtml();
     el('mapControls').innerHTML = mapControlsHtml(L, D);
     /* the mapping has a light and a dark control, so the demo always shows both —
        otherwise half the controls change nothing you can see */
@@ -1905,7 +2051,7 @@ function hueClash(h){
         (off
           ? '<span>ramp moved off your colour</span><button class="btn mini" data-restore="'+c[1]+'">Back to ' + brand.toUpperCase() + '</button>'
           : (pinned
-              ? '<span>your colour sits at <b>step ' + near.step + '</b>; the ramp is built around it</span>'
+              ? '<span>your colour sits at <b>step ' + near.step + '</b>' + reachNote(c[1]) + '</span>'
               : '<span>yours vs <b>step ' + near.step + '</b> ' + near.hex.toUpperCase() + '</span>')) +
         '<button class="btn mini" data-clearbrand="'+c[1]+'" title="Forget this brand colour">✕</button>';
     });
@@ -2159,6 +2305,13 @@ function hueClash(h){
     openGloss(t.dataset.term);
   });
 
+  /* a failing pair, fixed by the control that owns it */
+  document.addEventListener('click', function(e){
+    var b = e.target.closest('[data-fixmap]'); if(!b) return;
+    S.map[b.dataset.fixmap] = +b.dataset.fixstep;
+    render();
+  });
+
   /* ---------- export controls ---------- */
   el('twSeg').addEventListener('click', function(e){
     var b = e.target.closest('button[data-tw]'); if(!b) return;
@@ -2337,6 +2490,7 @@ function hueClash(h){
     if(saved && saved.main){
       S = saved;
       S.map = S.map || JSON.parse(JSON.stringify(DEFAULTS.map));
+      if(S.map.chart === undefined){ S.map.chart = DEFAULTS.map.chart; S.map.chartDark = DEFAULTS.map.chartDark; }
       S.nudges = S.nudges || {};
       S.darkMode = S.darkMode || JSON.parse(JSON.stringify(DEFAULTS.darkMode));
       S.family = S.family || { sisters:[] };
