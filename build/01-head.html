@@ -170,8 +170,9 @@
   .term{border:1px solid var(--line);background:var(--bg);color:var(--ink-3);width:16px;height:16px;border-radius:50%;
     font-size:.62rem;line-height:1;padding:0;cursor:pointer;vertical-align:middle;margin-left:4px}
   .term:hover{border-color:var(--ink-3);color:var(--ink)}
-  #btnGloss{border:1px solid var(--line);background:var(--panel);color:var(--ink-2);border-radius:999px;
-    padding:7px 14px;font-size:.78rem;font-weight:600;cursor:pointer}
+  .showing{display:flex;align-items:center;gap:10px;margin:0 0 10px}
+  .showing-label{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+  @media (max-width:1500px){ .tabs button{padding:8px 12px} }
   #btnGloss:hover{border-color:var(--ink-3);color:var(--ink)}
   dialog#gloss{border:1px solid var(--line);border-radius:14px;padding:22px 24px;max-width:640px;width:calc(100% - 32px);
     background:var(--panel);color:var(--ink);box-shadow:0 24px 60px rgba(0,0,0,.28)}
@@ -185,13 +186,13 @@
   #glossList div.lit{background:var(--bg);border-radius:8px;padding:6px 10px;margin:0 -10px}
   /* the order the work actually goes in, so the tabs are not a flat list */
   .steps{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0 0 12px;padding:0}
-  .steps li{flex:1 1 150px}
-  .steps button{display:flex;align-items:baseline;gap:8px;width:100%;text-align:left;cursor:pointer;
+  .steps li{flex:1 1 170px}
+  .steps button{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 8px;width:100%;text-align:left;cursor:pointer;
     border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:8px 11px;font:inherit;color:var(--ink-2)}
   .steps button:hover{border-color:var(--ink-3)}
-  .steps .n{font-family:var(--mono);font-size:.68rem;color:var(--ink-3);flex:0 0 auto}
-  .steps .t{font-size:.76rem;font-weight:600;color:var(--ink)}
-  .steps .s{font-size:.7rem;margin-left:auto;flex:0 0 auto}
+  .steps .n{font-family:var(--mono);font-size:.68rem;color:var(--ink-3);grid-row:1 / span 2;align-self:center}
+  .steps .t{font-size:.76rem;font-weight:600;color:var(--ink);line-height:1.25}
+  .steps .s{font-size:.7rem;line-height:1.25}
   .steps li.done button{border-color:color-mix(in oklab, var(--ok) 45%, var(--line))}
   .steps li.done .s{color:var(--ok)}
   .steps li.todo .s{color:var(--ink-3)}

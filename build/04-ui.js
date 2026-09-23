@@ -645,6 +645,27 @@
     }).join('');
   }
 
+  /* how far along a band white text survives, said as a sentence */
+  function whiteTextNote(from, to){
+    var A = hexToOklch(from), B = hexToOklch(to);
+    var dh = ((B.h - A.h + 540) % 360) - 180;
+    var N = 21, ok = [];
+    for(var i = 0; i < N; i++){
+      var t = i / (N - 1);
+      var hex = oklchToHex(A.L + (B.L - A.L) * t, A.C + (B.C - A.C) * t, A.h + dh * t, S.shape.gamut);
+      ok.push(apca('#ffffff', hex) <= -60);
+    }
+    var all = ok.every(Boolean), none = !ok.some(Boolean);
+    if(all)  return 'White text holds the whole way along.';
+    if(none) return 'White text fails the whole way along — use ink, or a scrim under the text.';
+    /* one crossing is the usual case; find where it turns */
+    var turn = 0;
+    for(var j = 1; j < N; j++){ if(ok[j] !== ok[j-1]){ turn = j; break; } }
+    var at = Math.round(turn / (N - 1) * 100);
+    return ok[0]
+      ? 'White text holds for the first ' + at + '% of the band, then fails.'
+      : 'White text fails for the first ' + at + '% of the band, then holds.';
+  }
   function gradientsHtml(p){
     function stops(a,b,n){
       var A = hexToOklch(a), B = hexToOklch(b), out=[];
@@ -668,9 +689,7 @@
       return '<div class="card"><div class="grad" style="background:'+css+'"><em>'+d[0]+'</em></div>'+
         '<pre style="max-height:120px">background: '+css+';</pre>'+
         (band ? '<p class="hint">Shallow lightness change — watch for banding on large areas.</p>' : '') +
-        '<p class="hint">White text passes at: ' + (apca('#ffffff',s[0]) <= -60 ? 'the light end' : '') +
-        (apca('#ffffff',s[s.length-1]) <= -60 ? ' the dark end' : '') +
-        ((apca('#ffffff',s[0]) > -60 && apca('#ffffff',s[s.length-1]) > -60) ? 'neither end — use ink or a scrim' : '') + '.</p></div>';
+        '<p class="hint">' + whiteTextNote(d[1], d[2]) + '</p></div>';
     }).join('');
   }
 
@@ -834,10 +853,31 @@
       if(S[k] && S[k].brand) vars.push({ name: 'brand/' + k, type: 'COLOR',
         valuesByMode: { Light: S[k].brand.toUpperCase(), Dark: S[k].brand.toUpperCase() } });
     });
+    var clipped = 0;
+    if(S.shape.gamut === 'p3'){
+      /* hex is what every importer reads, so the wide values travel beside it
+         rather than instead of it, and the count is stated rather than hidden */
+      var wide = {};
+      RAMP_KEYS.forEach(function(k){
+        L[k].forEach(function(st, i){
+          if(st.wide || D[k][i].wide){
+            wide['ramp/' + k + '/' + st.step] = { Light: st.css, Dark: D[k][i].css };
+            clipped++;
+          }
+        });
+      });
+      vars.forEach(function(v){
+        if(wide[v.name]){ v.outsideSrgb = true; v.oklch = wide[v.name]; }
+      });
+    }
     return JSON.stringify({
       name: S.name || 'Palette',
       collection: S.name || 'Palette',
       modes: ['Light', 'Dark'],
+      space: S.shape.gamut === 'p3' ? 'display-p3' : 'srgb',
+      note: clipped
+        ? clipped + ' of these values lie outside sRGB. Every importer reads the hex, which is the closest sRGB colour; the wide value is carried beside it as oklch for anything that can use it.'
+        : 'Every value is inside sRGB, so the hex is exact.',
       variables: vars
     }, null, 2);
   }
@@ -1481,6 +1521,9 @@
     el('outJson').textContent = jsonExport();
     el('outTw').textContent = twExport();
     el('outFigma').textContent = figmaExport();
+    el('figmaNote').textContent = S.shape.gamut === 'p3'
+      ? 'You are working in Display P3. Figma variables carry hex, so the values outside sRGB arrive as their closest sRGB colour — the wide value travels beside each one as oklch, and the export says how many were affected.'
+      : '';
     el('twNote').textContent = TW === 'v4'
       ? 'Tailwind v4 reads its theme from CSS. Paste this under globals.css; the token colours follow .dark on their own.'
       : 'Tailwind v3 reads a config file. The semantic colours point at the CSS variables, so they follow .dark; the ramps are literal.';

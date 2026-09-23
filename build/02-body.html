@@ -4,7 +4,15 @@
   <aside class="rail">
     <div class="brand"><h1>Palette</h1><span>OKLCH studio</span></div>
     <p class="sub">Ramps on fixed lightness steps (shadcn / Tailwind 50–950), roles on top, light and dark from one source.</p>
-    <div class="btns" style="margin:0 0 4px"><button class="btn mini" id="btnSecAll">Open every section</button></div>
+    <div class="showing">
+      <span class="showing-label">Showing</span>
+      <div class="seg" id="themeSeg" role="group" aria-label="Theme shown">
+        <button data-theme="light" aria-selected="true">Light</button>
+        <button data-theme="dark" aria-selected="false">Dark</button>
+        <button data-theme="both" aria-selected="false">Both</button>
+      </div>
+    </div>
+    <div class="btns" style="margin:0 0 4px"><button class="btn mini" id="btnSecAll">Open every section</button><button class="btn mini" id="btnGloss" title="What the words mean">Words</button></div>
 
     <fieldset data-sec="name" data-open="1">
       <legend><button class="sec-toggle" type="button" aria-expanded="true"><span class="sec-name">Palette name</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
@@ -144,13 +152,6 @@
       <button role="tab" data-view="preview" aria-selected="false" aria-controls="view-preview">Preview</button>
       <button role="tab" data-view="family" aria-selected="false" aria-controls="view-family">Family</button>
       <button role="tab" data-view="export" aria-selected="false" aria-controls="view-export">Export</button>
-      <span style="flex:1"></span>
-      <button id="btnGloss" title="What the words mean">Words</button>
-      <div class="seg" id="themeSeg" role="group" aria-label="Theme shown">
-        <button data-theme="light" aria-selected="true">Light</button>
-        <button data-theme="dark" aria-selected="false">Dark</button>
-        <button data-theme="both" aria-selected="false">Both</button>
-      </div>
     </div>
 
     <section class="view on" data-view="ramps" id="view-ramps" role="tabpanel" tabindex="0">
@@ -287,6 +288,7 @@
 
       <div class="card"><h3>Figma variables</h3>
         <p class="cap">One collection with a Light and a Dark mode, so a token switches mode in Figma the way it switches class in the browser. Import with a variables-import plugin.</p>
+        <p class="cap" id="figmaNote"></p>
         <div class="btns" style="margin:0 0 10px"><button class="btn" data-copy="outFigma">Copy</button><button class="btn" data-dl="figma">Download</button></div><pre id="outFigma"></pre></div>
 
       <div class="card"><h3>A sheet to print or paste</h3>

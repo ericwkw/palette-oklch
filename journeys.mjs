@@ -1079,6 +1079,68 @@ await journey('the ramps can be used without a mouse', async () => {
   assert(focusStyled, 'nothing in the tool says what focus looks like');
 });
 
+/* 27 — the small print reads like English, P3 is honest, and the tabs fit */
+await journey('what the tool says about itself is true and readable', async () => {
+  /* the gradient note is a sentence, and it agrees with the colours it describes */
+  await click('#tabs button', 4);
+  const notes = await evalJs(`[...document.querySelectorAll('#gradOut .card')].map(c => {
+    const hints = [...c.querySelectorAll('.hint')].map(h => h.textContent.trim());
+    return hints[hints.length - 1];
+  })`);
+  assert(notes.length >= 4, 'the gradients are missing');
+  for (const n of notes) {
+    assert(/^White text (holds|fails)/.test(n), 'the gradient note is not a sentence: ' + n);
+    assert(!/: /.test(n), 'the gradient note is still a list of fragments: ' + n);
+    assert(!/the light end the dark end/.test(n), 'the old broken phrasing is back: ' + n);
+    if (/then/.test(n)) assert(/[0-9]+% of the band/.test(n), 'a partial pass does not say where it turns: ' + n);
+  }
+
+  /* Display P3: the export says what it could not carry, rather than quietly clipping */
+  await click('#tabs button', 7);
+  const figma = await evalJs(`(() => { const d = JSON.parse(document.getElementById('outFigma').textContent);
+    return { space: d.space, note: d.note, wide: d.variables.filter(v => v.outsideSrgb).length }; })()`);
+  assert(figma.space === 'srgb', 'the export does not say which space it is in: ' + figma.space);
+  assert(/exact/.test(figma.note), 'the sRGB export does not say the hex is exact: ' + figma.note);
+  assert(figma.wide === 0, 'values are marked as outside sRGB while working in sRGB');
+
+  await evalJs(`(() => { const g = document.getElementById('gamut');
+    g.value = 'p3'; g.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await sleep(400);
+  await click('#tabs button', 7);
+  const p3 = await evalJs(`(() => { const d = JSON.parse(document.getElementById('outFigma').textContent);
+    const one = d.variables.filter(v => v.outsideSrgb)[0];
+    return { space: d.space, note: d.note, wide: d.variables.filter(v => v.outsideSrgb).length,
+             carries: one ? /oklch/.test(one.oklch.Light) : false,
+             hexStill: one ? /^#[0-9A-F]{6}$/.test(one.valuesByMode.Light) : false,
+             card: document.getElementById('figmaNote').textContent }; })()`);
+  assert(p3.space === 'display-p3', 'the P3 export still claims sRGB');
+  assert(p3.wide > 0, 'no value is marked as outside sRGB in a P3 palette');
+  assert(/closest sRGB/.test(p3.note), 'the export does not say what happens to the wide values: ' + p3.note);
+  assert(p3.carries, 'the wide value does not travel beside the hex');
+  assert(p3.hexStill, 'the hex was replaced, which no importer would read');
+  assert(/Display P3/.test(p3.card), 'the card says nothing about the clipping: ' + p3.card);
+
+  /* the tab bar fits on one line on an ordinary laptop */
+  for (const w of [1280, 1440]) {
+    await send('Emulation.setDeviceMetricsOverride', { width: w, height: 820, deviceScaleFactor: 1, mobile: false });
+    await sleep(300);
+    const bar = await evalJs(`(() => { const t = document.getElementById('tabs');
+      const kids = [...t.children].filter(c => c.offsetParent !== null);
+      const tops = new Set(kids.map(c => Math.round(c.getBoundingClientRect().top)));
+      return { rows: tops.size, height: t.offsetHeight }; })()`);
+    assert(bar.rows === 1, `the tabs wrap onto ${bar.rows} rows at ${w}px`);
+  }
+  await send('Emulation.setDeviceMetricsOverride', { width: 1500, height: 950, deviceScaleFactor: 1, mobile: false });
+
+  /* and the controls that moved out of the bar are still there and still work */
+  const moved = await evalJs(`({ theme: !!document.querySelector('.rail #themeSeg'),
+                                 words: !!document.querySelector('.rail #btnGloss') })`);
+  assert(moved.theme && moved.words, 'the theme switch and the glossary went missing: ' + JSON.stringify(moved));
+  await click('#themeSeg button', 1);
+  const dark = await evalJs(`document.documentElement.getAttribute('data-ui')`);
+  assert(dark === 'dark', 'the theme switch stopped working after moving: ' + dark);
+});
+
 const failed = results.filter(r => !r[1]);
 console.log('');
 results.forEach(([name, ok, why]) => console.log(`${ok ? ' ok ' : 'FAIL'}  ${name}${why ? ' — ' + why : ''}`));

@@ -170,8 +170,9 @@
   .term{border:1px solid var(--line);background:var(--bg);color:var(--ink-3);width:16px;height:16px;border-radius:50%;
     font-size:.62rem;line-height:1;padding:0;cursor:pointer;vertical-align:middle;margin-left:4px}
   .term:hover{border-color:var(--ink-3);color:var(--ink)}
-  #btnGloss{border:1px solid var(--line);background:var(--panel);color:var(--ink-2);border-radius:999px;
-    padding:7px 14px;font-size:.78rem;font-weight:600;cursor:pointer}
+  .showing{display:flex;align-items:center;gap:10px;margin:0 0 10px}
+  .showing-label{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+  @media (max-width:1500px){ .tabs button{padding:8px 12px} }
   #btnGloss:hover{border-color:var(--ink-3);color:var(--ink)}
   dialog#gloss{border:1px solid var(--line);border-radius:14px;padding:22px 24px;max-width:640px;width:calc(100% - 32px);
     background:var(--panel);color:var(--ink);box-shadow:0 24px 60px rgba(0,0,0,.28)}
@@ -185,13 +186,13 @@
   #glossList div.lit{background:var(--bg);border-radius:8px;padding:6px 10px;margin:0 -10px}
   /* the order the work actually goes in, so the tabs are not a flat list */
   .steps{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0 0 12px;padding:0}
-  .steps li{flex:1 1 150px}
-  .steps button{display:flex;align-items:baseline;gap:8px;width:100%;text-align:left;cursor:pointer;
+  .steps li{flex:1 1 170px}
+  .steps button{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 8px;width:100%;text-align:left;cursor:pointer;
     border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:8px 11px;font:inherit;color:var(--ink-2)}
   .steps button:hover{border-color:var(--ink-3)}
-  .steps .n{font-family:var(--mono);font-size:.68rem;color:var(--ink-3);flex:0 0 auto}
-  .steps .t{font-size:.76rem;font-weight:600;color:var(--ink)}
-  .steps .s{font-size:.7rem;margin-left:auto;flex:0 0 auto}
+  .steps .n{font-family:var(--mono);font-size:.68rem;color:var(--ink-3);grid-row:1 / span 2;align-self:center}
+  .steps .t{font-size:.76rem;font-weight:600;color:var(--ink);line-height:1.25}
+  .steps .s{font-size:.7rem;line-height:1.25}
   .steps li.done button{border-color:color-mix(in oklab, var(--ok) 45%, var(--line))}
   .steps li.done .s{color:var(--ok)}
   .steps li.todo .s{color:var(--ink-3)}
@@ -240,7 +241,15 @@
   <aside class="rail">
     <div class="brand"><h1>Palette</h1><span>OKLCH studio</span></div>
     <p class="sub">Ramps on fixed lightness steps (shadcn / Tailwind 50–950), roles on top, light and dark from one source.</p>
-    <div class="btns" style="margin:0 0 4px"><button class="btn mini" id="btnSecAll">Open every section</button></div>
+    <div class="showing">
+      <span class="showing-label">Showing</span>
+      <div class="seg" id="themeSeg" role="group" aria-label="Theme shown">
+        <button data-theme="light" aria-selected="true">Light</button>
+        <button data-theme="dark" aria-selected="false">Dark</button>
+        <button data-theme="both" aria-selected="false">Both</button>
+      </div>
+    </div>
+    <div class="btns" style="margin:0 0 4px"><button class="btn mini" id="btnSecAll">Open every section</button><button class="btn mini" id="btnGloss" title="What the words mean">Words</button></div>
 
     <fieldset data-sec="name" data-open="1">
       <legend><button class="sec-toggle" type="button" aria-expanded="true"><span class="sec-name">Palette name</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
@@ -380,13 +389,6 @@
       <button role="tab" data-view="preview" aria-selected="false" aria-controls="view-preview">Preview</button>
       <button role="tab" data-view="family" aria-selected="false" aria-controls="view-family">Family</button>
       <button role="tab" data-view="export" aria-selected="false" aria-controls="view-export">Export</button>
-      <span style="flex:1"></span>
-      <button id="btnGloss" title="What the words mean">Words</button>
-      <div class="seg" id="themeSeg" role="group" aria-label="Theme shown">
-        <button data-theme="light" aria-selected="true">Light</button>
-        <button data-theme="dark" aria-selected="false">Dark</button>
-        <button data-theme="both" aria-selected="false">Both</button>
-      </div>
     </div>
 
     <section class="view on" data-view="ramps" id="view-ramps" role="tabpanel" tabindex="0">
@@ -523,6 +525,7 @@
 
       <div class="card"><h3>Figma variables</h3>
         <p class="cap">One collection with a Light and a Dark mode, so a token switches mode in Figma the way it switches class in the browser. Import with a variables-import plugin.</p>
+        <p class="cap" id="figmaNote"></p>
         <div class="btns" style="margin:0 0 10px"><button class="btn" data-copy="outFigma">Copy</button><button class="btn" data-dl="figma">Download</button></div><pre id="outFigma"></pre></div>
 
       <div class="card"><h3>A sheet to print or paste</h3>
@@ -1432,6 +1435,27 @@ function hueClash(h, within){
     }).join('');
   }
 
+  /* how far along a band white text survives, said as a sentence */
+  function whiteTextNote(from, to){
+    var A = hexToOklch(from), B = hexToOklch(to);
+    var dh = ((B.h - A.h + 540) % 360) - 180;
+    var N = 21, ok = [];
+    for(var i = 0; i < N; i++){
+      var t = i / (N - 1);
+      var hex = oklchToHex(A.L + (B.L - A.L) * t, A.C + (B.C - A.C) * t, A.h + dh * t, S.shape.gamut);
+      ok.push(apca('#ffffff', hex) <= -60);
+    }
+    var all = ok.every(Boolean), none = !ok.some(Boolean);
+    if(all)  return 'White text holds the whole way along.';
+    if(none) return 'White text fails the whole way along — use ink, or a scrim under the text.';
+    /* one crossing is the usual case; find where it turns */
+    var turn = 0;
+    for(var j = 1; j < N; j++){ if(ok[j] !== ok[j-1]){ turn = j; break; } }
+    var at = Math.round(turn / (N - 1) * 100);
+    return ok[0]
+      ? 'White text holds for the first ' + at + '% of the band, then fails.'
+      : 'White text fails for the first ' + at + '% of the band, then holds.';
+  }
   function gradientsHtml(p){
     function stops(a,b,n){
       var A = hexToOklch(a), B = hexToOklch(b), out=[];
@@ -1455,9 +1479,7 @@ function hueClash(h, within){
       return '<div class="card"><div class="grad" style="background:'+css+'"><em>'+d[0]+'</em></div>'+
         '<pre style="max-height:120px">background: '+css+';</pre>'+
         (band ? '<p class="hint">Shallow lightness change — watch for banding on large areas.</p>' : '') +
-        '<p class="hint">White text passes at: ' + (apca('#ffffff',s[0]) <= -60 ? 'the light end' : '') +
-        (apca('#ffffff',s[s.length-1]) <= -60 ? ' the dark end' : '') +
-        ((apca('#ffffff',s[0]) > -60 && apca('#ffffff',s[s.length-1]) > -60) ? 'neither end — use ink or a scrim' : '') + '.</p></div>';
+        '<p class="hint">' + whiteTextNote(d[1], d[2]) + '</p></div>';
     }).join('');
   }
 
@@ -1621,10 +1643,31 @@ function hueClash(h, within){
       if(S[k] && S[k].brand) vars.push({ name: 'brand/' + k, type: 'COLOR',
         valuesByMode: { Light: S[k].brand.toUpperCase(), Dark: S[k].brand.toUpperCase() } });
     });
+    var clipped = 0;
+    if(S.shape.gamut === 'p3'){
+      /* hex is what every importer reads, so the wide values travel beside it
+         rather than instead of it, and the count is stated rather than hidden */
+      var wide = {};
+      RAMP_KEYS.forEach(function(k){
+        L[k].forEach(function(st, i){
+          if(st.wide || D[k][i].wide){
+            wide['ramp/' + k + '/' + st.step] = { Light: st.css, Dark: D[k][i].css };
+            clipped++;
+          }
+        });
+      });
+      vars.forEach(function(v){
+        if(wide[v.name]){ v.outsideSrgb = true; v.oklch = wide[v.name]; }
+      });
+    }
     return JSON.stringify({
       name: S.name || 'Palette',
       collection: S.name || 'Palette',
       modes: ['Light', 'Dark'],
+      space: S.shape.gamut === 'p3' ? 'display-p3' : 'srgb',
+      note: clipped
+        ? clipped + ' of these values lie outside sRGB. Every importer reads the hex, which is the closest sRGB colour; the wide value is carried beside it as oklch for anything that can use it.'
+        : 'Every value is inside sRGB, so the hex is exact.',
       variables: vars
     }, null, 2);
   }
@@ -2268,6 +2311,9 @@ function hueClash(h, within){
     el('outJson').textContent = jsonExport();
     el('outTw').textContent = twExport();
     el('outFigma').textContent = figmaExport();
+    el('figmaNote').textContent = S.shape.gamut === 'p3'
+      ? 'You are working in Display P3. Figma variables carry hex, so the values outside sRGB arrive as their closest sRGB colour — the wide value travels beside each one as oklch, and the export says how many were affected.'
+      : '';
     el('twNote').textContent = TW === 'v4'
       ? 'Tailwind v4 reads its theme from CSS. Paste this under globals.css; the token colours follow .dark on their own.'
       : 'Tailwind v3 reads a config file. The semantic colours point at the CSS variables, so they follow .dark; the ramps are literal.';
