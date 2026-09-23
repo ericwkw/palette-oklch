@@ -2,7 +2,11 @@
 (function(){
   var $ = function(s){ return document.querySelector(s); };
   var el = function(id){ return document.getElementById(id); };
-  var STORE = 'palette-studio-v1';
+  /* This tab's working palette lives in sessionStorage, so two tabs cannot
+     write over each other. localStorage keeps the last one you left, which a
+     brand new tab starts from. The library is deliberately shared. */
+  var STORE = 'palette-studio-v1';    /* the last palette left in this browser */
+  var TAB   = 'palette-tab-v1';       /* this tab's own working copy */
   var LIB   = 'palette-library-v1';   /* named palettes kept in this browser */
   var THEME = 'light';   /* which theme the views show: light | dark | both */
 
@@ -19,6 +23,86 @@
     family:{ sisters:[] },
     func:{}          /* only what you have moved; the rest keep their defaults */
   };
+  /* ---------- reading a saved palette ----------
+     Anything can end up in storage: an older version, an interrupted write, a
+     hand-edited file. Everything is checked on the way in and replaced with the
+     default when it is not usable, so a bad value can never leave a blank tool. */
+  var REPAIRED = 0;   /* how many values in a saved palette had to be replaced */
+  function num(v, fallback, lo, hi){
+    var n = typeof v === 'string' ? parseFloat(v) : v;
+    if(typeof n !== 'number' || !isFinite(n)){ if(v !== undefined) REPAIRED++; return fallback; }
+    if(lo !== undefined && n < lo){ REPAIRED++; return lo; }
+    if(hi !== undefined && n > hi){ REPAIRED++; return hi; }
+    return n;
+  }
+  function hexOr(v){ return (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)) ? v.toUpperCase() : null; }
+  function normalise(raw){
+    if(!raw || typeof raw !== 'object') return null;
+    REPAIRED = 0;
+    var d = DEFAULTS, out = JSON.parse(JSON.stringify(d));
+    out.name = typeof raw.name === 'string' && raw.name.trim() ? raw.name : d.name;
+    ['main','sup','a1','a2'].forEach(function(k){
+      var r = raw[k] || {};
+      out[k].h = ((num(r.h, d[k].h, 0, 360) % 360) + 360) % 360;
+      out[k].c = num(r.c, d[k].c, 0, 0.4);
+      out[k].brand = hexOr(r.brand);
+      out[k].pin = r.pin !== false;
+    });
+    if(['same','near','far','custom'].indexOf((raw.sup || {}).rel) !== -1) out.sup.rel = raw.sup.rel;
+    var n = raw.neutral || {};
+    out.neutral.c = num(n.c, d.neutral.c, 0, 0.08);
+    out.neutral.h = ((num(n.h, d.neutral.h, 0, 360) % 360) + 360) % 360;
+    out.neutral.from = ['main','sup','own'].indexOf(n.from) !== -1 ? n.from : d.neutral.from;
+    var sh = raw.shape || {};
+    out.shape.peak = Math.round(num(sh.peak, d.shape.peak, 0, STEPS.length - 1));
+    out.shape.falloff = num(sh.falloff, d.shape.falloff, 0.1, 2);
+    out.shape.twist = num(sh.twist, d.shape.twist, 0, 3);
+    out.shape.gamut = sh.gamut === 'p3' ? 'p3' : 'srgb';
+    var dm = raw.darkMode || {};
+    out.darkMode.lift = num(dm.lift, d.darkMode.lift, 0, 0.3);
+    out.darkMode.boost = num(dm.boost, d.darkMode.boost, 0.3, 2);
+    Object.keys(d.map).forEach(function(k){
+      var v = Math.round(num((raw.map || {})[k], d.map[k]));
+      out.map[k] = STEPS.indexOf(v) === -1 ? d.map[k] : v;
+    });
+    Object.keys(d.share).forEach(function(k){ out.share[k] = num((raw.share || {})[k], d.share[k], 0, 100); });
+    out.nudges = {};
+    if(raw.nudges && typeof raw.nudges === 'object'){
+      Object.keys(raw.nudges).forEach(function(role){
+        var byStep = raw.nudges[role]; if(!byStep || typeof byStep !== 'object') return;
+        out.nudges[role] = {};
+        Object.keys(byStep).forEach(function(st){
+          var v = byStep[st] || {};
+          out.nudges[role][st] = { dL: num(v.dL, 0, -0.3, 0.3), dC: num(v.dC, 0, -0.3, 0.3) };
+        });
+      });
+    }
+    out.func = {};
+    if(raw.func && typeof raw.func === 'object'){
+      FUNCTIONAL.forEach(function(f){
+        var v = raw.func[f.id]; if(!v || typeof v !== 'object') return;
+        var one = {};
+        if(v.h !== undefined) one.h = ((num(v.h, f.hue, 0, 360) % 360) + 360) % 360;
+        if(v.c !== undefined) one.c = num(v.c, f.chroma, 0.01, 0.4);
+        if(one.h !== undefined || one.c !== undefined) out.func[f.id] = one;
+      });
+    }
+    out.family = { sisters: [] };
+    var ss = (raw.family || {}).sisters;
+    if(Object.prototype.toString.call(ss) === '[object Array]'){
+      ss.slice(0, 40).forEach(function(x, i){
+        if(!x || typeof x !== 'object') return;
+        out.family.sisters.push({
+          id: typeof x.id === 'string' ? x.id : 's' + i + Date.now().toString(36),
+          name: typeof x.name === 'string' && x.name.trim() ? x.name : 'Sister ' + (i + 1),
+          h: ((num(x.h, 0, 0, 360) % 360) + 360) % 360,
+          c: num(x.c, d.main.c, 0, 0.4)
+        });
+      });
+    }
+    return out;
+  }
+
   var S = JSON.parse(JSON.stringify(DEFAULTS));
 
   /* ---------- state <-> controls ---------- */
@@ -42,7 +126,7 @@
       input.value = get(b[1]);
       var out = el(b[2]);
       if(!out) return;
-      if(b[0] === 'cPeak'){ out.textContent = STEPS[get(b[1])]; }
+      if(b[0] === 'cPeak'){ out.textContent = STEPS[get(b[1])]; }   /* replaced below by the step it really peaks at */
       else if(b[0].charAt(0) === 's'){ out.textContent = Math.round(get(b[1])) + '%'; }
       else { out.textContent = Number(get(b[1])).toFixed(b[3]).replace(/^0\./,'.'); }
     });
@@ -1586,6 +1670,7 @@
 
 
     railSummaries(L);
+    peakNote(L);
     el('steps').innerHTML = stepsHtml();
     Object.keys(PAINT).forEach(function(k){ STALE[k] = true; });
     PAINT.ramps(L, D);            /* the ramps are the tool's own subject, always current */
@@ -1596,8 +1681,50 @@
     applyTheme();
     pushHistory();
     libUi();          /* so the library line always says whether this differs from what you kept */
-    try{ localStorage.setItem(STORE, JSON.stringify(S)); }catch(e){}
+    saveState();
   }
+
+  /* a line at the top of the work area, for things the tool needs to say */
+  function notice(msg, kind){
+    var box = el('notice'); if(!box) return;
+    box.className = 'notice' + (kind === 'bad' ? ' bad' : '');
+    box.innerHTML = '<span>' + msg + '</span>' +
+      (kind === 'bad' ? '<button class="btn mini" id="noticeReset">Start fresh</button>' : '') +
+      '<button class="btn mini" data-dismiss>Dismiss</button>';
+    box.hidden = false;
+    announce(msg);
+  }
+  document.addEventListener('click', function(e){
+    if(e.target.closest('[data-dismiss]')){ el('notice').hidden = true; return; }
+    if(e.target.id === 'noticeReset'){
+      S = JSON.parse(JSON.stringify(DEFAULTS)); EDITING = null;
+      el('notice').hidden = true;
+      describe('starting fresh'); syncControls(); render();
+    }
+  });
+  /* if a render ever throws, the tool says so and offers a way back rather
+     than leaving a page with no colour on it */
+  function safely(fn){
+    try{ fn(); }
+    catch(err){
+      notice('Something in this palette could not be drawn: ' + (err && err.message ? err.message : 'unknown') +
+        '. Your last working version is still in the history.', 'bad');
+      try{ console.error(err); }catch(e){}
+    }
+  }
+
+  function saveState(){
+    var json;
+    try{ json = JSON.stringify(S); }catch(e){ return; }
+    try{ sessionStorage.setItem(TAB, json); }catch(e){}
+    try{ localStorage.setItem(STORE, json); }catch(e){}
+  }
+  /* another tab has just saved a palette or kept one; say so rather than
+     letting the two quietly disagree */
+  window.addEventListener('storage', function(e){
+    if(e.key === LIB){ libUi(); notice('Another tab changed the library. The list above is up to date.'); return; }
+    if(e.key === STORE){ notice('Another tab is working on its own palette. Yours is safe in this tab.'); }
+  });
 
   /* ---------- history: the last 30 changes, with undo and redo ---------- */
   var HIST = [], HPOS = -1, RESTORING = false, LAST_PUSH = 0;
@@ -1634,7 +1761,7 @@
     S = JSON.parse(HIST[i].snap); EDITING = null;
     syncControls(); render();
     RESTORING = false; LAST_PUSH = 0; GESTURE = null; LAST_GESTURE = null;
-    try{ localStorage.setItem(STORE, JSON.stringify(S)); }catch(e){}
+    saveState();
     histUi();
   }
   function histUi(){
@@ -1787,7 +1914,7 @@
     ['chroma', 'Colourfulness', 'chroma, in OKLCH',
       'How far the colour is from grey. Low is muted and dusty, high is vivid. It is capped by what the screen can actually show, so asking for more than a screen has simply gives you the closest it can reach.'],
     ['peak', 'Strongest at', 'where the ramp is most colourful',
-      'Which step carries the most colour. Mid steps are the usual choice: the pale end has nowhere to put chroma, and the deep end goes muddy if you push it.'],
+      'Which step you would like to carry the most colour. The number beside the slider is the step that really ends up strongest: a screen cannot hold much chroma at the pale or the deep end, so an ask near either extreme is pulled back toward the middle, and the line underneath says by how much.'],
     ['falloff', 'Dark fade', 'how fast colour drains from the deep end',
       'Deep shades that keep full chroma look inky and artificial. A higher fade drains colour faster as the ramp darkens, which reads more like a real shadow.'],
     ['twist', 'Hue turn', 'how far the hue moves between the two ends',
@@ -1931,6 +2058,24 @@
     if(note) note.textContent = CVD_MODE ? 'Shown through ' + CVD[CVD_MODE].name.toLowerCase() + ' — change it on the Contrast tab.' : '';
   }
 
+  /* where the chroma envelope really peaks once it has been fitted to the
+     screen: the deep steps cannot hold as much colour as they are asked for,
+     so the peak is pulled back and the control must say so */
+  function deliveredPeak(L){
+    var ramp = L.main, best = 0, bc = -1;
+    ramp.forEach(function(st, i){ if(st.C > bc){ bc = st.C; best = i; } });
+    return STEPS[best];
+  }
+  function peakNote(L){
+    var asked = STEPS[S.shape.peak], got = deliveredPeak(L);
+    var out = el('ocPeak'); if(out) out.textContent = got;
+    var note = el('peakNote'); if(!note) return;
+    note.textContent = got === asked
+      ? ''
+      : 'You asked for ' + asked + '; ' + (S.shape.gamut === 'p3' ? 'Display P3' : 'sRGB') +
+        ' cannot hold that much colour there, so the strongest step is ' + got + '.';
+  }
+
   /* ---------- the order the work goes in ----------
      Eight tabs and no suggestion of a path. These four say what to do next and
      whether it has been done, and take you to the tab that does it. */
@@ -2031,7 +2176,7 @@
       a1:   dot(stepOf(L.a1, 500).hex) + Math.round(S.a1.h) + '°',
       a2:   dot(stepOf(L.a2, 600).hex) + Math.round(S.a2.h) + '°',
       neutral: dot(stepOf(L.neutral, 300).hex) + (S.neutral.c > 0.001 ? 'tinted' : 'true grey'),
-      shape: 'peak ' + STEPS[S.shape.peak] + ' · ' + (S.shape.gamut === 'p3' ? 'P3' : 'sRGB'),
+      shape: 'peak ' + deliveredPeak(L) + ' · ' + (S.shape.gamut === 'p3' ? 'P3' : 'sRGB'),
       dark: 'lift ' + S.darkMode.lift.toFixed(3).replace(/^0/,''),
       share: Math.round(S.share.neutral) + '% neutral · ' + Math.round(S.share.main) + '% main'
     };
@@ -2292,21 +2437,32 @@
     S = JSON.parse(JSON.stringify(DEFAULTS)); EDITING = null; describe('the reset'); syncControls(); render();
   });
 
-  try{
-    var saved = JSON.parse(localStorage.getItem(STORE) || 'null');
-    if(saved && saved.main){
-      S = saved;
-      S.map = S.map || JSON.parse(JSON.stringify(DEFAULTS.map));
-      if(S.map.chart === undefined){ S.map.chart = DEFAULTS.map.chart; S.map.chartDark = DEFAULTS.map.chartDark; }
-      S.nudges = S.nudges || {};
-      S.darkMode = S.darkMode || JSON.parse(JSON.stringify(DEFAULTS.darkMode));
-      S.family = S.family || { sisters:[] };
-      S.func = S.func || {};
+  /* this tab's own copy first, then the last palette left in this browser */
+  (function boot(){
+    var sources = [[TAB, 'sessionStorage'], [STORE, 'localStorage']];
+    for(var i = 0; i < sources.length; i++){
+      var raw = null, text = null;
+      try{ text = (sources[i][1] === 'sessionStorage' ? sessionStorage : localStorage).getItem(sources[i][0]); }catch(e){}
+      if(!text) continue;
+      try{ raw = JSON.parse(text); }catch(e){
+        notice('The palette saved here could not be read, so this is a fresh one.');
+        continue;
+      }
+      var clean = normalise(raw);
+      if(!clean){
+        notice('The palette saved here could not be read, so this is a fresh one.');
+        continue;
+      }
+      S = clean;
+      if(REPAIRED > 0){
+        notice(REPAIRED + (REPAIRED === 1 ? ' value in the saved palette could not be used and was' : ' values in the saved palette could not be used and were') +
+          ' set back to the default. Everything else came through.');
+      }
+      return;
     }
-  }catch(e){}
+  })();
   railRestore();
-  syncControls();
-  render();
+  safely(function(){ syncControls(); render(); });
   histUi();
   libUi();
 

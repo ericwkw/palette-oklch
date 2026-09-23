@@ -104,6 +104,7 @@
     <fieldset data-sec="shape">
       <legend><button class="sec-toggle" type="button" aria-expanded="false"><span class="sec-name">Ramp shape — how the shades behave</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
       <div class="row"><label for="cPeak">Strongest at <button class="term" data-term="peak" title="What does this mean?">?</button></label><input type="range" id="cPeak" min="0" max="10" step="1" value="6"><output id="ocPeak">600</output></div>
+      <p class="hint" id="peakNote" style="margin:2px 0 0"></p>
       <div class="row"><label for="cFall">Dark fade <button class="term" data-term="falloff" title="What does this mean?">?</button></label><input type="range" id="cFall" min="0.2" max="1.6" step="0.05" value="0.85"><output id="ocFall">.85</output></div>
       <div class="row"><label for="cTwist">Hue turn <button class="term" data-term="twist" title="What does this mean?">?</button></label><input type="range" id="cTwist" min="0" max="2" step="0.05" value="1"><output id="ocTwist">1.00</output></div>
       <p class="hint">Which step is the most colourful, how quickly the dark end loses colour, and how far the hue turns between the two ends — dark yellows toward orange, dark blues toward indigo. Zero holds one hue throughout.</p>
@@ -142,6 +143,7 @@
   </aside>
 
   <main class="main">
+    <div class="notice" id="notice" role="status" hidden></div>
     <ol class="steps" id="steps"></ol>
     <div class="tabs" id="tabs" role="tablist" aria-label="What to look at">
       <button role="tab" data-view="ramps" aria-selected="true" aria-controls="view-ramps">Ramps</button>

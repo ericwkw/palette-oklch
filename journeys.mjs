@@ -69,7 +69,7 @@ const type = async (id_, value) => {
 const reset = async () => {
   await send('Page.navigate', { url: URL_ + (URL_.includes('?') ? '&' : '?') + 'j=' + Date.now() });
   await sleep(1400);
-  await evalJs(`localStorage.removeItem('palette-studio-v1'); localStorage.removeItem('palette-library-v1')`);
+  await evalJs(`localStorage.clear(); sessionStorage.clear()`);
   await send('Page.navigate', { url: URL_ + (URL_.includes('?') ? '&' : '?') + 'j=' + Date.now() });
   await sleep(1400);
 };
@@ -1139,6 +1139,110 @@ await journey('what the tool says about itself is true and readable', async () =
   await click('#themeSeg button', 1);
   const dark = await evalJs(`document.documentElement.getAttribute('data-ui')`);
   assert(dark === 'dark', 'the theme switch stopped working after moving: ' + dark);
+});
+
+/* 28 — two tabs do not write over each other, and a bad save cannot blank the tool */
+await journey('two tabs keep their own work', async () => {
+  await type('pName', 'Tab A work');
+  await setRange('hMain', 210);
+  await sleep(500);
+
+  /* a second tab, writing its own palette to the shared key */
+  await evalJs(`(() => {
+    const other = { name: 'Tab B work', main: { h: 99, c: 0.2, brand: null, pin: true } };
+    localStorage.setItem('palette-studio-v1', JSON.stringify(other));
+    window.dispatchEvent(new StorageEvent('storage', { key: 'palette-studio-v1',
+      newValue: JSON.stringify(other) }));
+  })()`);
+  await sleep(400);
+
+  const held = await evalJs(`({ name: document.getElementById('pName').value,
+                                hue: document.getElementById('hMain').value,
+                                said: document.getElementById('notice').hidden ? '' : document.getElementById('notice').textContent })`);
+  assert(held.name === 'Tab A work', 'another tab took this one over: ' + held.name);
+  assert(held.hue === '210', 'another tab moved this one’s hue: ' + held.hue);
+  assert(/own palette/.test(held.said), 'nothing said another tab was at work: ' + held.said);
+
+  /* and a reload keeps this tab's own work, not the other one's */
+  await send('Page.navigate', { url: URL_ + '?t=' + Date.now() });
+  await sleep(1600);
+  const after = await evalJs(`({ name: document.getElementById('pName').value,
+                                 hue: document.getElementById('hMain').value })`);
+  assert(after.name === 'Tab A work', 'this tab lost its work on reload: ' + after.name);
+  assert(after.hue === '210', 'this tab lost its hue on reload: ' + after.hue);
+
+  /* a fresh tab, with no working copy of its own, starts from what was last left */
+  await evalJs(`sessionStorage.clear()`);
+  await send('Page.navigate', { url: URL_ + '?t2=' + Date.now() });
+  await sleep(1600);
+  const fresh = await evalJs(`document.getElementById('pName').value`);
+  assert(fresh === 'Tab A work', 'a new tab does not start from the last palette left: ' + fresh);
+});
+
+await journey('a broken saved palette never leaves a blank tool', async () => {
+  const cases = [
+    ['{not json at all', 'could not be read'],
+    [JSON.stringify({ main: { h: 'banana', c: null }, name: 42 }), null],
+    [JSON.stringify({ main: { h: 200, c: 0.1 }, map: { primary: 'x' }, share: 'no',
+                      family: { sisters: 'lots' }, nudges: { main: 5 } }), null]
+  ];
+  for (const [payload, expect] of cases) {
+    await evalJs(`sessionStorage.setItem('palette-tab-v1', ${JSON.stringify(payload)})`);
+    await send('Page.navigate', { url: URL_ + '?b=' + Date.now() });
+    await sleep(1600);
+    const state = await evalJs(`({ swatches: document.querySelectorAll('#rampsLight .sw').length,
+                                   hue: document.getElementById('hMain').value,
+                                   notice: document.getElementById('notice').hidden ? '' : document.getElementById('notice').textContent })`);
+    assert(state.swatches === 121, `a bad save left ${state.swatches} swatches on screen`);
+    assert(/^[0-9]+$/.test(state.hue), 'a bad save left a control with no value: ' + state.hue);
+    if (expect) assert(state.notice.includes(expect), 'nothing was said about the unreadable save: ' + state.notice);
+    else assert(/set back to the default/.test(state.notice),
+      'values were quietly replaced with no word about it: ' + state.notice);
+  }
+
+  /* a palette from a version that knows more than this one still opens */
+  await evalJs(`sessionStorage.setItem('palette-tab-v1', JSON.stringify({
+    name: 'From the future', main: { h: 12, c: 0.2 }, somethingNew: { deep: [1,2,3] },
+    shape: { peak: 99, falloff: -5, gamut: 'quantum' } }))`);
+  await send('Page.navigate', { url: URL_ + '?v=' + Date.now() });
+  await sleep(1600);
+  const future = await evalJs(`({ name: document.getElementById('pName').value,
+                                  hue: document.getElementById('hMain').value,
+                                  peak: document.getElementById('cPeak').value,
+                                  gamut: document.getElementById('gamut').value,
+                                  swatches: document.querySelectorAll('#rampsLight .sw').length })`);
+  assert(future.name === 'From the future', 'what could be read was thrown away: ' + future.name);
+  assert(future.hue === '12', 'a good value was lost with the bad ones');
+  assert(+future.peak <= 10 && +future.peak >= 0, 'an out-of-range value survived: ' + future.peak);
+  assert(future.gamut === 'srgb', 'an unknown gamut was accepted: ' + future.gamut);
+  assert(future.swatches === 121, 'the tool did not draw');
+});
+
+/* 29 — the peak control says what it delivers */
+await journey('the strongest step is the one the control reports', async () => {
+  const peakOf = () => evalJs(`(() => {
+    const sw = [...document.querySelectorAll('#rampsLight .ramp')[0].querySelectorAll('.sw')];
+    const C = sw.map(s => { const m = s.title.match(/oklch[(][0-9.]+% ([0-9.]+)/); return m ? +m[1] : 0; });
+    const at = C.indexOf(Math.max(...C));
+    return { step: [50,100,200,300,400,500,600,700,800,900,950][at],
+             says: +document.getElementById('ocPeak').textContent,
+             note: document.getElementById('peakNote').textContent }; })()`);
+
+  for (const v of [2, 6, 9]) {
+    await setRange('cPeak', v);
+    await sleep(350);
+    const p = await peakOf();
+    assert(p.says === p.step, `the control says ${p.says} but the strongest step is ${p.step}`);
+    const asked = [50,100,200,300,400,500,600,700,800,900,950][v];
+    if (p.step !== asked) {
+      assert(/cannot hold that much colour/.test(p.note),
+        `the control quietly delivered ${p.step} instead of ${asked}: "${p.note}"`);
+      assert(p.note.includes(String(asked)) && p.note.includes(String(p.step)),
+        'the note does not say what was asked for and what was delivered: ' + p.note);
+    } else {
+      assert(p.note === '', 'a note appeared when the ask was met: ' + p.note);
+    }
+  }
 });
 
 const failed = results.filter(r => !r[1]);
