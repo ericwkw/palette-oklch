@@ -785,6 +785,100 @@ await journey('a failing contrast pair offers the fix that mends it', async () =
   assert(fields.includes('chart') && fields.includes('chartDark'), 'the chart tokens have no mapping control');
 });
 
+/* 20 — the share sliders are checked against what is actually drawn */
+await journey('share of surface is measured, not merely declared', async () => {
+  await click('#tabs button', 5);
+  const rows = await evalJs(`[...document.querySelectorAll('#previewShare tbody tr')]
+    .map(r => [...r.children].map(c => c.textContent.trim()))`);
+  assert(rows.length === 5, 'the share check does not cover every role: ' + rows.length);
+  const asked = rows.map(r => parseInt(r[1], 10)), drawn = rows.map(r => parseInt(r[2], 10));
+  assert(asked.reduce((a, b) => a + b, 0) === 100, 'the targets do not add up: ' + asked.join(','));
+  const sum = drawn.reduce((a, b) => a + b, 0);
+  assert(sum > 95 && sum < 105, 'the measured shares do not add up: ' + sum);
+
+  /* it is a measurement, so it must disagree with the target when the target is wrong */
+  assert(rows.some(r => /over by|under by/.test(r[3])), 'every role is reported as on target, which is not a measurement');
+
+  /* and it must follow the preview: more neutral surface, more neutral measured */
+  const neutralBefore = drawn[0];
+  await click('#tabs button', 1);                  /* the mapping lives on Roles & tokens */
+  await evalJs(`(() => { const s = document.getElementById('map-tint');
+    s.value = '50'; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await sleep(300);
+  await click('#tabs button', 5);
+  const after = await evalJs(`[...document.querySelectorAll('#previewShare tbody tr')]
+    .map(r => parseInt(r.children[2].textContent, 10))`);
+  assert(after.reduce((a, b) => a + b, 0) > 95, 'the measurement broke after a mapping change');
+  assert(typeof neutralBefore === 'number', 'nothing was measured the first time');
+
+  /* the preview no longer claims a share it is not drawing */
+  const claim = await evalJs(`document.getElementById('previewOut').textContent`);
+  assert(!/% main/.test(claim), 'the preview still prints a share it does not draw');
+});
+
+/* 21 — state colours can be moved, and are checked against the brand */
+await journey('state colours can be moved off the brand', async () => {
+  await type('xMain', '#0B6E4F');          /* a green brand, next to a green Success */
+  await click('#tabs button', 1);
+
+  let state = await evalJs(`({ cap: document.querySelector('#funcTable .cap').textContent,
+                               rows: [...document.querySelectorAll('#funcTable tr.row-fail td:first-child b')].map(b => b.textContent),
+                               hues: [...document.querySelectorAll('#funcTable input[data-fx="h"]')].map(i => +i.value) })`);
+  assert(state.hues.length === 6, 'the state colours have no controls: ' + state.hues.length);
+  assert(state.rows.length > 0, 'a green brand beside six fixed states raises nothing: ' + state.cap);
+  assert(/mistaken for it/.test(state.cap), 'the summary does not say what is wrong: ' + state.cap);
+
+  /* moving one by hand is possible, and is reflected everywhere the hue is used */
+  await evalJs(`(() => { const i = document.querySelector('#funcTable input[data-fx="h"]');
+    i.value = '300'; i.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  await sleep(300);
+  let moved = await evalJs(`(() => {
+    const i = document.querySelector('#funcTable input[data-fx="h"]');
+    const ramp = [...document.querySelectorAll('#rampsLight .ramp')][5];
+    return { control: +i.value, label: ramp.querySelector('.name small').textContent,
+             reset: !!document.querySelector('#funcTable [data-fxreset]') };
+  })()`);
+  assert(moved.control === 300, 'the control did not take the new hue');
+  assert(/^30[01]/.test(moved.label.trim()), 'the Success ramp did not follow its control: ' + moved.label);
+  assert(moved.reset, 'a moved state colour offers no way back to its default');
+
+  /* and back */
+  await click('#funcTable [data-fxreset]');
+  moved = await evalJs(`+document.querySelector('#funcTable input[data-fx="h"]').value`);
+  assert(moved === 145, 'the default was not restored: ' + moved);
+
+  /* the one-click version clears what it can without changing what a colour means */
+  const before = await evalJs(`document.querySelectorAll('#funcTable tr.row-fail').length`);
+  await click('#btnFuncClear');
+  state = await evalJs(`({ cap: document.querySelector('#funcTable .cap').textContent,
+                           rows: document.querySelectorAll('#funcTable tr.row-fail').length,
+                           names: [...document.querySelectorAll('#funcTable tr.row-fail td:first-child b')].map(b => b.textContent),
+                           hues: [...document.querySelectorAll('#funcTable input[data-fx="h"]')].map(i => +i.value) })`);
+  assert(state.rows < before, `moving them off the brand cleared nothing: ${before} then ${state.rows}`);
+  assert(new Set(state.hues).size === 6, 'two state colours ended on the same hue');
+  /* nothing travels so far that it stops meaning what it means */
+  const DEFAULTS_H = [145, 75, 27, 235, 295, 185];
+  state.hues.forEach((h, i) => {
+    const d = Math.abs(((h - DEFAULTS_H[i] + 540) % 360) - 180);
+    assert(d <= 45, `a state colour moved ${Math.round(d)}° from its meaning`);
+  });
+  /* and whatever could not be freed is named rather than quietly left */
+  if (state.rows > 0) {
+    assert(state.names.every(n => state.cap.includes(n)), 'a remaining collision is not named: ' + state.cap);
+  } else {
+    assert(/far enough/.test(state.cap), 'the summary still reports a collision: ' + state.cap);
+  }
+
+  /* the moved hues survive a reload, and the export carries them */
+  await click('#tabs button', 7);
+  const css = await evalJs(`document.getElementById('outCss').textContent`);
+  assert(/--success-500:/.test(css), 'the state ramps are missing from the export');
+  await click('#tabs button', 1);
+  await click('#btnFuncReset');
+  const back = await evalJs(`[...document.querySelectorAll('#funcTable input[data-fx="h"]')].map(i => +i.value).join(',')`);
+  assert(back === '145,75,27,235,295,185', 'Back to defaults did not restore every state colour: ' + back);
+});
+
 const failed = results.filter(r => !r[1]);
 console.log('');
 results.forEach(([name, ok, why]) => console.log(`${ok ? ' ok ' : 'FAIL'}  ${name}${why ? ' — ' + why : ''}`));

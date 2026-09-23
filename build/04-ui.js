@@ -16,7 +16,8 @@
     map:{ primary:700, primaryDark:400, tint:100, tintDark:900, border:200, borderDark:800, ring:600, ringDark:400, chart:600, chartDark:400 },
     nudges:{},
     share:{neutral:55, sup:22, main:15, a1:6, a2:2},
-    family:{ sisters:[] }
+    family:{ sisters:[] },
+    func:{}          /* only what you have moved; the rest keep their defaults */
   };
   var S = JSON.parse(JSON.stringify(DEFAULTS));
 
@@ -111,6 +112,34 @@
     return { index:idx, L:c.L, C:c.C, hex:b.toUpperCase() };
   }
   function nudgesFor(key){ return (S.nudges && S.nudges[key]) || {}; }
+  /* a functional colour keeps its default hue and chroma until you move it */
+  function funcOf(f){
+    var over = (S.func || {})[f.id] || {};
+    return { h: over.h === undefined ? f.hue : over.h,
+             c: over.c === undefined ? f.chroma : over.c,
+             moved: over.h !== undefined || over.c !== undefined };
+  }
+  function funcHues(){ return FUNCTIONAL.map(function(f){ return funcOf(f).h; }); }
+  liveFunctionalHues = funcHues;   /* every clash check now reads where they really are */
+
+  /* what a functional colour could be confused with, brand or each other */
+  var BRAND_HUES = function(){
+    return [['main','Main'],['sup','Supporting'],['a1','Accent 1'],['a2','Accent 2']]
+      .map(function(r){ return { name:r[1], h:S[r[0]].h }; });
+  };
+  function funcWarnings(f){
+    var me = funcOf(f).h, out = [];
+    BRAND_HUES().forEach(function(b){
+      var d = hueGapDeg(me, b.h);
+      if(d < 20) out.push('Only ' + Math.round(d) + '° from your ' + b.name + ' colour — a ' + f.name.toLowerCase() + ' mark will read as brand, not as a state.');
+    });
+    FUNCTIONAL.forEach(function(o){
+      if(o.id === f.id) return;
+      var d = hueGapDeg(me, funcOf(o).h);
+      if(d < 16) out.push('Only ' + Math.round(d) + '° from ' + o.name + '.');
+    });
+    return out;
+  }
   function build(dark){
     var dm = S.darkMode || { lift:0.055, boost:1 };
     var tw = S.shape.twist === undefined ? 1 : S.shape.twist;
@@ -131,9 +160,10 @@
     };
     FUNCTIONAL.forEach(function(f){
       var fo = {}; for(var k in base) fo[k] = base[k];
+      var set = funcOf(f);
       fo.nudges = nudgesFor(f.id);
-      fo.twist = defaultTwist(f.hue) * tw;
-      p[f.id] = makeRamp(f.hue, f.chroma, fo);
+      fo.twist = defaultTwist(set.h) * tw;
+      p[f.id] = makeRamp(set.h, set.c, fo);
     });
     return p;
   }
@@ -240,12 +270,28 @@
   }
   function funcTableHtml(p, dark){
     var rows = FUNCTIONAL.map(function(f){
-      var set = funcSet(p[f.id], dark);
+      var set = funcSet(p[f.id], dark), cur = funcOf(f), warn = funcWarnings(f);
       function cell(s){ return '<span class="dot" style="background:'+s.hex+'"></span><span class="mono">'+s.hex.toUpperCase()+'</span>'; }
-      return '<tr><td><b>'+f.name+'</b><div class="muted">'+f.note+'</div></td>'+
+      return '<tr' + (warn.length ? ' class="row-fail"' : '') + '><td><b>'+f.name+'</b><div class="muted">'+f.note+'</div>' +
+        '<div class="func-ctl">' +
+          '<label>Hue<input type="range" data-fx="h" data-id="'+f.id+'" min="0" max="360" step="1" value="'+Math.round(cur.h)+'"><output>'+Math.round(cur.h)+'\u00b0</output></label>' +
+          '<label>Colour<input type="range" data-fx="c" data-id="'+f.id+'" min="0.04" max="0.26" step="0.005" value="'+cur.c+'"><output>'+cur.c.toFixed(3).replace(/^0/,'')+'</output></label>' +
+          (cur.moved ? '<button class="btn mini" data-fxreset="'+f.id+'">Default</button>' : '') +
+        '</div>' +
+        (warn.length ? '<div class="hint" style="color:#b83029">'+warn.join(' ')+'</div>' : '') +
+        '</td>'+
         '<td>'+cell(set.surface)+'</td><td>'+cell(set.border)+'</td><td>'+cell(set.text)+'</td><td>'+cell(set.fill)+'</td></tr>';
     }).join('');
-    return '<table><thead><tr><th>Meaning</th><th>Surface</th><th>Border</th><th>Text</th><th>Fill</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    var clashing = FUNCTIONAL.filter(function(f){ return funcWarnings(f).length; });
+    return '<p class="cap' + (clashing.length ? ' fail-cap' : '') + '">' +
+        (clashing.length
+          ? clashing.map(function(f){ return f.name; }).join(', ') +
+            (clashing.length === 1 ? ' sits' : ' sit') + ' close enough to a brand colour, or to another state, to be mistaken for it.'
+          : 'Every state colour is far enough from the brand colours, and from the others, to read as a state.') +
+      '</p>' +
+      '<p class="hint" style="margin:0 0 8px">A state colour is only useful if it cannot be read as brand. Moving one stays within 45° of where it started, because a Danger that lands in the greens has stopped meaning danger.</p>' +
+      '<div class="btns" style="margin:0 0 10px"><button class="btn" id="btnFuncClear">Move them off the brand hues</button><button class="btn" id="btnFuncReset">Back to defaults</button></div>' +
+      '<table><thead><tr><th style="width:38%">Meaning</th><th>Surface</th><th>Border</th><th>Text</th><th>Fill</th></tr></thead><tbody>'+rows+'</tbody></table>';
   }
   function stateTableHtml(p, dark){
     var m = p.main, n = p.neutral;
@@ -311,6 +357,82 @@
     ['chart-2','background','ui'],
     ['chart-3','background','ui']
   ];
+  /* ---------- share of surface, measured ----------
+     The five sliders are an intention. This reads the preview that was just
+     drawn and reports what it actually covers, so the intention can be
+     checked against something rather than merely stated. */
+  var SHARE_ROLES = ['neutral','sup','main','a1','a2'];
+  function classify(hex, ramps){
+    var t = hexToOklch(hex), best = null, bd = 9;
+    SHARE_ROLES.forEach(function(k){
+      ramps[k].forEach(function(st){
+        var dh = Math.min(Math.abs(((st.h - t.h + 540) % 360) - 180), 180) / 180;
+        var d = Math.abs(st.L - t.L) + Math.abs(st.C - t.C) * 2 + dh * (t.C < 0.02 ? 0.05 : 0.9);
+        if(d < bd){ bd = d; best = k; }
+      });
+    });
+    return bd < 0.09 ? best : null;   /* a colour far from every ramp is a state colour or an image */
+  }
+  function measureShare(root, ramps){
+    if(!root) return null;
+    var area = {}, total = 0;
+    SHARE_ROLES.forEach(function(k){ area[k] = 0; });
+    var nodes = [].slice.call(root.querySelectorAll('*'));
+    var base = root.getBoundingClientRect();
+    var baseArea = base.width * base.height;
+    if(!baseArea) return null;
+    nodes.forEach(function(n){
+      var cs = getComputedStyle(n), bg = cs.backgroundColor;
+      if(!bg || bg === 'transparent' || /rgba\(0, 0, 0, 0\)/.test(bg)) return;
+      var r = n.getBoundingClientRect();
+      var own = r.width * r.height;
+      if(own <= 0) return;
+      /* a child with its own background covers part of its parent */
+      [].forEach.call(n.children, function(ch){
+        var ccs = getComputedStyle(ch);
+        if(ccs.backgroundColor && !/rgba\(0, 0, 0, 0\)/.test(ccs.backgroundColor) && ccs.backgroundColor !== 'transparent'){
+          var cr = ch.getBoundingClientRect();
+          own -= Math.max(0, cr.width * cr.height);
+        }
+      });
+      if(own <= 0) return;
+      var m = bg.match(/(\d+), *(\d+), *(\d+)/);
+      if(!m) return;
+      var hex = '#' + [1,2,3].map(function(i){ var v = +m[i]; return (v < 16 ? '0' : '') + v.toString(16); }).join('');
+      var role = classify(hex, ramps);
+      if(!role) return;
+      area[role] += own; total += own;
+    });
+    /* the page itself, wherever nothing was drawn over it */
+    var covered = 0;
+    SHARE_ROLES.forEach(function(k){ covered += area[k]; });
+    if(covered < baseArea) area.neutral += baseArea - covered;
+    total = 0; SHARE_ROLES.forEach(function(k){ total += area[k]; });
+    if(!total) return null;
+    var out = {};
+    SHARE_ROLES.forEach(function(k){ out[k] = area[k] / total * 100; });
+    return out;
+  }
+  var MEASURED = null;
+  function shareCheckHtml(){
+    var names = { neutral:'Neutral', sup:'Supporting', main:'Main', a1:'Accent 1', a2:'Accent 2' };
+    var sh = S.share, total = 0;
+    SHARE_ROLES.forEach(function(k){ total += sh[k]; });
+    if(!MEASURED){
+      return '<p class="hint">Open the Preview once and this will say what that screen actually covers, against the shares you set.</p>';
+    }
+    var rows = SHARE_ROLES.map(function(k){
+      var want = sh[k] / (total || 1) * 100, got = MEASURED[k];
+      var off = got - want;
+      var verdict = Math.abs(off) < 5 ? '<span class="pill pass">about right</span>'
+        : '<span class="pill ' + (Math.abs(off) < 12 ? 'mid' : 'fail') + '">' + (off > 0 ? 'over by ' : 'under by ') + Math.round(Math.abs(off)) + '</span>';
+      return '<tr><td>' + names[k] + '</td><td class="mono">' + Math.round(want) + '%</td>' +
+        '<td class="mono">' + Math.round(got) + '%</td><td>' + verdict + '</td></tr>';
+    }).join('');
+    return '<table><thead><tr><th>Role</th><th>You asked for</th><th>The preview draws</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      '<p class="hint">Measured off the preview screen by area, counting only what is drawn in a role colour. One screen is not a whole product, so read it as a sanity check on the intention — not as a verdict.</p>';
+  }
+
   /* ---------- does the brand colour reach the interface? ----------
      Pinning a hex into a ramp is not the same as a token using it. A colour
      pinned at step 400 while every token reads 100 and 700 appears nowhere. */
@@ -585,7 +707,7 @@
             '<h3 class="pv-h1">Programme health</h3>'+
             '<p class="pv-p" style="margin-top:4px">Three sizes of text on the page background, so you can see where reading gets hard.</p>'+
             '<p class="pv-small"'+tk('muted-foreground')+' style="color:'+T('muted-foreground')+';margin-top:3px">'+
-              'Small print at muted-foreground — '+Math.round(sh.main/total*100)+'% main, '+Math.round(sh.neutral/total*100)+'% neutral by surface.</p>'+
+              'Small print at muted-foreground. Every colour here comes from a token.</p>'+
           '</div>'+
 
           '<div class="pv-row">'+
@@ -1314,8 +1436,11 @@
     el('gradOut').innerHTML = forThemes(L, D, function(p){ return '<div class="grid2">' + gradientsHtml(p) + '</div>'; });
     },
     preview: function(L, D){
-    el('previewOut').innerHTML = forThemes(L, D, function(p, dk){ return previewHtml(p, dk); });
-
+      el('previewOut').innerHTML = forThemes(L, D, function(p, dk){ return previewHtml(p, dk); });
+      /* the screen is on the page now, so it can be measured rather than described */
+      MEASURED = measureShare(el('previewOut').querySelector('.preview'), L) || MEASURED;
+      el('shareCheck').innerHTML = shareCheckHtml();
+      el('previewShare').innerHTML = shareCheckHtml();
     },
     family: function(L, D){
     el('famList').innerHTML = famListHtml();
@@ -1390,6 +1515,7 @@
       return '<span class="swatch-inline"><span class="dot" style="background:'+pt[1]+'"></span><b>'+Math.round(sh[pt[0]]/total*100)+'%</b> '+names[i]+'</span>';
     }).join('');
     el('shareSum').textContent = 'Always totals 100% — moving one slider rebalances the others.';
+    if(el('shareCheck')) el('shareCheck').innerHTML = shareCheckHtml();
 
 
     Object.keys(PAINT).forEach(function(k){ STALE[k] = true; });
@@ -1489,6 +1615,7 @@
     CURRENT = id;
     S = JSON.parse(JSON.stringify(it.settings));
     S.family = S.family || { sisters:[] };     /* palettes kept before families existed */
+    S.func = S.func || {};
     EDITING = null;
     syncControls(); render();   /* a switch is a change, so it lands in history and can be undone */
     libUi();
@@ -1626,6 +1753,50 @@
     e.preventDefault();
     openGloss(t.dataset.term);
   });
+
+  /* ---------- functional colours ---------- */
+  function setFunc(id, key, value){
+    S.func = S.func || {};
+    S.func[id] = S.func[id] || {};
+    S.func[id][key] = value;
+    dragging('fx:' + id + ':' + key);
+    render();
+  }
+  document.addEventListener('input', function(e){
+    var i = e.target.closest('input[data-fx]'); if(!i) return;
+    setFunc(i.dataset.id, i.dataset.fx, +i.value);
+  });
+  document.addEventListener('click', function(e){
+    var r = e.target.closest('[data-fxreset]');
+    if(r){ if(S.func) delete S.func[r.dataset.fxreset]; render(); return; }
+    if(e.target.id === 'btnFuncReset'){ S.func = {}; render(); return; }
+    if(e.target.id === 'btnFuncClear'){
+      /* walk each state colour outward from where it is until nothing is close */
+      S.func = S.func || {};
+      FUNCTIONAL.forEach(function(f){
+        var from = funcOf(f).h, chosen = from;
+        function clear(x){
+          var brandNear = BRAND_HUES().some(function(b){ return hueGapDeg(x, b.h) < 26; });
+          var stateNear = FUNCTIONAL.some(function(o){ return o.id !== f.id && hueGapDeg(x, funcOf(o).h) < 19; });
+          return !brandNear && !stateNear;
+        }
+        /* stay within 45° of where it was: a Danger that lands in the greens
+           has stopped meaning danger, which is worse than sitting near the brand */
+        for(var step = 0; step <= 45 && !clear(chosen); step += 2){
+          var up = (from + step) % 360, down = (from - step + 360) % 360;
+          if(clear(up)){ chosen = up; break; }
+          if(clear(down)){ chosen = down; break; }
+        }
+        if(clear(chosen)){
+          S.func[f.id] = S.func[f.id] || {};
+          S.func[f.id].h = Math.round(chosen);
+        }
+      });
+      render();
+      return;
+    }
+  });
+
 
   /* a failing pair, fixed by the control that owns it */
   document.addEventListener('click', function(e){
@@ -1788,7 +1959,7 @@
     r.onload = function(){
       try{
         var d = JSON.parse(r.result);
-        if(d.settings){ S = d.settings; S.family = S.family || { sisters:[] }; syncControls(); render(); }
+        if(d.settings){ S = d.settings; S.family = S.family || { sisters:[] }; S.func = S.func || {}; syncControls(); render(); }
       }catch(err){ alert('That file is not a palette export.'); }
     };
     r.readAsText(f);
@@ -1816,6 +1987,7 @@
       S.nudges = S.nudges || {};
       S.darkMode = S.darkMode || JSON.parse(JSON.stringify(DEFAULTS.darkMode));
       S.family = S.family || { sisters:[] };
+      S.func = S.func || {};
     }
   }catch(e){}
   syncControls();
@@ -1835,6 +2007,7 @@
       S.nudges = S.nudges || {};
       S.darkMode = S.darkMode || JSON.parse(JSON.stringify(DEFAULTS.darkMode));
       S.family = S.family || { sisters:[] };
+      S.func = S.func || {};
       EDITING = null;
       syncControls(); render(); histUi(); libUi();
       if(history.replaceState) history.replaceState(null, '', location.pathname + location.search);

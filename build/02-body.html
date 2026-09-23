@@ -170,7 +170,10 @@
     <section class="view" data-view="roles">
       <div class="head"><h2>Roles &amp; tokens</h2></div>
       <p class="note">Roles name what a colour is for; tokens are what a product uses. Ramp steps are the primitives underneath, so a palette swap never changes a token name.</p>
-      <div class="card"><h3>Share of surface</h3><div class="share" id="shareBar"></div><div class="legend" id="shareLegend"></div></div>
+      <div class="card"><h3>Share of surface</h3><div class="share" id="shareBar"></div><div class="legend" id="shareLegend"></div>
+        <h4 style="margin:16px 0 4px;font-size:.8rem">Asked for, and drawn</h4>
+        <div id="shareCheck"></div>
+      </div>
       <div class="card"><h3>Where your brand colours land</h3>
         <p class="cap">Pinning a hex into a ramp is not the same as a token using it. This is the check: does the exact colour you were given appear anywhere a product would actually draw it?</p>
         <div id="brandReach"></div>
@@ -221,6 +224,7 @@
       <div class="head"><h2>Preview</h2></div>
       <p class="note">One dense screen &mdash; sidebar, table with statuses, a form with an error and a disabled field, a chart on the chart tokens, text at three sizes &mdash; drawn only from tokens. Change a mapping and it moves here.</p>
       <div id="previewOut" style="display:grid;gap:18px"></div>
+      <div class="card" style="margin-top:18px"><h3>Asked for, and drawn</h3><div id="previewShare"></div></div>
     </section>
 
     <section class="view" data-view="family">

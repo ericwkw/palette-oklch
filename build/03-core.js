@@ -192,10 +192,13 @@ var FUNCTIONAL = [
   { id:'fresh',   name:'New',     hue:185, chroma:0.13, note:'unread, newly added' }
 ];
 var RESERVED = FUNCTIONAL.map(function(f){ return f.hue; });
-function hueClash(h){
-  for(var i=0;i<RESERVED.length;i++){
-    var d = Math.abs(((h - RESERVED[i] + 540) % 360) - 180);  /* shortest way round */
-    if(d < 18) return FUNCTIONAL[i].name;
+/* the UI replaces this so a moved functional colour is the one checked against */
+var liveFunctionalHues = function(){ return RESERVED; };
+function hueGapDeg(a, b){ return Math.abs(((a - b + 540) % 360) - 180); }   /* shortest way round */
+function hueClash(h, within){
+  var hues = liveFunctionalHues();
+  for(var i=0;i<hues.length;i++){
+    if(hueGapDeg(h, hues[i]) < (within || 18)) return FUNCTIONAL[i].name;
   }
   return null;
 }
