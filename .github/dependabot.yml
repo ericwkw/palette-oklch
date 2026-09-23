@@ -1,0 +1,19 @@
+version: 2
+
+# This tool has no npm dependencies — a single HTML file and a check script that
+# runs on Node's own built-ins. What is worth watching is the pinned actions in
+# the secret-scan workflow, so they do not drift silently.
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    groups:
+      actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "chore(ci)"

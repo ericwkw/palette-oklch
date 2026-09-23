@@ -1,0 +1,19 @@
+# gitleaks configuration.
+#
+# Runs in CI on every push and PR — see .github/workflows/secret-scan.yml.
+# GitHub's own secret scanning is free on this public repo and is also enabled;
+# this is the pre-merge gate that stops a secret before it ever lands.
+
+[extend]
+# Maintained ruleset: AWS keys, GitHub tokens, private keys, Stripe, Slack,
+# Google API keys, and ~150 more.
+useDefault = true
+
+[allowlist]
+description = "Paths that produce noise without carrying secrets"
+paths = [
+  '''package-lock\.yaml''',
+  '''package-lock\.json''',
+  '''pnpm-lock\.yaml''',
+  '''yarn\.lock''',
+]
