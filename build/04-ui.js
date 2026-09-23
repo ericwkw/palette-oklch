@@ -9,7 +9,7 @@
   var DEFAULTS = {
     name:'Untitled',
     main:{h:250,c:0.16,brand:null,pin:true}, sup:{h:280,c:0.09,rel:'near',brand:null,pin:true},
-    a1:{h:45,c:0.18,brand:null,pin:true}, a2:{h:20,c:0.20,brand:null,pin:true},
+    a1:{h:55,c:0.18,brand:null,pin:true}, a2:{h:340,c:0.20,brand:null,pin:true},
     neutral:{c:0.012, from:'main', h:250},
     shape:{peak:6, falloff:0.85, gamut:'srgb', twist:1},
     darkMode:{lift:0.055, boost:1},
@@ -234,7 +234,10 @@
     var ink = wcag('#000000',s.hex) >= wcag('#ffffff',s.hex) ? '#000' : '#fff';
     var nudged = S.nudges && S.nudges[role] && S.nudges[role][s.step];
     var style = S.shape.gamut === 'p3' ? s.css : s.hex;   /* P3 swatches are painted in oklch, not the sRGB hex */
+    var label = roleLabel(role) + ' step ' + s.step + ', ' + s.hex.toUpperCase() +
+      (isBrand ? ', your brand colour' : '') + (nudged ? ', nudged' : '') + (s.wide ? ', outside sRGB' : '');
     return '<div class="sw'+(isBrand?' is-brand':'')+(nudged?' is-nudged':'')+'" style="background:'+style+';color:'+ink+'"'+
+      ' role="button" tabindex="0" aria-label="'+label+'"'+
       ' data-role="'+role+'" data-step="'+s.step+'" data-value="'+s.css+'" title="'+s.css+(s.wide?' · outside sRGB':'')+'">'+
       '<b>'+s.step+'</b><span>'+s.hex.toUpperCase()+(s.wide?' ▲':'')+'</span></div>';
   }
@@ -268,6 +271,21 @@
     }).join('');
     return '<table><thead><tr><th>Role</th><th>Hue</th><th>Brand hex</th></tr></thead><tbody>'+rows+'</tbody></table>';
   }
+  /* is there anywhere near enough to keep the meaning, and far enough to be read? */
+  function freeHueNear(f){
+    var from = funcOf(f).h;
+    for(var step = 0; step <= 45; step += 2){
+      var a = (from + step) % 360, b = (from - step + 360) % 360;
+      if(hueIsFree(a, f) || hueIsFree(b, f)) return true;
+    }
+    return false;
+  }
+  function hueIsFree(x, f){
+    var brandNear = BRAND_HUES().some(function(b){ return hueGapDeg(x, b.h) < 26; });
+    var stateNear = FUNCTIONAL.some(function(o){ return o.id !== f.id && hueGapDeg(x, funcOf(o).h) < 19; });
+    return !brandNear && !stateNear;
+  }
+
   function funcTableHtml(p, dark){
     var rows = FUNCTIONAL.map(function(f){
       var set = funcSet(p[f.id], dark), cur = funcOf(f), warn = funcWarnings(f);
@@ -278,7 +296,9 @@
           '<label>Colour<input type="range" data-fx="c" data-id="'+f.id+'" min="0.04" max="0.26" step="0.005" value="'+cur.c+'"><output>'+cur.c.toFixed(3).replace(/^0/,'')+'</output></label>' +
           (cur.moved ? '<button class="btn mini" data-fxreset="'+f.id+'">Default</button>' : '') +
         '</div>' +
-        (warn.length ? '<div class="hint" style="color:#b83029">'+warn.join(' ')+'</div>' : '') +
+        (warn.length ? '<div class="hint" style="color:var(--bad)">'+warn.join(' ') +
+          (cur.moved || !freeHueNear(f) ? ' Nothing within 45° of ' + f.name + ' is free, so moving it would cost its meaning: move the brand colour instead, or give this state a shape or a word as well as a colour.' : '') +
+        '</div>' : '') +
         '</td>'+
         '<td>'+cell(set.surface)+'</td><td>'+cell(set.border)+'</td><td>'+cell(set.text)+'</td><td>'+cell(set.fill)+'</td></tr>';
     }).join('');
@@ -507,7 +527,7 @@
     if(!r) return '';
     return r.used.length
       ? ' · used by <b>' + r.used[0] + (r.used.length > 1 ? '</b> and ' + (r.used.length - 1) + ' more' : '</b>')
-      : ' · <b style="color:#b83029">no token uses it</b>';
+      : ' · <b style="color:var(--bad)">no token uses it</b>';
   }
 
   /* which mapping control, if any, could rescue a failing pair */
@@ -1013,7 +1033,7 @@
         '</div>' +
         '<div style="display:flex;border-radius:8px;overflow:hidden;margin:10px 0 6px">' + strip + '</div>' +
         controls +
-        (warn.length ? '<p class="hint" style="color:#d4423a">' + warn.join(' ') + '</p>' : '') +
+        (warn.length ? '<p class="hint" style="color:var(--bad)">' + warn.join(' ') + '</p>' : '') +
         (m.parent ? '' : '<div class="btns" style="margin-top:8px"><button class="btn mini" data-famdel="' + m.id + '">Remove</button></div>') +
         '</div>';
     }).join('');
@@ -1038,7 +1058,7 @@
       return '<tr><td><span class="dot" style="background:' + v.fill + '"></span> ' + m.name + '</td>' +
         '<td class="mono">' + v.loud.toFixed(2) + ':1</td>' +
         '<td class="mono">' + v.onFill.toFixed(2) + ':1</td>' +
-        '<td style="color:' + (ok ? 'inherit' : '#d4423a') + '">' + note + '</td></tr>';
+        '<td style="color:' + (ok ? 'inherit' : 'var(--bad)') + '">' + note + '</td></tr>';
     }).join('');
     return '<table><thead><tr><th>Brand</th><th>Button against the page</th><th>Label on the button</th><th>Reading</th></tr></thead><tbody>' + rows + '</tbody></table>' +
       '<p class="hint">A sister whose button is much quieter or much louder than the parent&rsquo;s will look like a different product, however close the hue is.</p>';
@@ -1425,6 +1445,7 @@
     el('ctTokens').innerHTML = forThemes(L, D, function(p, dk){ return tokenAuditHtml(p, dk); });
     el('ctText').innerHTML = forThemes(L, D, function(p, dk){ return contrastTextHtml(p, dk); });
     el('ctFill').innerHTML = forThemes(L, D, function(p, dk){ return contrastFillHtml(p, dk); });
+    el('cvdOut').innerHTML = cvdHtml();
     el('contrastMeta').textContent = 'WCAG 2 · APCA Lc';
 
     },
@@ -1442,10 +1463,12 @@
       MEASURED = measureShare(el('previewOut').querySelector('.preview'), L) || MEASURED;
       el('shareCheck').innerHTML = shareCheckHtml();
       el('previewShare').innerHTML = shareCheckHtml();
+      applyCvd();
     },
     family: function(L, D){
     el('famList').innerHTML = famListHtml();
     el('famStrip').innerHTML = forThemes(L, D, function(p, dk){ return famStripHtml(dk); });
+    applyCvd();
     el('famParity').innerHTML = forThemes(L, D, function(p, dk){ return famParityHtml(dk); });
     el('outFamily').textContent = famExport();
     el('famMeta').textContent = sisters().length
@@ -1780,6 +1803,91 @@
     return group && group !== name ? name + ' on ' + group : name;
   }
 
+  /* ---------- keyboard and announcements ----------
+     Everything the mouse can do here, a key can do, and what changes without
+     moving focus is said out loud. */
+  function announce(msg){
+    var box = el('say'); if(!box) return;
+    box.textContent = '';
+    setTimeout(function(){ box.textContent = msg; }, 30);   /* a repeat of the same words still counts as news */
+  }
+  document.addEventListener('keydown', function(e){
+    if(e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    var t = e.target;
+    if(!t || !t.classList || !t.classList.contains('sw')) return;
+    e.preventDefault();
+    t.click();
+  });
+
+  /* ---------- colour vision ----------
+     Status colours that differ only by hue can collapse into one another.
+     The simulation is the tool's own colours through each cone response. */
+  var CVD_MODE = '';
+  var CVD_TIGHT = 0.12, CVD_SAME = 0.07;   /* in OKLab; below SAME they are one colour */
+  function cvdPairsHtml(kind){
+    var L = build(false);
+    var items = FUNCTIONAL.map(function(f){ return { name:f.name, hex: stepOf(L[f.id], 600).hex }; })
+      .concat(BRAND_ROLES.map(function(r){ return { name:r[1], hex: stepOf(L[r[0]], 600).hex, brand:true }; }));
+    var rows = [];
+    for(var i = 0; i < items.length; i++){
+      for(var j = i + 1; j < items.length; j++){
+        if(items[i].brand && items[j].brand) continue;     /* two brand colours side by side is a choice, not a mix-up */
+        var a = kind ? simulate(items[i].hex, kind) : items[i].hex;
+        var b = kind ? simulate(items[j].hex, kind) : items[j].hex;
+        var d = deltaOk(a, b);
+        if(d < CVD_TIGHT) rows.push({ a:items[i], b:items[j], as:a, bs:b, d:d, plain: deltaOk(items[i].hex, items[j].hex) });
+      }
+    }
+    rows.sort(function(x, y){ return x.d - y.d; });
+    if(!rows.length){
+      return '<p class="cap">Every pair stays apart' + (kind ? ' under ' + CVD[kind].name.toLowerCase() : '') + '. Nothing here relies on a difference this eye cannot see.</p>';
+    }
+    var shown = rows.slice(0, 12), rest = rows.length - shown.length;
+    var body = shown.map(function(r){
+      var same = r.d < CVD_SAME;
+      return '<tr' + (same ? ' class="row-fail"' : '') + '>' +
+        '<td><span class="dot" style="background:' + r.as + '"></span>' + r.a.name +
+          ' <span class="muted">and</span> <span class="dot" style="background:' + r.bs + '"></span>' + r.b.name + '</td>' +
+        '<td class="mono">' + r.plain.toFixed(3) + '</td>' +
+        '<td class="mono">' + r.d.toFixed(3) + '</td>' +
+        '<td>' + (same
+          ? '<span class="pill fail">the same colour</span>'
+          : '<span class="pill mid">close</span>') + '</td></tr>';
+    }).join('');
+    return '<p class="cap fail-cap">' + rows.length + (rows.length === 1 ? ' pair comes' : ' pairs come') + ' together' +
+        (kind ? ' under ' + CVD[kind].name.toLowerCase() : '') + '. Give those a shape, an icon or a word as well as a colour.</p>' +
+      '<table><thead><tr><th>Pair</th><th>Apart normally</th><th>Apart here</th><th></th></tr></thead><tbody>' + body + '</tbody></table>' +
+      (rest > 0 ? '<p class="hint">' + rest + ' more pairs sit closer than they should. The worst are listed first; fixing those usually moves the rest.</p>' : '');
+  }
+  function cvdHtml(){
+    var L = build(false), kind = CVD_MODE;
+    var chips = FUNCTIONAL.map(function(f){ return [f.name, stepOf(L[f.id], 600).hex]; })
+      .concat(BRAND_ROLES.map(function(r){ return [r[1], stepOf(L[r[0]], 600).hex]; }))
+      .map(function(c){
+        var shown = kind ? simulate(c[1], kind) : c[1];
+        return '<span class="swatch-inline" style="gap:6px"><span class="dot" style="background:' + shown + ';width:18px;height:18px"></span>' + c[0] + '</span>';
+      }).join('');
+    return '<p class="hint" style="margin:0 0 10px">' +
+        (kind ? CVD[kind].name + ' — ' + CVD[kind].note + '. The swatches below are your colours as that eye receives them.'
+              : 'Ordinary colour vision. Switch above to see the same colours through each kind of colour blindness.') + '</p>' +
+      '<div class="legend" style="margin-bottom:12px">' + chips + '</div>' +
+      cvdPairsHtml(kind);
+  }
+  el('cvdSeg').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-cvd]'); if(!b) return;
+    CVD_MODE = b.dataset.cvd;
+    [].forEach.call(el('cvdSeg').children, function(x){ x.setAttribute('aria-selected', String(x === b)); });
+    el('cvdOut').innerHTML = cvdHtml();
+    applyCvd();
+  });
+  /* the preview goes through the same filter, so a whole screen can be judged */
+  function applyCvd(){
+    var f = CVD_MODE ? 'url(#cvd-' + CVD_MODE + ')' : '';
+    document.querySelectorAll('#previewOut .preview, #famStrip .preview').forEach(function(p){ p.style.filter = f; });
+    var note = el('cvdPreviewNote');
+    if(note) note.textContent = CVD_MODE ? 'Shown through ' + CVD[CVD_MODE].name.toLowerCase() + ' — change it on the Contrast tab.' : '';
+  }
+
   /* ---------- the order the work goes in ----------
      Eight tabs and no suggestion of a path. These four say what to do next and
      whether it has been done, and take you to the tab that does it. */
@@ -1929,11 +2037,7 @@
       S.func = S.func || {};
       FUNCTIONAL.forEach(function(f){
         var from = funcOf(f).h, chosen = from;
-        function clear(x){
-          var brandNear = BRAND_HUES().some(function(b){ return hueGapDeg(x, b.h) < 26; });
-          var stateNear = FUNCTIONAL.some(function(o){ return o.id !== f.id && hueGapDeg(x, funcOf(o).h) < 19; });
-          return !brandNear && !stateNear;
-        }
+        function clear(x){ return hueIsFree(x, f); }
         /* stay within 45° of where it was: a Danger that lands in the greens
            has stopped meaning danger, which is worse than sitting near the brand */
         for(var step = 0; step <= 45 && !clear(chosen); step += 2){
@@ -1945,6 +2049,7 @@
           S.func[f.id] = S.func[f.id] || {};
           S.func[f.id].h = Math.round(chosen);
         }
+        /* if nothing within 45° is free, it is left where it is and said so below */
       });
       describe('moving the state colours off the brand');
       render();
@@ -2045,6 +2150,8 @@
     function handle(ev){
       if(i.type === 'range' && ev && ev.type === 'input') dragging('rail:' + i.id);
       describe(controlName(i));
+      /* moving the supporting hue by hand means you no longer want it tied to main */
+      if(i.id === 'hSup' && el('relSup').value !== 'custom'){ el('relSup').value = 'custom'; S.sup.rel = 'custom'; }
       if(shareKey){
         S.share[shareKey] = parseFloat(i.value);
         balanceShares(shareKey);
@@ -2085,16 +2192,17 @@
     var step = e.target.closest('.sw[data-role]');
     if(step){
       EDITING = { role:step.dataset.role, step:+step.dataset.step };
+      announce('Editing ' + roleLabel(step.dataset.role) + ' step ' + step.dataset.step);
       render();
       var box = el('stepEditor'); if(box && box.scrollIntoView) box.scrollIntoView({ block:'nearest' });
       return;
     }
     var cell = e.target.closest('[data-value]');
-    if(cell){ navigator.clipboard && navigator.clipboard.writeText(cell.dataset.value); cell.style.outline='2px solid var(--accent)'; setTimeout(function(){ cell.style.outline=''; },400); return; }
+    if(cell){ navigator.clipboard && navigator.clipboard.writeText(cell.dataset.value); announce('Copied ' + cell.dataset.value); cell.style.outline='2px solid var(--accent)'; setTimeout(function(){ cell.style.outline=''; },400); return; }
     var mapSel = e.target.closest('[data-map]');
     if(mapSel) return;
     var cp = e.target.closest('[data-copy]');
-    if(cp){ navigator.clipboard && navigator.clipboard.writeText(el(cp.dataset.copy).textContent); cp.textContent='Copied'; setTimeout(function(){ cp.textContent='Copy'; },900); return; }
+    if(cp){ navigator.clipboard && navigator.clipboard.writeText(el(cp.dataset.copy).textContent); cp.textContent='Copied'; announce('Copied to the clipboard'); setTimeout(function(){ cp.textContent='Copy'; },900); return; }
     var dl = e.target.closest('[data-dl]');
     if(dl){
       var kind = dl.dataset.dl;

@@ -183,14 +183,47 @@ function makeRamp(hue, chroma, opts){
   return out;
 }
 /* functional hues stay put across a brand family */
+/* The starting hues are spaced so that the palette you are handed on arrival
+   already clears the tool's own checks: at least 25 degrees from every default
+   brand hue, and 18 from each other. Any of them can be moved. */
 var FUNCTIONAL = [
   { id:'success', name:'Success', hue:145, chroma:0.14, note:'done, adopted, on track' },
-  { id:'warning', name:'Warning', hue:75,  chroma:0.15, note:'needs attention, not urgent' },
-  { id:'danger',  name:'Danger',  hue:27,  chroma:0.18, note:'destructive, failed, overdue' },
-  { id:'info',    name:'Info',    hue:235, chroma:0.13, note:'neutral explanation' },
-  { id:'pending', name:'Pending', hue:295, chroma:0.11, note:'waiting on someone else' },
+  { id:'warning', name:'Warning', hue:85,  chroma:0.15, note:'needs attention, not urgent' },
+  { id:'danger',  name:'Danger',  hue:25,  chroma:0.18, note:'destructive, failed, overdue' },
+  { id:'info',    name:'Info',    hue:220, chroma:0.13, note:'neutral explanation' },
+  { id:'pending', name:'Pending', hue:310, chroma:0.11, note:'waiting on someone else' },
   { id:'fresh',   name:'New',     hue:185, chroma:0.13, note:'unread, newly added' }
 ];
+/* ---------- colour vision ----------
+   Viénot, Brettel & Mollon (1999): project onto the plane the missing cone
+   cannot distinguish. Done in linear light, which is where the maths lives. */
+var CVD = {
+  deuter: { name:'Deuteranopia', note:'no green cone — about 1 in 16 men', m:[0.29275,0.70725,0, 0.29275,0.70725,0, 0,0,1] },
+  protan: { name:'Protanopia',   note:'no red cone — about 1 in 100 men',  m:[0.11238,0.88762,0, 0.11238,0.88762,0, 0,0,1] },
+  tritan: { name:'Tritanopia',   note:'no blue cone — rare, and not sex-linked', m:[1,0,0, 0,1,0, -0.01224,0.07203,0.94021] }
+};
+function simulate(hex, kind){
+  var k = CVD[kind]; if(!k) return hex;
+  var r = linearFromSrgb(parseInt(hex.slice(1,3),16)/255),
+      g = linearFromSrgb(parseInt(hex.slice(3,5),16)/255),
+      b = linearFromSrgb(parseInt(hex.slice(5,7),16)/255);
+  var m = k.m;
+  var out = [ m[0]*r + m[1]*g + m[2]*b,
+              m[3]*r + m[4]*g + m[5]*b,
+              m[6]*r + m[7]*g + m[8]*b ];
+  return '#' + out.map(function(v){
+    var c = Math.round(clamp(srgbFromLinear(clamp(v,0,1)), 0, 1) * 255);
+    return (c < 16 ? '0' : '') + c.toString(16);
+  }).join('');
+}
+/* how far apart two colours are to the eye, in OKLab */
+function deltaOk(a, b){
+  var A = hexToOklch(a), B = hexToOklch(b);
+  var aa = A.C * Math.cos(A.h * Math.PI / 180), ab = A.C * Math.sin(A.h * Math.PI / 180);
+  var ba = B.C * Math.cos(B.h * Math.PI / 180), bb = B.C * Math.sin(B.h * Math.PI / 180);
+  return Math.sqrt(Math.pow(A.L - B.L, 2) + Math.pow(aa - ba, 2) + Math.pow(ab - bb, 2));
+}
+
 var RESERVED = FUNCTIONAL.map(function(f){ return f.hue; });
 /* the UI replaces this so a moved functional colour is the one checked against */
 var liveFunctionalHues = function(){ return RESERVED; };

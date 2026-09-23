@@ -848,7 +848,10 @@ await journey('state colours can be moved off the brand', async () => {
   assert(moved === 145, 'the default was not restored: ' + moved);
 
   /* the one-click version clears what it can without changing what a colour means */
+  await setRange('hSup', 300);            /* put Supporting somewhere that leaves room */
+  await sleep(400);
   const before = await evalJs(`document.querySelectorAll('#funcTable tr.row-fail').length`);
+  assert(before > 0, 'a green brand beside the default states raises nothing to clear');
   await click('#btnFuncClear');
   state = await evalJs(`({ cap: document.querySelector('#funcTable .cap').textContent,
                            rows: document.querySelectorAll('#funcTable tr.row-fail').length,
@@ -876,7 +879,7 @@ await journey('state colours can be moved off the brand', async () => {
   await click('#tabs button', 1);
   await click('#btnFuncReset');
   const back = await evalJs(`[...document.querySelectorAll('#funcTable input[data-fx="h"]')].map(i => +i.value).join(',')`);
-  assert(back === '145,75,27,235,295,185', 'Back to defaults did not restore every state colour: ' + back);
+  assert(back === '145,85,25,220,310,185', 'Back to defaults did not restore every state colour: ' + back);
 });
 
 /* 22 — the rail folds, undo says what it undoes, the ramps show colour first,
@@ -946,6 +949,134 @@ await journey('the tool is possible to get around', async () => {
   await click('#steps [data-goto="contrast"]');
   const view = await evalJs(`document.querySelector('section.view.on').dataset.view`);
   assert(view === 'contrast', 'a step does not take you to the tab that does it: ' + view);
+});
+
+/* 23 — the tool is held to the standard it holds your palette to */
+await journey('the tool passes its own audit, in both themes', async () => {
+  const measure = () => evalJs(`(() => {
+    const hex = s => { const m = s.match(/([0-9]+), *([0-9]+), *([0-9]+)/);
+      return m ? '#' + [1,2,3].map(i => (+m[i]).toString(16).padStart(2,'0')).join('') : null; };
+    const bgOf = el => { let n = el; while (n && n !== document.documentElement) {
+      const c = getComputedStyle(n).backgroundColor;
+      if (c && !/rgba[(]0, 0, 0, 0[)]/.test(c) && c !== 'transparent') return hex(c);
+      n = n.parentElement; } return '#ffffff'; };
+    const out = [];
+    const sel = '.rail .hint, .sec-toggle, .sec-sum, #steps .s, .cap, .note, .muted, label, legend';
+    [...document.querySelectorAll(sel)].forEach(el => {
+      if (!el.textContent.trim() || el.offsetParent === null) return;
+      const fg = hex(getComputedStyle(el).color), bg = bgOf(el);
+      if (!fg || !bg) return;
+      out.push({ what: el.className || el.tagName.toLowerCase(), fg, bg, r: +wcag(fg, bg).toFixed(2) });
+    });
+    return out;
+  })()`);
+
+  for (const [idx, name] of [[0, 'light'], [1, 'dark']]) {
+    await click('#themeSeg button', idx);
+    const rows = await measure();
+    assert(rows.length > 8, `nothing measurable in ${name}: ${rows.length}`);
+    const short = rows.filter(r => r.r < 4.5);
+    assert(short.length === 0,
+      `${name}: the tool's own text falls short — ` +
+      short.slice(0, 3).map(r => `${r.what} ${r.fg} on ${r.bg} = ${r.r}`).join('; '));
+  }
+  await click('#themeSeg button', 0);
+
+  /* the red it warns you with must itself be readable */
+  const status = await evalJs(`(() => {
+    const cs = getComputedStyle(document.documentElement);
+    const hex = s => { const m = s.match(/([0-9]+), *([0-9]+), *([0-9]+)/);
+      return m ? '#' + [1,2,3].map(i => (+m[i]).toString(16).padStart(2,'0')).join('') : s.trim(); };
+    const panel = hex(getComputedStyle(document.querySelector('.rail')).backgroundColor);
+    return { bad: wcag(cs.getPropertyValue('--bad').trim(), panel),
+             ok:  wcag(cs.getPropertyValue('--ok').trim(), panel) };
+  })()`);
+  assert(status.bad >= 4.5, 'the warning colour is less readable than what it warns about: ' + status.bad.toFixed(2));
+  assert(status.ok >= 4.5, 'the all-clear colour falls short: ' + status.ok.toFixed(2));
+});
+
+/* 24 — the defaults arrive clean */
+await journey('a palette you have not touched passes its own checks', async () => {
+  await click('#tabs button', 1);
+  const states = await evalJs(`({ cap: document.querySelector('#funcTable .cap').textContent,
+                                  rows: document.querySelectorAll('#funcTable tr.row-fail').length })`);
+  assert(states.rows === 0, 'the shipped state colours clash with the shipped brand colours: ' + states.cap);
+
+  await click('#tabs button', 2);
+  for (const idx of [0, 1]) {
+    await click('#themeSeg button', idx);
+    const cap = await evalJs(`document.querySelector('#ctTokens .cap').textContent`);
+    assert(/clears its level/.test(cap), `${idx ? 'dark' : 'light'} defaults fall short: ${cap}`);
+  }
+  await click('#themeSeg button', 0);
+
+  const steps = await evalJs(`[...document.querySelectorAll('#steps li')].map(li => li.className)`);
+  assert(!steps.includes('warn'), 'an untouched palette is already accusing you of something');
+});
+
+/* 25 — colour vision is checked, not assumed */
+await journey('states that collapse for a colour-blind eye are found', async () => {
+  await click('#tabs button', 2);
+  const normal = await evalJs(`document.querySelector('#cvdOut .cap').textContent`);
+  assert(/stays apart|come together/.test(normal), 'the colour-vision panel says nothing: ' + normal);
+
+  await click('#cvdSeg button', 1);                 /* deuteranopia */
+  const deut = await evalJs(`({ cap: document.querySelector('#cvdOut .cap').textContent,
+                                rows: [...document.querySelectorAll('#cvdOut tbody tr')].map(r => r.children[0].textContent),
+                                worst: [...document.querySelectorAll('#cvdOut tbody tr')]
+                                  .map(r => [r.children[0].textContent, +r.children[1].textContent, +r.children[2].textContent])[0] })`);
+  assert(deut.rows.length > 0, 'success and danger survive deuteranopia untouched, which is not true');
+  assert(/Success/.test(deut.rows.join(' ')) && /Danger/.test(deut.rows.join(' ')),
+    'the green and the red are not reported as colliding: ' + deut.rows.join(' | '));
+  assert(deut.worst[1] > deut.worst[2] * 3,
+    `the pair is not reported as much closer than it is normally: ${deut.worst[1]} then ${deut.worst[2]}`);
+  assert(/shape|icon|word/.test(deut.cap), 'the panel does not say what to do about it: ' + deut.cap);
+
+  /* the preview goes through the same eye */
+  await click('#tabs button', 5);
+  const filtered = await evalJs(`({ filter: document.querySelector('#previewOut .preview').style.filter,
+                                    note: document.getElementById('cvdPreviewNote').textContent })`);
+  assert(/cvd-deuter/.test(filtered.filter), 'the preview is not shown through the same eye: ' + filtered.filter);
+  assert(/deuteranopia/i.test(filtered.note), 'nothing says the preview is being simulated: ' + filtered.note);
+
+  /* and back to normal */
+  await click('#tabs button', 2);
+  await click('#cvdSeg button', 0);
+  await click('#tabs button', 5);
+  const back = await evalJs(`document.querySelector('#previewOut .preview').style.filter`);
+  assert(!back, 'the simulation would not switch off: ' + back);
+});
+
+/* 26 — a keyboard reaches what a mouse reaches */
+await journey('the ramps can be used without a mouse', async () => {
+  const sw = await evalJs(`(() => { const s = document.querySelector('#rampsLight .sw');
+    return { tabindex: s.getAttribute('tabindex'), role: s.getAttribute('role'), label: s.getAttribute('aria-label') }; })()`);
+  assert(sw.tabindex === '0', 'a swatch cannot be reached by keyboard');
+  assert(sw.role === 'button', 'a swatch does not announce itself as something you can press');
+  assert(/step [0-9]+/.test(sw.label) && /#[0-9A-F]{6}/.test(sw.label), 'a swatch does not say what it is: ' + sw.label);
+
+  /* Enter on a focused swatch opens the editor, as a click does */
+  await evalJs(`document.querySelectorAll('#rampsLight .sw')[4].focus()`);
+  await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 });
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 });
+  await sleep(400);
+  const editor = await evalJs(`(() => { const e = document.getElementById('stepEditor');
+    return { open: !!e.innerHTML.trim(), said: document.getElementById('say').textContent }; })()`);
+  assert(editor.open, 'Enter on a swatch does nothing');
+  assert(/Editing/.test(editor.said), 'nothing is announced when the editor opens: ' + editor.said);
+
+  /* the tabs describe themselves as tabs */
+  const aria = await evalJs(`(() => { const t = document.getElementById('tabs');
+    const b = t.querySelector('button');
+    const panel = document.getElementById(b.getAttribute('aria-controls'));
+    return { list: t.getAttribute('role'), tab: b.getAttribute('role'),
+             panel: panel && panel.getAttribute('role') }; })()`);
+  assert(aria.list === 'tablist' && aria.tab === 'tab' && aria.panel === 'tabpanel',
+    'the tabs are not announced as tabs: ' + JSON.stringify(aria));
+
+  /* there is a focus style of the tool's own */
+  const focusStyled = await evalJs(`[...document.styleSheets[0].cssRules].some(r => /focus-visible/.test(r.cssText || ''))`);
+  assert(focusStyled, 'nothing in the tool says what focus looks like');
 });
 
 const failed = results.filter(r => !r[1]);
