@@ -122,7 +122,7 @@ await journey('token mapping moves something on screen', async () => {
   const fields = await evalJs(`[...document.querySelectorAll('[data-map]')].map(s => s.id)`);
   assert(fields.length >= 6, 'token mapping controls are missing');
   for (const fieldId of fields) {
-    const before = await evalJs(`document.getElementById('mapDemo').innerHTML + document.getElementById('outCss').textContent`);
+    const before = await evalJs(`document.getElementById('mapDemo').innerHTML`);
     const changed = await evalJs(`(() => { const s = document.getElementById(${JSON.stringify(fieldId)});
       const other = [...s.options].find(o => o.value !== s.value); if (!other) return false;
       s.value = other.value; s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
@@ -267,10 +267,12 @@ await journey('the preview shows every token and reacts to a mapping', async () 
   await click('#themeSeg button', 0);
   const btn = () => evalJs(`document.querySelector('#previewOut [data-token="primary"]').style.background`);
   const before = await btn();
+  await click('#tabs button', 1);                  /* the mapping lives on Roles & tokens */
   await evalJs(`(() => { const s = document.getElementById('map-primary');
     const other = [...s.options].find(o => o.value !== s.value);
     s.value = other.value; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
   await sleep(300);
+  await click('#tabs button', 5);                  /* back to the preview */
   assert(await btn() !== before, 'the primary mapping did not move the preview');
 });
 
@@ -635,6 +637,77 @@ await journey('the exports parse and the link round-trips', async () => {
   assert(back.name === 'Harbour', 'the link lost the name: ' + back.name);
   assert(back.brand.toUpperCase() === '#0075C9', 'the link lost the brand colour: ' + back.brand);
   assert(back.hash === '', 'the link was not cleared from the address bar after loading');
+});
+
+/* 16 — the words are explained where they are used */
+await journey('every unfamiliar word can be looked up', async () => {
+  const terms = await evalJs(`[...document.querySelectorAll('.term')].map(b => b.dataset.term)`);
+  assert(terms.length >= 6, 'the rail explains almost nothing: ' + terms.length + ' terms');
+
+  await click('.term', 0);
+  let g = await evalJs(`({ open: document.getElementById('gloss').open,
+                           lit: (document.querySelector('#glossList .lit') || {}).id,
+                           entries: document.querySelectorAll('#glossList dt').length })`);
+  assert(g.open, 'the glossary did not open');
+  assert(g.entries >= 12, 'the glossary is thin: ' + g.entries + ' entries');
+  assert(g.lit === 'gloss-' + terms[0], 'the glossary did not land on the word that was asked about');
+
+  /* every question mark in the rail has an entry behind it */
+  const missing = await evalJs(`(() => {
+    const ids = new Set([...document.querySelectorAll('#glossList > div')].map(d => d.id.replace('gloss-', '')));
+    return [...document.querySelectorAll('.term')].map(b => b.dataset.term).filter(t => !ids.has(t));
+  })()`);
+  assert(missing.length === 0, 'these have no glossary entry: ' + missing.join(', '));
+
+  /* and it closes again */
+  await click('#glossClose');
+  g = await evalJs(`document.getElementById('gloss').open`);
+  assert(g === false, 'the glossary would not close');
+
+  /* the jargon is not the label: the control says what it does */
+  const labels = await evalJs(`[...document.querySelectorAll('.rail label')].map(l => l.textContent.trim().replace(/\\?$/, '').trim())`);
+  for (const jargon of ['Chroma', 'Falloff', 'Twist', 'Gamut', 'Luminance']) {
+    assert(!labels.includes(jargon), `the rail still calls a control “${jargon}”`);
+  }
+});
+
+/* 17 — it stays usable with a family of ten brands */
+await journey('ten brands and the tool still moves', async () => {
+  await click('#tabs button', 6);
+  for (let i = 0; i < 9; i++) await click('#btnFamAdd');
+  await click('#btnFamSpread');
+  const n = await evalJs(`document.querySelectorAll('#famList .card').length`);
+  assert(n === 10, 'the family did not reach ten brands: ' + n);
+
+  /* a slider drag on the busiest view */
+  const timeOn = async () => evalJs(`(() => {
+    const el = document.getElementById('hMain');
+    const t0 = performance.now();
+    for (let i = 0; i < 6; i++) {
+      el.value = String(200 + i * 5);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    return Math.round(performance.now() - t0);
+  })()`);
+  const heavy = await timeOn();
+
+  /* the same drag from the ramps tab, where the ten previews are not on screen */
+  await click('#tabs button', 0);
+  const light = await timeOn();
+  assert(light < heavy, `leaving a view does not save any work: ${light}ms on ramps vs ${heavy}ms on family`);
+  assert(light < 1400, `six slider steps take ${light}ms with ten brands — too slow to drag`);
+
+  /* and the view left behind is brought up to date when you go back to it */
+  await evalJs(`(() => { const el = document.getElementById('hMain'); el.value = '12';
+    el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  await sleep(200);
+  await click('#tabs button', 6);
+  const shown = await evalJs(`document.querySelector('#famList .card .muted.mono').textContent`);
+  assert(/^12°/.test(shown), 'the family view was stale when it came back: ' + shown);
+
+  /* every brand still draws */
+  const strips = await evalJs(`document.querySelectorAll('#famStrip .preview').length`);
+  assert(strips === 10, 'not every brand is drawn: ' + strips);
 });
 
 const failed = results.filter(r => !r[1]);

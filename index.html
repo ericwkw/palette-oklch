@@ -162,6 +162,22 @@
   .region{position:absolute;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.55),0 0 0 9999px rgba(0,0,0,.28);cursor:move;border-radius:3px}
   .region .grip{position:absolute;right:-7px;bottom:-7px;width:14px;height:14px;border-radius:3px;background:#fff;border:1px solid rgba(0,0,0,.5);cursor:nwse-resize}
   .region .cap-demo{position:absolute;left:6px;bottom:5px;right:6px;color:#fff;font-size:.8rem;font-weight:600;pointer-events:none}
+  .term{border:1px solid var(--line);background:var(--bg);color:var(--ink-3);width:16px;height:16px;border-radius:50%;
+    font-size:.62rem;line-height:1;padding:0;cursor:pointer;vertical-align:middle;margin-left:4px}
+  .term:hover{border-color:var(--ink-3);color:var(--ink)}
+  #btnGloss{border:1px solid var(--line);background:var(--panel);color:var(--ink-2);border-radius:999px;
+    padding:7px 14px;font-size:.78rem;font-weight:600;cursor:pointer}
+  #btnGloss:hover{border-color:var(--ink-3);color:var(--ink)}
+  dialog#gloss{border:1px solid var(--line);border-radius:14px;padding:22px 24px;max-width:640px;width:calc(100% - 32px);
+    background:var(--panel);color:var(--ink);box-shadow:0 24px 60px rgba(0,0,0,.28)}
+  dialog#gloss::backdrop{background:rgba(10,14,20,.44)}
+  .gloss-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:6px}
+  .gloss-head h2{margin:0;font-size:1.05rem}
+  #glossList{margin:0}
+  #glossList dt{font-weight:650;font-size:.86rem;margin-top:14px}
+  #glossList dt span{font-weight:400;color:var(--ink-3);font-size:.76rem;margin-left:6px}
+  #glossList dd{margin:3px 0 0;color:var(--ink-2);font-size:.82rem;line-height:1.55}
+  #glossList div.lit{background:var(--bg);border-radius:8px;padding:6px 10px;margin:0 -10px}
   kbd{font-family:var(--mono);font-size:.68rem;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 5px;background:var(--bg)}
   .btn[disabled]{opacity:.42;cursor:default}
   .btn.danger{border-color:#d4423a;color:#d4423a}
@@ -211,7 +227,7 @@
       <div class="anchor" id="anMain"></div>
       <label class="check"><input type="checkbox" id="pinMain" checked> Keep my exact colour in the ramp</label>
       <div class="row"><label for="hMain">Hue</label><input type="range" id="hMain" min="0" max="360" step="1" value="250"><output id="oMain">250</output></div>
-      <div class="row"><label for="cMain">Colourfulness</label><input type="range" id="cMain" min="0.02" max="0.30" step="0.005" value="0.16"><output id="ocMain">.160</output></div>
+      <div class="row"><label for="cMain">Colourfulness <button class="term" data-term="chroma" title="What does this mean?">?</button></label><input type="range" id="cMain" min="0.02" max="0.30" step="0.005" value="0.16"><output id="ocMain">.160</output></div>
       <p class="hint">Paste a brand hex and the ramp is built around it: the hue and colourfulness come from your colour, the lightness comes from the shared steps. The line above shows your colour beside the step it lands on, and whether the two match.</p>
     </fieldset>
 
@@ -257,7 +273,7 @@
     <fieldset>
       <legend>Neutrals — paper, panels, hairlines, text</legend>
       <div class="chip" id="chipNeu"></div>
-      <div class="row"><label for="cNeu">Tint</label><input type="range" id="cNeu" min="0" max="0.05" step="0.002" value="0.012"><output id="ocNeu">.012</output></div>
+      <div class="row"><label for="cNeu">Tint <button class="term" data-term="tint" title="What does this mean?">?</button></label><input type="range" id="cNeu" min="0" max="0.05" step="0.002" value="0.012"><output id="ocNeu">.012</output></div>
       <div class="field"><label for="hNeu">Hue from</label>
         <select id="hNeu"><option value="main" selected>Main</option><option value="sup">Supporting</option><option value="own">Own</option></select></div>
       <div class="row"><label for="hNeuOwn">Own hue</label><input type="range" id="hNeuOwn" min="0" max="360" step="1" value="250"><output id="oNeuOwn">250</output></div>
@@ -266,11 +282,11 @@
 
     <fieldset>
       <legend>Ramp shape — how the shades behave</legend>
-      <div class="row"><label for="cPeak">Strongest at</label><input type="range" id="cPeak" min="0" max="10" step="1" value="6"><output id="ocPeak">600</output></div>
-      <div class="row"><label for="cFall">Dark fade</label><input type="range" id="cFall" min="0.2" max="1.6" step="0.05" value="0.85"><output id="ocFall">.85</output></div>
-      <div class="row"><label for="cTwist">Hue turn</label><input type="range" id="cTwist" min="0" max="2" step="0.05" value="1"><output id="ocTwist">1.00</output></div>
+      <div class="row"><label for="cPeak">Strongest at <button class="term" data-term="peak" title="What does this mean?">?</button></label><input type="range" id="cPeak" min="0" max="10" step="1" value="6"><output id="ocPeak">600</output></div>
+      <div class="row"><label for="cFall">Dark fade <button class="term" data-term="falloff" title="What does this mean?">?</button></label><input type="range" id="cFall" min="0.2" max="1.6" step="0.05" value="0.85"><output id="ocFall">.85</output></div>
+      <div class="row"><label for="cTwist">Hue turn <button class="term" data-term="twist" title="What does this mean?">?</button></label><input type="range" id="cTwist" min="0" max="2" step="0.05" value="1"><output id="ocTwist">1.00</output></div>
       <p class="hint">Which step is the most colourful, how quickly the dark end loses colour, and how far the hue turns between the two ends — dark yellows toward orange, dark blues toward indigo. Zero holds one hue throughout.</p>
-      <div class="field"><label for="gamut">Gamut</label>
+      <div class="field"><label for="gamut">Screen range <button class="term" data-term="gamut" title="What does this mean?">?</button></label>
         <select id="gamut"><option value="srgb" selected>sRGB</option><option value="p3">Display P3</option></select></div>
       <p class="hint" id="gamutNote">sRGB keeps every value safe everywhere. In P3 swatches are painted in OKLCH and a ▲ marks the ones a plain sRGB screen cannot show; hex stays as the closest sRGB fallback.</p>
     </fieldset>
@@ -278,13 +294,13 @@
     <fieldset>
       <legend>Dark mode — same hues, different curve</legend>
       <p class="hint" style="margin-top:8px">Every hue and colourfulness above is shared by both themes. Only the lightness curve differs, and tokens read the ramp from the opposite end: paper is step 50 in light, step 950 in dark.</p>
-      <div class="row"><label for="dLift">Deep end lift</label><input type="range" id="dLift" min="0" max="0.14" step="0.005" value="0.055"><output id="odLift">.055</output></div>
+      <div class="row"><label for="dLift">Deep end lift <button class="term" data-term="lift" title="What does this mean?">?</button></label><input type="range" id="dLift" min="0" max="0.14" step="0.005" value="0.055"><output id="odLift">.055</output></div>
       <div class="row"><label for="dBoost">Colourfulness</label><input type="range" id="dBoost" min="0.6" max="1.4" step="0.02" value="1"><output id="odBoost">1.00</output></div>
       <p class="hint">Lift keeps dark surfaces apart from each other; colourfulness compensates for colours looking weaker on a dark ground.</p>
     </fieldset>
 
     <fieldset>
-      <legend>Share of surface — how much of a screen each one covers</legend>
+      <legend>Share of surface <button class="term" data-term="share" title="What does this mean?">?</button></legend>
       <div class="share" id="railShare" style="height:16px;margin:2px 0 10px"></div>
       <div class="row"><label for="sNeutral">Neutral</label><input type="range" id="sNeutral" min="0" max="100" step="1" value="55"><output id="osNeutral">55</output></div>
       <div class="row"><label for="sSup">Supporting</label><input type="range" id="sSup" min="0" max="100" step="1" value="22"><output id="osSup">22</output></div>
@@ -315,6 +331,7 @@
       <button data-view="family" aria-selected="false">Family</button>
       <button data-view="export" aria-selected="false">Export</button>
       <span style="flex:1"></span>
+      <button id="btnGloss" title="What the words mean">Words</button>
       <div class="seg" id="themeSeg" role="group" aria-label="Theme shown">
         <button data-theme="light" aria-selected="true">Light</button>
         <button data-theme="dark" aria-selected="false">Dark</button>
@@ -445,6 +462,11 @@
     </section>
   </main>
 </div>
+
+<dialog id="gloss">
+  <div class="gloss-head"><h2>What the words mean</h2><button class="btn" id="glossClose">Close</button></div>
+  <dl id="glossList"></dl>
+</dialog>
 <script>
 /* ============================================================
    Colour maths — OKLCH is the source of truth.
@@ -1779,6 +1801,85 @@ function hueClash(h){
   }
 
   /* ---------- render ---------- */
+  /* ---------- rendering ----------
+     The rail and the ramps are always redrawn; the other views are marked
+     stale and drawn when you look at them. With a family of ten brands that
+     is the difference between a slider that moves and one that stutters. */
+  var VIEW = 'ramps';
+  var STALE = {};
+  var PAINT = {
+    ramps: function(L, D){
+    el('stepsHead').innerHTML = stepsHeadHtml();
+    el('stepsHeadDark').innerHTML = stepsHeadHtml();
+    el('rampsLight').innerHTML = rampsHtml(L,false);
+    el('rampsDark').innerHTML = rampsHtml(D,true);
+
+    },
+    roles: function(L, D){
+    el('mapControls').innerHTML = mapControlsHtml(L, D);
+    /* the mapping has a light and a dark control, so the demo always shows both —
+       otherwise half the controls change nothing you can see */
+    /* not data-theme: this pair is deliberately outside the Light / Dark switch,
+       because the four controls above it are themselves per theme */
+    el('mapDemo').innerHTML = [['light', L, false], ['dark', D, true]].map(function(t){
+      return '<div data-map-theme="' + t[0] + '"><h4 style="margin:12px 0 6px;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)">' +
+        (t[2] ? 'The dark mapping' : 'The light mapping') + '</h4>' + mapDemoHtml(t[1], t[2]) + '</div>';
+    }).join('');
+    el('roleTable').innerHTML = forThemes(L, D, function(p){ return roleTableHtml(p); });
+    el('funcTable').innerHTML = forThemes(L, D, function(p, dk){ return funcTableHtml(p, dk); });
+    el('stateTable').innerHTML = forThemes(L, D, function(p, dk){ return stateTableHtml(p, dk); });
+
+    },
+    contrast: function(L, D){
+    el('ctTokens').innerHTML = forThemes(L, D, function(p, dk){ return tokenAuditHtml(p, dk); });
+    el('ctText').innerHTML = forThemes(L, D, function(p, dk){ return contrastTextHtml(p, dk); });
+    el('ctFill').innerHTML = forThemes(L, D, function(p, dk){ return contrastFillHtml(p, dk); });
+    el('contrastMeta').textContent = 'WCAG 2 · APCA Lc';
+
+    },
+    alpha: function(L, D){
+    el('alphaMatrix').innerHTML = forThemes(L, D, function(p, dk){ return alphaHtml(p, dk); });
+    el('scrimOut').innerHTML = scrimHtml();
+    wireRegion();
+    },
+    gradients: function(L, D){
+    el('gradOut').innerHTML = forThemes(L, D, function(p){ return '<div class="grid2">' + gradientsHtml(p) + '</div>'; });
+    },
+    preview: function(L, D){
+    el('previewOut').innerHTML = forThemes(L, D, function(p, dk){ return previewHtml(p, dk); });
+
+    },
+    family: function(L, D){
+    el('famList').innerHTML = famListHtml();
+    el('famStrip').innerHTML = forThemes(L, D, function(p, dk){ return famStripHtml(dk); });
+    el('famParity').innerHTML = forThemes(L, D, function(p, dk){ return famParityHtml(dk); });
+    el('outFamily').textContent = famExport();
+    el('famMeta').textContent = sisters().length
+      ? (sisters().length + (sisters().length === 1 ? ' sister' : ' sisters') + ' · shared neutrals and functional colours')
+      : 'just the parent so far';
+
+    },
+    'export': function(L, D){
+    el('outCss').textContent = cssExport();
+    el('outJson').textContent = jsonExport();
+    el('outTw').textContent = twExport();
+    el('outFigma').textContent = figmaExport();
+    el('twNote').textContent = TW === 'v4'
+      ? 'Tailwind v4 reads its theme from CSS. Paste this under globals.css; the token colours follow .dark on their own.'
+      : 'Tailwind v3 reads a config file. The semantic colours point at the CSS variables, so they follow .dark; the ramps are literal.';
+    el('exportMeta').textContent = STEPS.length + ' steps · ' + RAMP_KEYS.length + ' ramps · ' + TOKEN_NAMES.length + ' shadcn tokens';
+    drawSheet();
+    shareLink().then(function(u){ var box = el('outLink'); if(box) box.textContent = u; });
+
+    }
+  };
+  function paintView(L, D){
+    if(!STALE[VIEW]) return;
+    if(!L){ L = build(false); D = build(true); }
+    PAINT[VIEW](L, D);
+    STALE[VIEW] = false;
+  }
+
   function render(){
     readControls();
     syncControls();
@@ -1811,11 +1912,6 @@ function hueClash(h){
     var clash = hueClash(S.main.h);
     el('rampMeta').textContent = Math.round(S.main.h) + '° main · ' + STEPS.length + ' steps · one set of hues for both themes · ' + (S.shape.gamut === 'p3' ? 'Display P3' : 'sRGB') + (clash ? ' · reads close to ' + clash : '');
 
-    el('stepsHead').innerHTML = stepsHeadHtml();
-    el('stepsHeadDark').innerHTML = stepsHeadHtml();
-    el('rampsLight').innerHTML = rampsHtml(L,false);
-    el('rampsDark').innerHTML = rampsHtml(D,true);
-
     var sh = S.share, total = sh.neutral+sh.sup+sh.main+sh.a1+sh.a2 || 1;
     var parts = [['neutral',stepOf(L.neutral,200).hex],['sup',stepOf(L.sup,500).hex],['main',stepOf(L.main,600).hex],['a1',stepOf(L.a1,500).hex],['a2',stepOf(L.a2,600).hex]];
     var bar = parts.map(function(pt){ return '<span style="flex:'+sh[pt[0]]+';background:'+pt[1]+'"></span>'; }).join('');
@@ -1827,41 +1923,11 @@ function hueClash(h){
     }).join('');
     el('shareSum').textContent = 'Always totals 100% — moving one slider rebalances the others.';
 
-    el('mapControls').innerHTML = mapControlsHtml(L, D);
-    el('mapDemo').innerHTML = forThemes(L, D, function(p, dk){ return mapDemoHtml(p, dk); });
-    el('roleTable').innerHTML = forThemes(L, D, function(p){ return roleTableHtml(p); });
-    el('funcTable').innerHTML = forThemes(L, D, function(p, dk){ return funcTableHtml(p, dk); });
-    el('stateTable').innerHTML = forThemes(L, D, function(p, dk){ return stateTableHtml(p, dk); });
 
-    el('ctTokens').innerHTML = forThemes(L, D, function(p, dk){ return tokenAuditHtml(p, dk); });
-    el('ctText').innerHTML = forThemes(L, D, function(p, dk){ return contrastTextHtml(p, dk); });
-    el('ctFill').innerHTML = forThemes(L, D, function(p, dk){ return contrastFillHtml(p, dk); });
-    el('contrastMeta').textContent = 'WCAG 2 · APCA Lc';
-
-    el('alphaMatrix').innerHTML = forThemes(L, D, function(p, dk){ return alphaHtml(p, dk); });
-    el('scrimOut').innerHTML = scrimHtml();
-    wireRegion();
-    el('gradOut').innerHTML = forThemes(L, D, function(p){ return '<div class="grid2">' + gradientsHtml(p) + '</div>'; });
-    el('previewOut').innerHTML = forThemes(L, D, function(p, dk){ return previewHtml(p, dk); });
-
-    el('famList').innerHTML = famListHtml();
-    el('famStrip').innerHTML = forThemes(L, D, function(p, dk){ return famStripHtml(dk); });
-    el('famParity').innerHTML = forThemes(L, D, function(p, dk){ return famParityHtml(dk); });
-    el('outFamily').textContent = famExport();
-    el('famMeta').textContent = sisters().length
-      ? (sisters().length + (sisters().length === 1 ? ' sister' : ' sisters') + ' · shared neutrals and functional colours')
-      : 'just the parent so far';
-
-    el('outCss').textContent = cssExport();
-    el('outJson').textContent = jsonExport();
-    el('outTw').textContent = twExport();
-    el('outFigma').textContent = figmaExport();
-    el('twNote').textContent = TW === 'v4'
-      ? 'Tailwind v4 reads its theme from CSS. Paste this under globals.css; the token colours follow .dark on their own.'
-      : 'Tailwind v3 reads a config file. The semantic colours point at the CSS variables, so they follow .dark; the ramps are literal.';
-    el('exportMeta').textContent = STEPS.length + ' steps · ' + RAMP_KEYS.length + ' ramps · ' + TOKEN_NAMES.length + ' shadcn tokens';
-    drawSheet();
-    shareLink().then(function(u){ var box = el('outLink'); if(box) box.textContent = u; });
+    Object.keys(PAINT).forEach(function(k){ STALE[k] = true; });
+    PAINT.ramps(L, D);            /* the ramps are the tool's own subject, always current */
+    STALE.ramps = false;
+    paintView(L, D);
 
     editorHtml(L);
     applyTheme();
@@ -2036,6 +2102,63 @@ function hueClash(h){
     render();          /* removing a sister is a change like any other, so undo brings it back */
   });
 
+  /* ---------- the words ----------
+     Every term the tool uses that a designer should not have to look up. */
+  var GLOSSARY = [
+    ['oklch', 'OKLCH', 'the colour notation used throughout',
+      'Three numbers: lightness, how colourful, and which hue. Unlike RGB or HSL, a change in lightness means the same amount of change to the eye whatever the hue — which is why every ramp here can sit on the same lightness steps and still look even.'],
+    ['ramp', 'Ramp', 'one colour, eleven shades',
+      'A single hue drawn out across eleven fixed lightness steps, numbered 50 (palest) to 950 (deepest). Every ramp uses the same steps, so step 600 of one colour carries the same visual weight as step 600 of another.'],
+    ['chroma', 'Colourfulness', 'chroma, in OKLCH',
+      'How far the colour is from grey. Low is muted and dusty, high is vivid. It is capped by what the screen can actually show, so asking for more than a screen has simply gives you the closest it can reach.'],
+    ['peak', 'Strongest at', 'where the ramp is most colourful',
+      'Which step carries the most colour. Mid steps are the usual choice: the pale end has nowhere to put chroma, and the deep end goes muddy if you push it.'],
+    ['falloff', 'Dark fade', 'how fast colour drains from the deep end',
+      'Deep shades that keep full chroma look inky and artificial. A higher fade drains colour faster as the ramp darkens, which reads more like a real shadow.'],
+    ['twist', 'Hue turn', 'how far the hue moves between the two ends',
+      'One hue held across eleven steps reads wrong at the extremes — dark yellows go acid, pale reds go pink. The turn moves the hue slightly as the ramp darkens, in the direction that family wants: yellows toward orange, blues toward indigo. Zero holds a single hue.'],
+    ['tint', 'Tint', 'a trace of colour in the greys',
+      'Pure grey next to a coloured brand looks dead. A trace of the brand hue in the neutrals — far too little to name — makes the greys belong. Zero gives true grey.'],
+    ['lift', 'Deep end lift', 'how far the dark theme lifts off black',
+      'Dark surfaces that all sit near black become one flat mass. Lifting the deep end keeps a card apart from the page behind it.'],
+    ['gamut', 'Screen range', 'sRGB or Display P3',
+      'sRGB is what every screen can show. Display P3 reaches further into vivid greens and reds; on a P3 screen those swatches are painted in OKLCH, a ▲ marks the ones a plain screen cannot reach, and the hex stays the closest sRGB fallback.'],
+    ['anchor', 'Pinned brand colour', 'your exact hex, kept',
+      'Paste a brand hex and it is placed at the step its lightness belongs to, exactly as given, with the neighbouring steps refitted around it. Untick the pin to see the generated step instead, with yours beside it.'],
+    ['token', 'Token', 'the name a colour is used under',
+      'A component asks for “primary” or “border”, not for a hex. Tokens are the layer between the ramps and the interface, which is how one set of ramps serves both themes and every brand in a family.'],
+    ['share', 'Share of surface', 'how much of a screen each role covers',
+      'A palette is not only its colours but their proportions. Roughly: neutrals carry most of a screen, the main colour appears in small, decisive places, and the rare accent appears once.'],
+    ['wcag', 'WCAG and APCA', 'two ways of measuring contrast',
+      'WCAG 2 gives a ratio and is what most standards still ask for. APCA gives a number called Lc, models light and dark text differently, and matches what the eye does rather better — especially in dark mode. Both are shown, and neither is ignored.'],
+    ['scrim', 'Scrim', 'the dim layer under text on an image',
+      'A black layer at some opacity, laid over a photograph so text on top stays readable. How much is needed depends on the brightest pixels the text actually covers, which is what the caption box measures.'],
+    ['sister', 'Sister brand', 'a second brand in the same family',
+      'A brand that sets its own main hue and colourfulness but inherits the parent’s neutrals, functional colours, steps, ramp shape and token mapping. The inheritance is what makes a group of brands read as a family.']
+  ];
+  function glossHtml(hi){
+    return GLOSSARY.map(function(g){
+      return '<div id="gloss-' + g[0] + '"' + (g[0] === hi ? ' class="lit"' : '') + '>' +
+        '<dt>' + g[1] + '<span>' + g[2] + '</span></dt><dd>' + g[3] + '</dd></div>';
+    }).join('');
+  }
+  function openGloss(term){
+    el('glossList').innerHTML = glossHtml(term);
+    var d = el('gloss');
+    if(d.showModal){ if(!d.open) d.showModal(); } else { d.setAttribute('open',''); }
+    if(term){
+      var node = el('gloss-' + term);
+      if(node && node.scrollIntoView) node.scrollIntoView({ block:'nearest' });
+    }
+  }
+  el('btnGloss').addEventListener('click', function(){ openGloss(null); });
+  el('glossClose').addEventListener('click', function(){ var d = el('gloss'); if(d.close) d.close(); else d.removeAttribute('open'); });
+  document.addEventListener('click', function(e){
+    var t = e.target.closest('.term'); if(!t) return;
+    e.preventDefault();
+    openGloss(t.dataset.term);
+  });
+
   /* ---------- export controls ---------- */
   el('twSeg').addEventListener('click', function(e){
     var b = e.target.closest('button[data-tw]'); if(!b) return;
@@ -2146,6 +2269,8 @@ function hueClash(h){
     var b = e.target.closest('button[data-view]'); if(!b) return;
     [].forEach.call(el('tabs').children, function(x){ x.setAttribute('aria-selected', String(x === b)); });
     document.querySelectorAll('section.view').forEach(function(s){ s.classList.toggle('on', s.dataset.view === b.dataset.view); });
+    VIEW = b.dataset.view;
+    paintView();      /* drawn now if it went stale while you were elsewhere */
   });
   document.addEventListener('click', function(e){
     var step = e.target.closest('.sw[data-role]');

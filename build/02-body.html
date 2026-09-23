@@ -39,7 +39,7 @@
       <div class="anchor" id="anMain"></div>
       <label class="check"><input type="checkbox" id="pinMain" checked> Keep my exact colour in the ramp</label>
       <div class="row"><label for="hMain">Hue</label><input type="range" id="hMain" min="0" max="360" step="1" value="250"><output id="oMain">250</output></div>
-      <div class="row"><label for="cMain">Colourfulness</label><input type="range" id="cMain" min="0.02" max="0.30" step="0.005" value="0.16"><output id="ocMain">.160</output></div>
+      <div class="row"><label for="cMain">Colourfulness <button class="term" data-term="chroma" title="What does this mean?">?</button></label><input type="range" id="cMain" min="0.02" max="0.30" step="0.005" value="0.16"><output id="ocMain">.160</output></div>
       <p class="hint">Paste a brand hex and the ramp is built around it: the hue and colourfulness come from your colour, the lightness comes from the shared steps. The line above shows your colour beside the step it lands on, and whether the two match.</p>
     </fieldset>
 
@@ -85,7 +85,7 @@
     <fieldset>
       <legend>Neutrals — paper, panels, hairlines, text</legend>
       <div class="chip" id="chipNeu"></div>
-      <div class="row"><label for="cNeu">Tint</label><input type="range" id="cNeu" min="0" max="0.05" step="0.002" value="0.012"><output id="ocNeu">.012</output></div>
+      <div class="row"><label for="cNeu">Tint <button class="term" data-term="tint" title="What does this mean?">?</button></label><input type="range" id="cNeu" min="0" max="0.05" step="0.002" value="0.012"><output id="ocNeu">.012</output></div>
       <div class="field"><label for="hNeu">Hue from</label>
         <select id="hNeu"><option value="main" selected>Main</option><option value="sup">Supporting</option><option value="own">Own</option></select></div>
       <div class="row"><label for="hNeuOwn">Own hue</label><input type="range" id="hNeuOwn" min="0" max="360" step="1" value="250"><output id="oNeuOwn">250</output></div>
@@ -94,11 +94,11 @@
 
     <fieldset>
       <legend>Ramp shape — how the shades behave</legend>
-      <div class="row"><label for="cPeak">Strongest at</label><input type="range" id="cPeak" min="0" max="10" step="1" value="6"><output id="ocPeak">600</output></div>
-      <div class="row"><label for="cFall">Dark fade</label><input type="range" id="cFall" min="0.2" max="1.6" step="0.05" value="0.85"><output id="ocFall">.85</output></div>
-      <div class="row"><label for="cTwist">Hue turn</label><input type="range" id="cTwist" min="0" max="2" step="0.05" value="1"><output id="ocTwist">1.00</output></div>
+      <div class="row"><label for="cPeak">Strongest at <button class="term" data-term="peak" title="What does this mean?">?</button></label><input type="range" id="cPeak" min="0" max="10" step="1" value="6"><output id="ocPeak">600</output></div>
+      <div class="row"><label for="cFall">Dark fade <button class="term" data-term="falloff" title="What does this mean?">?</button></label><input type="range" id="cFall" min="0.2" max="1.6" step="0.05" value="0.85"><output id="ocFall">.85</output></div>
+      <div class="row"><label for="cTwist">Hue turn <button class="term" data-term="twist" title="What does this mean?">?</button></label><input type="range" id="cTwist" min="0" max="2" step="0.05" value="1"><output id="ocTwist">1.00</output></div>
       <p class="hint">Which step is the most colourful, how quickly the dark end loses colour, and how far the hue turns between the two ends — dark yellows toward orange, dark blues toward indigo. Zero holds one hue throughout.</p>
-      <div class="field"><label for="gamut">Gamut</label>
+      <div class="field"><label for="gamut">Screen range <button class="term" data-term="gamut" title="What does this mean?">?</button></label>
         <select id="gamut"><option value="srgb" selected>sRGB</option><option value="p3">Display P3</option></select></div>
       <p class="hint" id="gamutNote">sRGB keeps every value safe everywhere. In P3 swatches are painted in OKLCH and a ▲ marks the ones a plain sRGB screen cannot show; hex stays as the closest sRGB fallback.</p>
     </fieldset>
@@ -106,13 +106,13 @@
     <fieldset>
       <legend>Dark mode — same hues, different curve</legend>
       <p class="hint" style="margin-top:8px">Every hue and colourfulness above is shared by both themes. Only the lightness curve differs, and tokens read the ramp from the opposite end: paper is step 50 in light, step 950 in dark.</p>
-      <div class="row"><label for="dLift">Deep end lift</label><input type="range" id="dLift" min="0" max="0.14" step="0.005" value="0.055"><output id="odLift">.055</output></div>
+      <div class="row"><label for="dLift">Deep end lift <button class="term" data-term="lift" title="What does this mean?">?</button></label><input type="range" id="dLift" min="0" max="0.14" step="0.005" value="0.055"><output id="odLift">.055</output></div>
       <div class="row"><label for="dBoost">Colourfulness</label><input type="range" id="dBoost" min="0.6" max="1.4" step="0.02" value="1"><output id="odBoost">1.00</output></div>
       <p class="hint">Lift keeps dark surfaces apart from each other; colourfulness compensates for colours looking weaker on a dark ground.</p>
     </fieldset>
 
     <fieldset>
-      <legend>Share of surface — how much of a screen each one covers</legend>
+      <legend>Share of surface <button class="term" data-term="share" title="What does this mean?">?</button></legend>
       <div class="share" id="railShare" style="height:16px;margin:2px 0 10px"></div>
       <div class="row"><label for="sNeutral">Neutral</label><input type="range" id="sNeutral" min="0" max="100" step="1" value="55"><output id="osNeutral">55</output></div>
       <div class="row"><label for="sSup">Supporting</label><input type="range" id="sSup" min="0" max="100" step="1" value="22"><output id="osSup">22</output></div>
@@ -143,6 +143,7 @@
       <button data-view="family" aria-selected="false">Family</button>
       <button data-view="export" aria-selected="false">Export</button>
       <span style="flex:1"></span>
+      <button id="btnGloss" title="What the words mean">Words</button>
       <div class="seg" id="themeSeg" role="group" aria-label="Theme shown">
         <button data-theme="light" aria-selected="true">Light</button>
         <button data-theme="dark" aria-selected="false">Dark</button>
@@ -273,3 +274,8 @@
     </section>
   </main>
 </div>
+
+<dialog id="gloss">
+  <div class="gloss-head"><h2>What the words mean</h2><button class="btn" id="glossClose">Close</button></div>
+  <dl id="glossList"></dl>
+</dialog>
