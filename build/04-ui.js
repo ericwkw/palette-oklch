@@ -1144,6 +1144,27 @@
     });
   }
 
+  /* ---------- explore band ----------
+     Three ways in, each one line tall until it is asked for, so the ramps are
+     the first thing on the page again. */
+  var OPEN_PANEL = null;   /* null | 'six' | 'picture' */
+  try{ OPEN_PANEL = localStorage.getItem('palette-explore-v1') || null; }catch(e){}
+  function exploreUi(){
+    var six = OPEN_PANEL === 'six', pic = OPEN_PANEL === 'picture';
+    el('candsOut').hidden = !six;
+    el('pickDrop').hidden = !pic;
+    el('btnCandShow').setAttribute('aria-expanded', String(six));
+    el('btnPickOpen').setAttribute('aria-expanded', String(pic));
+    el('btnCandShow').classList.toggle('primary', six);
+    el('btnPickOpen').classList.toggle('primary', pic);
+    try{ if(OPEN_PANEL) localStorage.setItem('palette-explore-v1', OPEN_PANEL); else localStorage.removeItem('palette-explore-v1'); }catch(e){}
+  }
+  function openPanel(which){
+    OPEN_PANEL = (OPEN_PANEL === which) ? null : which;
+    if(OPEN_PANEL === 'six' && !CANDS) showCands(6);
+    exploreUi();
+  }
+
   /* ---------- the shelf ----------
      Somewhere versions pile up without being named and kept on purpose. The
      library is for palettes you have decided about; this is for the ones you
@@ -1179,21 +1200,28 @@
       '<span class="cand-meta"><b class="mono">' + label + '</b><span>' + when + '</span></span></button>' +
       '<button class="btn mini shelfdrop" data-shelfdrop="' + i + '" aria-label="Drop this one">✕</button></div>';
   }
+  var SHELF_OPEN = false;
+  try{ SHELF_OPEN = localStorage.getItem('palette-shelf-open-v1') === '1'; }catch(e){}
   function shelfUi(){
     var box = el('shelfOut'); if(!box) return;
-    var items = shelfRead();
-    if(!items.length){
-      box.innerHTML = '<div class="card"><div class="head" style="margin:0 0 6px"><h3>The shelf</h3>' +
-        '<span class="meta">nothing on it yet</span></div>' +
-        '<p class="hint" style="margin:0">Anything that replaces your palette — a suggestion you take, a colour from a picture, a reset — leaves the old one here first, and you can put one here yourself. Nothing needs naming.</p>' +
-        '<div class="btns" style="margin-top:10px"><button class="btn" id="btnShelve">Put this one on the shelf</button></div></div>';
-      return;
+    var items = shelfRead(), btn = el('btnShelfToggle');
+    /* the count is on the button, so the safety net is visible from every tab */
+    if(btn){
+      btn.textContent = items.length ? 'Shelf (' + items.length + ')' : 'Shelf';
+      btn.setAttribute('aria-expanded', String(SHELF_OPEN));
+      btn.classList.toggle('primary', SHELF_OPEN);
     }
+    box.hidden = !SHELF_OPEN;
+    if(!SHELF_OPEN) return;
     box.innerHTML = '<div class="card"><div class="head" style="margin:0 0 8px"><h3>The shelf</h3>' +
-      '<span class="meta">' + items.length + (items.length === 1 ? ' version' : ' versions') + ' · click one to put it back</span></div>' +
-      '<div class="shelf-row">' + items.map(shelfChip).join('') + '</div>' +
+      '<span class="meta">' + (items.length
+        ? items.length + (items.length === 1 ? ' version' : ' versions') + ' · click one to put it back'
+        : 'nothing on it yet') + '</span></div>' +
+      (items.length
+        ? '<div class="shelf-row">' + items.map(shelfChip).join('') + '</div>'
+        : '<p class="hint" style="margin:0">Anything that replaces your palette — a suggestion taken, a colour from a picture, a reset — leaves the old one here first. Nothing needs naming.</p>') +
       '<div class="btns" style="margin-top:10px"><button class="btn" id="btnShelve">Put this one on the shelf</button>' +
-      '<button class="btn" id="btnShelfClear">Clear the shelf</button></div></div>';
+      (items.length ? '<button class="btn" id="btnShelfClear">Clear the shelf</button>' : '') + '</div></div>';
   }
   function shelfTake(i){
     var it = shelfRead()[i]; if(!it) return;
@@ -1337,7 +1365,7 @@
     S.neutral.c = cand.tint; S.neutral.from = 'main';
     S.main.brand = null;                       /* a candidate is not your brand colour */
     describe('taking a suggestion');
-    CANDS = null;
+    CANDS = null; OPEN_PANEL = null;      /* the strip has done its job; the ramps come back */
     syncControls(); render();
   }
   /* a candidate is only worth showing if it holds together on its own */
@@ -1564,6 +1592,14 @@
             '<label class="famfield"><span>What it is for</span><input type="text" data-fam="note" data-id="' + m.id + '" value="' + (m.note || '').replace(/"/g,'&quot;') + '" placeholder="the further-education arm"></label>' +
           '</div>' +
           (m.brand ? '<p class="hint" style="margin:2px 0 0">Built around <span class="mono">' + m.brand + '</span>, pinned into this sister\'s ramp.</p>' : '') +
+          (PICK && PICK.swatches.length
+            ? '<p class="hint" style="margin:6px 0 2px">From the picture:</p><div class="pickrow">' +
+              PICK.swatches.map(function(sw){
+                return '<button class="pickdot" data-sisterpick="' + m.id + '" data-hex="' + sw.hex + '"' +
+                  ' style="background:' + sw.hex + '" title="Give ' + m.name + ' ' + sw.hex.toUpperCase() + '"' +
+                  ' aria-label="Give ' + m.name + ' the colour ' + sw.hex.toUpperCase() + '"></button>';
+              }).join('') + '</div>'
+            : '') +
           '<div class="row" style="margin-top:4px"><label>Hue</label><input type="range" data-fam="h" data-id="' + m.id + '" min="0" max="360" step="1" value="' + Math.round(m.h) + '"><output>' + Math.round(m.h) + '</output></div>' +
           '<div class="row"><label>Colourfulness</label><input type="range" data-fam="c" data-id="' + m.id + '" min="0.02" max="0.30" step="0.005" value="' + m.c + '"><output>' + m.c.toFixed(3).replace(/^0/,'') + '</output></div>' +
           '<p class="hint" style="margin:6px 0 0">Ships as <code>[data-brand="' + sisterSlug(m) + '"]</code>. Renaming does not change that, so a stylesheet already in use keeps working.</p>';
@@ -1795,11 +1831,16 @@
     img.onerror = function(){ imgPx = null; };
     img.src = src;
   }
+  /* one picture serves both jobs: the colours it is made of, and the scrim a
+     caption needs over it. Dropping it in either place loads it for both. */
+  function useImage(src){
+    imgUrl = src;
+    readImage(src);        /* the pixels, for the scrim check */
+    readPickImage(src);    /* the colours, for taking */
+  }
   el('imgIn').addEventListener('change', function(e){
     var file = e.target.files && e.target.files[0]; if(!file) return;
-    if(imgUrl) URL.revokeObjectURL(imgUrl);
-    imgUrl = URL.createObjectURL(file);
-    readImage(imgUrl);
+    useImage(URL.createObjectURL(file));
   });
 
   /* drag the box, or its corner, and the measurement follows.
@@ -1996,6 +2037,7 @@
     el('rampsDark').innerHTML = rampsHtml(D,true);
     el('candsOut').innerHTML = (CANDS && CANDS.kind === 'palette') ? candsHtml() : '';
     el('pickOut').innerHTML = pickHtml();
+    exploreUi();
     shelfUi();
     el('gapsLight').innerHTML = spacingStripHtml(L);
     el('gapsDark').innerHTML = spacingStripHtml(D);
@@ -2372,7 +2414,7 @@
   /* ---------- picture and shelf controls ---------- */
   el('pickIn').addEventListener('change', function(e){
     var f = e.target.files && e.target.files[0]; if(!f) return;
-    readPickImage(URL.createObjectURL(f));
+    useImage(URL.createObjectURL(f));
   });
   ['dragover','drop'].forEach(function(kind){
     el('pickDrop').addEventListener(kind, function(e){
@@ -2380,10 +2422,20 @@
       if(kind === 'dragover'){ el('pickDrop').classList.add('over'); return; }
       el('pickDrop').classList.remove('over');
       var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-      if(f && /^image\//.test(f.type)) readPickImage(URL.createObjectURL(f));
+      if(f && /^image\//.test(f.type)) useImage(URL.createObjectURL(f));
     });
   });
   el('pickDrop').addEventListener('dragleave', function(){ el('pickDrop').classList.remove('over'); });
+
+  document.addEventListener('click', function(e){
+    var sp = e.target.closest('[data-sisterpick]'); if(!sp) return;
+    var sis = sisters().filter(function(x){ return x.id === sp.dataset.sisterpick; })[0]; if(!sis) return;
+    var hex = sp.dataset.hex.toUpperCase(), c = hexToOklch(hex);
+    shelve();
+    sis.brand = hex; sis.h = c.h; sis.c = Math.min(c.C, 0.32);
+    describe('giving ' + sis.name + ' ' + hex + ' from the picture');
+    render();
+  });
 
   document.addEventListener('click', function(e){
     var chip = e.target.closest('[data-pick]');
@@ -2392,6 +2444,7 @@
     if(use && PICK && PICK.chosen !== null){ pickUse(use.dataset.pickuse, PICK.swatches[PICK.chosen].hex); return; }
     if(e.target.closest('[data-pickbuild]') && PICK && PICK.chosen !== null){
       showCands(6, PICK.swatches[PICK.chosen].h);
+      OPEN_PANEL = 'six'; exploreUi();
       el('candsOut').scrollIntoView({ block:'nearest' });
       return;
     }
@@ -2433,11 +2486,17 @@
       render();
       return;
     }
-    if(e.target.id === 'btnCandMore'){ showCands(6); return; }
+    if(e.target.id === 'btnCandMore'){ showCands(6); exploreUi(); return; }
     if(e.target.id === 'btnCandMore2'){ CANDS = { kind:'sister', items: suggestSiblings() }; render(); return; }
-    if(e.target.id === 'btnCandClose'){ CANDS = null; el('candsOut').innerHTML = ''; render(); return; }
+    if(e.target.id === 'btnCandClose'){ CANDS = null; OPEN_PANEL = null; el('candsOut').innerHTML = ''; render(); return; }
   });
-  el('btnCandShow').addEventListener('click', function(){ showCands(6); });
+  el('btnCandShow').addEventListener('click', function(){ openPanel('six'); });
+  el('btnPickOpen').addEventListener('click', function(){ openPanel('picture'); });
+  el('btnShelfToggle').addEventListener('click', function(){
+    SHELF_OPEN = !SHELF_OPEN;
+    try{ localStorage.setItem('palette-shelf-open-v1', SHELF_OPEN ? '1' : '0'); }catch(e){}
+    shelfUi();
+  });
   el('btnFamSuggest').addEventListener('click', function(){
     CANDS = { kind:'sister', items: suggestSiblings() };
     render();
@@ -2722,10 +2781,12 @@
     var bad = fails(false) + fails(true);
     var clashes = FUNCTIONAL.filter(function(f){ return funcWarnings(f).length; }).length;
 
+    var shelf = shelfRead().length;
     var steps = [
-      { view:'ramps', title:'Give it your colours',
+      { view:'ramps', title:'Find your colours',
         state: pinned.length ? 'done' : 'todo',
-        note: pinned.length ? pinned.length + ' pinned' : 'paste a brand hex' },
+        note: pinned.length ? pinned.length + ' pinned'
+              : (shelf ? 'a picture, six to look at, or the shelf' : 'a picture, six to look at, or your own hex') },
       { view:'roles', title:'Check they are used',
         state: !pinned.length ? 'todo' : (unreached.length ? 'warn' : 'done'),
         note: !pinned.length ? 'nothing pinned yet'
@@ -2737,7 +2798,7 @@
         state: clashes ? 'warn' : 'done',
         note: clashes ? clashes + ' too close' : 'no clashes' },
       { view:'export', title:'Hand it over',
-        state: 'todo', note: 'css, Tailwind, Figma' }
+        state: 'todo', note: 'css, Tailwind, Figma' + (shelf ? ' · ' + shelf + ' on the shelf' : '') }
     ];
     return steps.map(function(st, i){
       var mark = st.state === 'done' ? '✓' : (st.state === 'warn' ? '!' : '→');
@@ -3050,17 +3111,6 @@
       }catch(err){ alert('That file is not a palette export.'); }
     };
     r.readAsText(f);
-  });
-  el('btnRandom').addEventListener('click', function(){
-    shelve();
-    var h = Math.floor(Math.random()*360);
-    while(hueClash(h)) h = Math.floor(Math.random()*360);
-    S.main.h = h; S.main.c = 0.11 + Math.random()*0.10;
-    S.sup.rel = ['same','near','far'][Math.floor(Math.random()*3)];
-    S.a1.h = (h + 150 + Math.floor(Math.random()*60)) % 360;
-    S.a2.h = (S.a1.h + 20 + Math.floor(Math.random()*40)) % 360;
-    S.neutral.h = h;
-    syncControls(); render();
   });
   el('btnReset').addEventListener('click', function(){
     shelve();

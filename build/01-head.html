@@ -205,6 +205,12 @@
   .shelfitem{position:relative}
   .shelfitem .shelfdrop{position:absolute;top:4px;right:4px;padding:1px 6px;opacity:0;transition:opacity .1s}
   .shelfitem:hover .shelfdrop,.shelfitem:focus-within .shelfdrop{opacity:1}
+  .pickrow{display:flex;gap:5px;flex-wrap:wrap;margin:0 0 2px}
+  .pickdot{width:22px;height:22px;border-radius:6px;border:1px solid var(--line);cursor:pointer;padding:0}
+  .pickdot:hover{transform:translateY(-1px)}
+  .quickbar{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
+  .explore{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+  .explore-label{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
   .cands{margin:0 0 14px}
   .cand-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
   .cand{display:grid;gap:7px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--bg);cursor:pointer;text-align:left}

@@ -12,15 +12,21 @@
         <button data-theme="both" aria-selected="false">Both</button>
       </div>
     </div>
-    <div class="btns" style="margin:0 0 4px"><button class="btn mini" id="btnSecAll">Open every section</button><button class="btn mini" id="btnGloss" title="What the words mean">Words</button></div>
+    <div class="quickbar">
+      <button class="btn mini" id="btnUndo">Undo</button>
+      <button class="btn mini" id="btnRedo">Redo</button>
+      <button class="btn mini" id="btnShelfToggle" aria-expanded="false">Shelf</button>
+      <button class="btn mini" id="btnGloss" title="What the words mean">Words</button>
+      <button class="btn mini" id="btnSecAll">Open every section</button>
+    </div>
 
-    <fieldset data-sec="name" data-open="1">
-      <legend><button class="sec-toggle" type="button" aria-expanded="true"><span class="sec-name">Palette name</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
+    <fieldset data-sec="name">
+      <legend><button class="sec-toggle" type="button" aria-expanded="false"><span class="sec-name">Palette name</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
       <div class="field"><label for="pName">Name</label><input type="text" id="pName" value="Untitled"></div>
     </fieldset>
 
-    <fieldset data-sec="library" data-open="1">
-      <legend><button class="sec-toggle" type="button" aria-expanded="true"><span class="sec-name">Library &mdash; palettes you keep</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
+    <fieldset data-sec="library">
+      <legend><button class="sec-toggle" type="button" aria-expanded="false"><span class="sec-name">Library &mdash; palettes you keep</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
       <div class="field"><label for="libList">Saved here</label><select id="libList"></select></div>
       <div class="btns" style="margin-top:8px">
         <button class="btn" id="btnLibSave">Keep this one</button>
@@ -31,13 +37,9 @@
       <p class="hint">Kept in this browser, under the palette&rsquo;s name. Switching loads it straight away, and the switch itself can be undone.</p>
     </fieldset>
 
-    <fieldset data-sec="history" data-open="1">
-      <legend><button class="sec-toggle" type="button" aria-expanded="true"><span class="sec-name">History</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
-      <div class="btns" style="margin-top:0">
-        <button class="btn" id="btnUndo">Undo</button>
-        <button class="btn" id="btnRedo">Redo</button>
-      </div>
-      <p class="hint" id="histMeta"></p>
+    <fieldset data-sec="history">
+      <legend><button class="sec-toggle" type="button" aria-expanded="false"><span class="sec-name">History</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
+      <p class="hint" id="histMeta" style="margin-top:0"></p>
       <p class="hint">The last 30 changes, with <kbd>&#8984;Z</kbd> and <kbd>&#8679;&#8984;Z</kbd>. A whole slider drag counts as one.</p>
     </fieldset>
 
@@ -52,8 +54,8 @@
       <p class="hint">Paste a brand hex and the ramp is built around it: the hue and colourfulness come from your colour, the lightness comes from the shared steps. The line above shows your colour beside the step it lands on, and whether the two match.</p>
     </fieldset>
 
-    <fieldset data-sec="sup">
-      <legend><button class="sec-toggle" type="button" aria-expanded="false"><span class="sec-name">Supporting — structure and secondary surfaces</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
+    <fieldset data-sec="sup" data-open="1">
+      <legend><button class="sec-toggle" type="button" aria-expanded="true"><span class="sec-name">Supporting — structure and secondary surfaces</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
       <div class="chip" id="chipSup"></div>
       <div class="field"><label for="xSup">Brand hex</label><input type="text" id="xSup" placeholder="#2450E6" spellcheck="false"></div>
       <div class="anchor" id="anSup"></div>
@@ -143,7 +145,6 @@
     <div class="btns">
       <button class="btn primary" id="btnSave">Save</button>
       <button class="btn" id="btnLoad">Load…</button>
-      <button class="btn" id="btnRandom">Surprise me</button>
       <button class="btn" id="btnReset">Reset</button>
     </div>
     <input type="file" id="fileIn" accept="application/json" hidden>
@@ -151,6 +152,7 @@
 
   <main class="main">
     <div class="notice" id="notice" role="status" hidden></div>
+    <div id="shelfOut" hidden></div>
     <ol class="steps" id="steps"></ol>
     <div class="tabs" id="tabs" role="tablist" aria-label="What to look at">
       <button role="tab" data-view="ramps" aria-selected="true" aria-controls="view-ramps">Ramps</button>
@@ -166,15 +168,18 @@
     <section class="view on" data-view="ramps" id="view-ramps" role="tabpanel" tabindex="0">
       <div class="head"><h2>Ramps</h2><span class="muted mono" id="rampMeta"></span></div>
       <p class="note">Every ramp shares the same lightness steps, so a shade means the same weight whatever the hue. Chroma peaks near the middle and eases off at both ends. Hover a swatch for its step and value, click it to copy, click again to nudge it.</p>
-      <div class="btns" style="margin:0 0 12px"><button class="btn primary" id="btnCandShow">Show me six</button>
-        <label class="check" style="margin:0"><input type="checkbox" id="showValues"> Show every value at once</label></div>
+      <div class="explore">
+        <span class="explore-label">Explore</span>
+        <button class="btn mini" id="btnCandShow" aria-expanded="false">Six to look at</button>
+        <button class="btn mini" id="btnPickOpen" aria-expanded="false">From a picture</button>
+        <label class="check" style="margin:0 0 0 auto"><input type="checkbox" id="showValues"> Show every value at once</label>
+      </div>
       <div id="candsOut"></div>
-      <div class="card" id="pickDrop">
+      <div class="card" id="pickDrop" hidden>
         <div class="head" style="margin:0 0 8px"><h3>From a picture</h3>
           <span class="meta"><input type="file" id="pickIn" accept="image/*"></span></div>
         <div id="pickOut"></div>
       </div>
-      <div id="shelfOut"></div>
       <div class="card" data-theme="light">
         <div class="steps-head" id="stepsHead"></div>
         <div id="rampsLight" class="ramps"></div>
@@ -267,7 +272,7 @@
       <p class="note">One parent and its sisters. A sister sets its own main hue and colourfulness &mdash; it may travel a long way &mdash; and takes everything else from the parent: the same neutrals, the same six functional colours, the same lightness steps, ramp shape and token mapping. That is what makes them read as one family.</p>
       <div class="btns" style="margin:0 0 12px">
         <button class="btn primary" id="btnFamAdd">Add a sister</button>
-        <button class="btn" id="btnFamSuggest">Suggest three</button>
+        <button class="btn" id="btnFamSuggest">Three to look at</button>
       </div>
       <div class="card" style="margin:0 0 14px">
         <h3>The shape of the family</h3>

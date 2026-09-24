@@ -205,6 +205,12 @@
   .shelfitem{position:relative}
   .shelfitem .shelfdrop{position:absolute;top:4px;right:4px;padding:1px 6px;opacity:0;transition:opacity .1s}
   .shelfitem:hover .shelfdrop,.shelfitem:focus-within .shelfdrop{opacity:1}
+  .pickrow{display:flex;gap:5px;flex-wrap:wrap;margin:0 0 2px}
+  .pickdot{width:22px;height:22px;border-radius:6px;border:1px solid var(--line);cursor:pointer;padding:0}
+  .pickdot:hover{transform:translateY(-1px)}
+  .quickbar{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
+  .explore{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+  .explore-label{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
   .cands{margin:0 0 14px}
   .cand-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
   .cand{display:grid;gap:7px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--bg);cursor:pointer;text-align:left}
@@ -298,15 +304,21 @@
         <button data-theme="both" aria-selected="false">Both</button>
       </div>
     </div>
-    <div class="btns" style="margin:0 0 4px"><button class="btn mini" id="btnSecAll">Open every section</button><button class="btn mini" id="btnGloss" title="What the words mean">Words</button></div>
+    <div class="quickbar">
+      <button class="btn mini" id="btnUndo">Undo</button>
+      <button class="btn mini" id="btnRedo">Redo</button>
+      <button class="btn mini" id="btnShelfToggle" aria-expanded="false">Shelf</button>
+      <button class="btn mini" id="btnGloss" title="What the words mean">Words</button>
+      <button class="btn mini" id="btnSecAll">Open every section</button>
+    </div>
 
-    <fieldset data-sec="name" data-open="1">
-      <legend><button class="sec-toggle" type="button" aria-expanded="true"><span class="sec-name">Palette name</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
+    <fieldset data-sec="name">
+      <legend><button class="sec-toggle" type="button" aria-expanded="false"><span class="sec-name">Palette name</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
       <div class="field"><label for="pName">Name</label><input type="text" id="pName" value="Untitled"></div>
     </fieldset>
 
-    <fieldset data-sec="library" data-open="1">
-      <legend><button class="sec-toggle" type="button" aria-expanded="true"><span class="sec-name">Library &mdash; palettes you keep</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
+    <fieldset data-sec="library">
+      <legend><button class="sec-toggle" type="button" aria-expanded="false"><span class="sec-name">Library &mdash; palettes you keep</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
       <div class="field"><label for="libList">Saved here</label><select id="libList"></select></div>
       <div class="btns" style="margin-top:8px">
         <button class="btn" id="btnLibSave">Keep this one</button>
@@ -317,13 +329,9 @@
       <p class="hint">Kept in this browser, under the palette&rsquo;s name. Switching loads it straight away, and the switch itself can be undone.</p>
     </fieldset>
 
-    <fieldset data-sec="history" data-open="1">
-      <legend><button class="sec-toggle" type="button" aria-expanded="true"><span class="sec-name">History</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
-      <div class="btns" style="margin-top:0">
-        <button class="btn" id="btnUndo">Undo</button>
-        <button class="btn" id="btnRedo">Redo</button>
-      </div>
-      <p class="hint" id="histMeta"></p>
+    <fieldset data-sec="history">
+      <legend><button class="sec-toggle" type="button" aria-expanded="false"><span class="sec-name">History</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
+      <p class="hint" id="histMeta" style="margin-top:0"></p>
       <p class="hint">The last 30 changes, with <kbd>&#8984;Z</kbd> and <kbd>&#8679;&#8984;Z</kbd>. A whole slider drag counts as one.</p>
     </fieldset>
 
@@ -338,8 +346,8 @@
       <p class="hint">Paste a brand hex and the ramp is built around it: the hue and colourfulness come from your colour, the lightness comes from the shared steps. The line above shows your colour beside the step it lands on, and whether the two match.</p>
     </fieldset>
 
-    <fieldset data-sec="sup">
-      <legend><button class="sec-toggle" type="button" aria-expanded="false"><span class="sec-name">Supporting — structure and secondary surfaces</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
+    <fieldset data-sec="sup" data-open="1">
+      <legend><button class="sec-toggle" type="button" aria-expanded="true"><span class="sec-name">Supporting — structure and secondary surfaces</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
       <div class="chip" id="chipSup"></div>
       <div class="field"><label for="xSup">Brand hex</label><input type="text" id="xSup" placeholder="#2450E6" spellcheck="false"></div>
       <div class="anchor" id="anSup"></div>
@@ -429,7 +437,6 @@
     <div class="btns">
       <button class="btn primary" id="btnSave">Save</button>
       <button class="btn" id="btnLoad">Load…</button>
-      <button class="btn" id="btnRandom">Surprise me</button>
       <button class="btn" id="btnReset">Reset</button>
     </div>
     <input type="file" id="fileIn" accept="application/json" hidden>
@@ -437,6 +444,7 @@
 
   <main class="main">
     <div class="notice" id="notice" role="status" hidden></div>
+    <div id="shelfOut" hidden></div>
     <ol class="steps" id="steps"></ol>
     <div class="tabs" id="tabs" role="tablist" aria-label="What to look at">
       <button role="tab" data-view="ramps" aria-selected="true" aria-controls="view-ramps">Ramps</button>
@@ -452,15 +460,18 @@
     <section class="view on" data-view="ramps" id="view-ramps" role="tabpanel" tabindex="0">
       <div class="head"><h2>Ramps</h2><span class="muted mono" id="rampMeta"></span></div>
       <p class="note">Every ramp shares the same lightness steps, so a shade means the same weight whatever the hue. Chroma peaks near the middle and eases off at both ends. Hover a swatch for its step and value, click it to copy, click again to nudge it.</p>
-      <div class="btns" style="margin:0 0 12px"><button class="btn primary" id="btnCandShow">Show me six</button>
-        <label class="check" style="margin:0"><input type="checkbox" id="showValues"> Show every value at once</label></div>
+      <div class="explore">
+        <span class="explore-label">Explore</span>
+        <button class="btn mini" id="btnCandShow" aria-expanded="false">Six to look at</button>
+        <button class="btn mini" id="btnPickOpen" aria-expanded="false">From a picture</button>
+        <label class="check" style="margin:0 0 0 auto"><input type="checkbox" id="showValues"> Show every value at once</label>
+      </div>
       <div id="candsOut"></div>
-      <div class="card" id="pickDrop">
+      <div class="card" id="pickDrop" hidden>
         <div class="head" style="margin:0 0 8px"><h3>From a picture</h3>
           <span class="meta"><input type="file" id="pickIn" accept="image/*"></span></div>
         <div id="pickOut"></div>
       </div>
-      <div id="shelfOut"></div>
       <div class="card" data-theme="light">
         <div class="steps-head" id="stepsHead"></div>
         <div id="rampsLight" class="ramps"></div>
@@ -553,7 +564,7 @@
       <p class="note">One parent and its sisters. A sister sets its own main hue and colourfulness &mdash; it may travel a long way &mdash; and takes everything else from the parent: the same neutrals, the same six functional colours, the same lightness steps, ramp shape and token mapping. That is what makes them read as one family.</p>
       <div class="btns" style="margin:0 0 12px">
         <button class="btn primary" id="btnFamAdd">Add a sister</button>
-        <button class="btn" id="btnFamSuggest">Suggest three</button>
+        <button class="btn" id="btnFamSuggest">Three to look at</button>
       </div>
       <div class="card" style="margin:0 0 14px">
         <h3>The shape of the family</h3>
@@ -2041,6 +2052,27 @@ function hueClash(h, within){
     });
   }
 
+  /* ---------- explore band ----------
+     Three ways in, each one line tall until it is asked for, so the ramps are
+     the first thing on the page again. */
+  var OPEN_PANEL = null;   /* null | 'six' | 'picture' */
+  try{ OPEN_PANEL = localStorage.getItem('palette-explore-v1') || null; }catch(e){}
+  function exploreUi(){
+    var six = OPEN_PANEL === 'six', pic = OPEN_PANEL === 'picture';
+    el('candsOut').hidden = !six;
+    el('pickDrop').hidden = !pic;
+    el('btnCandShow').setAttribute('aria-expanded', String(six));
+    el('btnPickOpen').setAttribute('aria-expanded', String(pic));
+    el('btnCandShow').classList.toggle('primary', six);
+    el('btnPickOpen').classList.toggle('primary', pic);
+    try{ if(OPEN_PANEL) localStorage.setItem('palette-explore-v1', OPEN_PANEL); else localStorage.removeItem('palette-explore-v1'); }catch(e){}
+  }
+  function openPanel(which){
+    OPEN_PANEL = (OPEN_PANEL === which) ? null : which;
+    if(OPEN_PANEL === 'six' && !CANDS) showCands(6);
+    exploreUi();
+  }
+
   /* ---------- the shelf ----------
      Somewhere versions pile up without being named and kept on purpose. The
      library is for palettes you have decided about; this is for the ones you
@@ -2076,21 +2108,28 @@ function hueClash(h, within){
       '<span class="cand-meta"><b class="mono">' + label + '</b><span>' + when + '</span></span></button>' +
       '<button class="btn mini shelfdrop" data-shelfdrop="' + i + '" aria-label="Drop this one">✕</button></div>';
   }
+  var SHELF_OPEN = false;
+  try{ SHELF_OPEN = localStorage.getItem('palette-shelf-open-v1') === '1'; }catch(e){}
   function shelfUi(){
     var box = el('shelfOut'); if(!box) return;
-    var items = shelfRead();
-    if(!items.length){
-      box.innerHTML = '<div class="card"><div class="head" style="margin:0 0 6px"><h3>The shelf</h3>' +
-        '<span class="meta">nothing on it yet</span></div>' +
-        '<p class="hint" style="margin:0">Anything that replaces your palette — a suggestion you take, a colour from a picture, a reset — leaves the old one here first, and you can put one here yourself. Nothing needs naming.</p>' +
-        '<div class="btns" style="margin-top:10px"><button class="btn" id="btnShelve">Put this one on the shelf</button></div></div>';
-      return;
+    var items = shelfRead(), btn = el('btnShelfToggle');
+    /* the count is on the button, so the safety net is visible from every tab */
+    if(btn){
+      btn.textContent = items.length ? 'Shelf (' + items.length + ')' : 'Shelf';
+      btn.setAttribute('aria-expanded', String(SHELF_OPEN));
+      btn.classList.toggle('primary', SHELF_OPEN);
     }
+    box.hidden = !SHELF_OPEN;
+    if(!SHELF_OPEN) return;
     box.innerHTML = '<div class="card"><div class="head" style="margin:0 0 8px"><h3>The shelf</h3>' +
-      '<span class="meta">' + items.length + (items.length === 1 ? ' version' : ' versions') + ' · click one to put it back</span></div>' +
-      '<div class="shelf-row">' + items.map(shelfChip).join('') + '</div>' +
+      '<span class="meta">' + (items.length
+        ? items.length + (items.length === 1 ? ' version' : ' versions') + ' · click one to put it back'
+        : 'nothing on it yet') + '</span></div>' +
+      (items.length
+        ? '<div class="shelf-row">' + items.map(shelfChip).join('') + '</div>'
+        : '<p class="hint" style="margin:0">Anything that replaces your palette — a suggestion taken, a colour from a picture, a reset — leaves the old one here first. Nothing needs naming.</p>') +
       '<div class="btns" style="margin-top:10px"><button class="btn" id="btnShelve">Put this one on the shelf</button>' +
-      '<button class="btn" id="btnShelfClear">Clear the shelf</button></div></div>';
+      (items.length ? '<button class="btn" id="btnShelfClear">Clear the shelf</button>' : '') + '</div></div>';
   }
   function shelfTake(i){
     var it = shelfRead()[i]; if(!it) return;
@@ -2234,7 +2273,7 @@ function hueClash(h, within){
     S.neutral.c = cand.tint; S.neutral.from = 'main';
     S.main.brand = null;                       /* a candidate is not your brand colour */
     describe('taking a suggestion');
-    CANDS = null;
+    CANDS = null; OPEN_PANEL = null;      /* the strip has done its job; the ramps come back */
     syncControls(); render();
   }
   /* a candidate is only worth showing if it holds together on its own */
@@ -2461,6 +2500,14 @@ function hueClash(h, within){
             '<label class="famfield"><span>What it is for</span><input type="text" data-fam="note" data-id="' + m.id + '" value="' + (m.note || '').replace(/"/g,'&quot;') + '" placeholder="the further-education arm"></label>' +
           '</div>' +
           (m.brand ? '<p class="hint" style="margin:2px 0 0">Built around <span class="mono">' + m.brand + '</span>, pinned into this sister\'s ramp.</p>' : '') +
+          (PICK && PICK.swatches.length
+            ? '<p class="hint" style="margin:6px 0 2px">From the picture:</p><div class="pickrow">' +
+              PICK.swatches.map(function(sw){
+                return '<button class="pickdot" data-sisterpick="' + m.id + '" data-hex="' + sw.hex + '"' +
+                  ' style="background:' + sw.hex + '" title="Give ' + m.name + ' ' + sw.hex.toUpperCase() + '"' +
+                  ' aria-label="Give ' + m.name + ' the colour ' + sw.hex.toUpperCase() + '"></button>';
+              }).join('') + '</div>'
+            : '') +
           '<div class="row" style="margin-top:4px"><label>Hue</label><input type="range" data-fam="h" data-id="' + m.id + '" min="0" max="360" step="1" value="' + Math.round(m.h) + '"><output>' + Math.round(m.h) + '</output></div>' +
           '<div class="row"><label>Colourfulness</label><input type="range" data-fam="c" data-id="' + m.id + '" min="0.02" max="0.30" step="0.005" value="' + m.c + '"><output>' + m.c.toFixed(3).replace(/^0/,'') + '</output></div>' +
           '<p class="hint" style="margin:6px 0 0">Ships as <code>[data-brand="' + sisterSlug(m) + '"]</code>. Renaming does not change that, so a stylesheet already in use keeps working.</p>';
@@ -2692,11 +2739,16 @@ function hueClash(h, within){
     img.onerror = function(){ imgPx = null; };
     img.src = src;
   }
+  /* one picture serves both jobs: the colours it is made of, and the scrim a
+     caption needs over it. Dropping it in either place loads it for both. */
+  function useImage(src){
+    imgUrl = src;
+    readImage(src);        /* the pixels, for the scrim check */
+    readPickImage(src);    /* the colours, for taking */
+  }
   el('imgIn').addEventListener('change', function(e){
     var file = e.target.files && e.target.files[0]; if(!file) return;
-    if(imgUrl) URL.revokeObjectURL(imgUrl);
-    imgUrl = URL.createObjectURL(file);
-    readImage(imgUrl);
+    useImage(URL.createObjectURL(file));
   });
 
   /* drag the box, or its corner, and the measurement follows.
@@ -2893,6 +2945,7 @@ function hueClash(h, within){
     el('rampsDark').innerHTML = rampsHtml(D,true);
     el('candsOut').innerHTML = (CANDS && CANDS.kind === 'palette') ? candsHtml() : '';
     el('pickOut').innerHTML = pickHtml();
+    exploreUi();
     shelfUi();
     el('gapsLight').innerHTML = spacingStripHtml(L);
     el('gapsDark').innerHTML = spacingStripHtml(D);
@@ -3269,7 +3322,7 @@ function hueClash(h, within){
   /* ---------- picture and shelf controls ---------- */
   el('pickIn').addEventListener('change', function(e){
     var f = e.target.files && e.target.files[0]; if(!f) return;
-    readPickImage(URL.createObjectURL(f));
+    useImage(URL.createObjectURL(f));
   });
   ['dragover','drop'].forEach(function(kind){
     el('pickDrop').addEventListener(kind, function(e){
@@ -3277,10 +3330,20 @@ function hueClash(h, within){
       if(kind === 'dragover'){ el('pickDrop').classList.add('over'); return; }
       el('pickDrop').classList.remove('over');
       var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-      if(f && /^image\//.test(f.type)) readPickImage(URL.createObjectURL(f));
+      if(f && /^image\//.test(f.type)) useImage(URL.createObjectURL(f));
     });
   });
   el('pickDrop').addEventListener('dragleave', function(){ el('pickDrop').classList.remove('over'); });
+
+  document.addEventListener('click', function(e){
+    var sp = e.target.closest('[data-sisterpick]'); if(!sp) return;
+    var sis = sisters().filter(function(x){ return x.id === sp.dataset.sisterpick; })[0]; if(!sis) return;
+    var hex = sp.dataset.hex.toUpperCase(), c = hexToOklch(hex);
+    shelve();
+    sis.brand = hex; sis.h = c.h; sis.c = Math.min(c.C, 0.32);
+    describe('giving ' + sis.name + ' ' + hex + ' from the picture');
+    render();
+  });
 
   document.addEventListener('click', function(e){
     var chip = e.target.closest('[data-pick]');
@@ -3289,6 +3352,7 @@ function hueClash(h, within){
     if(use && PICK && PICK.chosen !== null){ pickUse(use.dataset.pickuse, PICK.swatches[PICK.chosen].hex); return; }
     if(e.target.closest('[data-pickbuild]') && PICK && PICK.chosen !== null){
       showCands(6, PICK.swatches[PICK.chosen].h);
+      OPEN_PANEL = 'six'; exploreUi();
       el('candsOut').scrollIntoView({ block:'nearest' });
       return;
     }
@@ -3330,11 +3394,17 @@ function hueClash(h, within){
       render();
       return;
     }
-    if(e.target.id === 'btnCandMore'){ showCands(6); return; }
+    if(e.target.id === 'btnCandMore'){ showCands(6); exploreUi(); return; }
     if(e.target.id === 'btnCandMore2'){ CANDS = { kind:'sister', items: suggestSiblings() }; render(); return; }
-    if(e.target.id === 'btnCandClose'){ CANDS = null; el('candsOut').innerHTML = ''; render(); return; }
+    if(e.target.id === 'btnCandClose'){ CANDS = null; OPEN_PANEL = null; el('candsOut').innerHTML = ''; render(); return; }
   });
-  el('btnCandShow').addEventListener('click', function(){ showCands(6); });
+  el('btnCandShow').addEventListener('click', function(){ openPanel('six'); });
+  el('btnPickOpen').addEventListener('click', function(){ openPanel('picture'); });
+  el('btnShelfToggle').addEventListener('click', function(){
+    SHELF_OPEN = !SHELF_OPEN;
+    try{ localStorage.setItem('palette-shelf-open-v1', SHELF_OPEN ? '1' : '0'); }catch(e){}
+    shelfUi();
+  });
   el('btnFamSuggest').addEventListener('click', function(){
     CANDS = { kind:'sister', items: suggestSiblings() };
     render();
@@ -3619,10 +3689,12 @@ function hueClash(h, within){
     var bad = fails(false) + fails(true);
     var clashes = FUNCTIONAL.filter(function(f){ return funcWarnings(f).length; }).length;
 
+    var shelf = shelfRead().length;
     var steps = [
-      { view:'ramps', title:'Give it your colours',
+      { view:'ramps', title:'Find your colours',
         state: pinned.length ? 'done' : 'todo',
-        note: pinned.length ? pinned.length + ' pinned' : 'paste a brand hex' },
+        note: pinned.length ? pinned.length + ' pinned'
+              : (shelf ? 'a picture, six to look at, or the shelf' : 'a picture, six to look at, or your own hex') },
       { view:'roles', title:'Check they are used',
         state: !pinned.length ? 'todo' : (unreached.length ? 'warn' : 'done'),
         note: !pinned.length ? 'nothing pinned yet'
@@ -3634,7 +3706,7 @@ function hueClash(h, within){
         state: clashes ? 'warn' : 'done',
         note: clashes ? clashes + ' too close' : 'no clashes' },
       { view:'export', title:'Hand it over',
-        state: 'todo', note: 'css, Tailwind, Figma' }
+        state: 'todo', note: 'css, Tailwind, Figma' + (shelf ? ' · ' + shelf + ' on the shelf' : '') }
     ];
     return steps.map(function(st, i){
       var mark = st.state === 'done' ? '✓' : (st.state === 'warn' ? '!' : '→');
@@ -3947,17 +4019,6 @@ function hueClash(h, within){
       }catch(err){ alert('That file is not a palette export.'); }
     };
     r.readAsText(f);
-  });
-  el('btnRandom').addEventListener('click', function(){
-    shelve();
-    var h = Math.floor(Math.random()*360);
-    while(hueClash(h)) h = Math.floor(Math.random()*360);
-    S.main.h = h; S.main.c = 0.11 + Math.random()*0.10;
-    S.sup.rel = ['same','near','far'][Math.floor(Math.random()*3)];
-    S.a1.h = (h + 150 + Math.floor(Math.random()*60)) % 360;
-    S.a2.h = (S.a1.h + 20 + Math.floor(Math.random()*40)) % 360;
-    S.neutral.h = h;
-    syncControls(); render();
   });
   el('btnReset').addEventListener('click', function(){
     shelve();

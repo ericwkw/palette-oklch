@@ -88,6 +88,11 @@ async function journey(name, fn) {
   }
 }
 const assert = (cond, msg) => { if (!cond) throw new Error(msg); };
+/* the rail folds, so a section has to be open before its controls can be clicked */
+const openSection = async (key) => {
+  const needed = await evalJs(`!document.querySelector('fieldset[data-sec="${key}"]').hasAttribute('data-open')`);
+  if (needed) await click(`fieldset[data-sec="${key}"] .sec-toggle`);
+};
 
 /* 1 — paste a brand colour, keep working, find the way back */
 await journey('brand colour survives being worked around', async () => {
@@ -278,6 +283,8 @@ await journey('the preview shows every token and reacts to a mapping', async () 
 
 /* 10 — a palette can be kept, switched away from, and come back the same */
 await journey('the library keeps palettes and switches between them', async () => {
+  await openSection('name');
+  await openSection('library');
   await type('pName', 'Harbour');
   await setRange('hMain', 200);
   await click('#btnLibSave');
@@ -896,7 +903,9 @@ await journey('the tool is possible to get around', async () => {
   })()`);
   assert(rail.total >= 10, 'the rail lost its sections');
   assert(rail.open.length < rail.total, 'every section is open, so nothing was folded');
-  assert(rail.open.includes('history'), 'undo is folded away by default');
+  const undoAlways = await evalJs(`(() => { const b = document.getElementById('btnUndo');
+    return !!b && b.offsetParent !== null && !!b.closest('.quickbar'); })()`);
+  assert(undoAlways, 'undo is not where it can always be reached');
   assert(rail.summaries >= 5, 'a folded section says nothing about what is inside it');
 
   /* folding is remembered across a reload */
@@ -914,6 +923,7 @@ await journey('the tool is possible to get around', async () => {
   let undo = await evalJs(`({ text: document.getElementById('btnUndo').textContent,
                               title: document.getElementById('btnUndo').title })`);
   assert(/hue/.test(undo.text), 'undo does not say what it would undo: ' + undo.text);
+  await openSection('library');
   await click('#btnLibSave');
   await sleep(200);
   await click('#tabs button', 6);
@@ -941,8 +951,11 @@ await journey('the tool is possible to get around', async () => {
   const steps = await evalJs(`[...document.querySelectorAll('#steps li')].map(li => ({
     cls: li.className, title: li.querySelector('.t').textContent, note: li.querySelector('.s').textContent.trim() }))`);
   assert(steps.length >= 4, 'there is still no suggested order: ' + steps.length);
-  assert(steps[0].cls === 'todo' && /paste/.test(steps[0].note),
-    'step one does not ask for a brand colour on an untouched palette: ' + steps[0].note);
+  assert(steps[0].cls === 'todo', 'step one is already ticked on an untouched palette');
+  assert(/picture|look at|hex/.test(steps[0].note),
+    'step one does not offer a way in: ' + steps[0].note);
+  assert(!/^\u2192 paste a brand hex$/.test(steps[0].note),
+    'step one still demands a commitment before offering anything: ' + steps[0].note);
   await type('xMain', '#0075C9');
   const after = await evalJs(`[...document.querySelectorAll('#steps li')].map(li => li.className)`);
   assert(after[0] === 'done', 'pasting a brand colour did not tick the first step');
@@ -1457,6 +1470,7 @@ await journey('a family can be explored rather than typed', async () => {
 
 /* 35 — a picture is a place to start, and the shelf catches what you replace */
 await journey('colours can be taken from a picture', async () => {
+  await click('#btnPickOpen');
   /* a picture with four clear colours and a grey ground */
   await evalJs(`(async () => {
     const c = document.createElement('canvas'); c.width = 320; c.height = 200;
@@ -1506,6 +1520,7 @@ await journey('colours can be taken from a picture', async () => {
 });
 
 await journey('the shelf catches what gets replaced', async () => {
+  await click('#btnShelfToggle');
   await setRange('hMain', 111);
   await sleep(500);
   let shelf = await evalJs(`document.querySelectorAll('[data-shelf]').length`);
@@ -1552,6 +1567,92 @@ await journey('the shelf catches what gets replaced', async () => {
   await click('#btnShelfClear');
   await sleep(300);
   assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 0, 'the shelf would not clear');
+});
+
+/* 37 — the tool opens on its subject, and the ways in stay out of the way */
+await journey('the ramps are the first thing on the page', async () => {
+  const cold = await evalJs(`(() => {
+    const ramps = document.getElementById('rampsLight');
+    const cards = [...document.querySelectorAll('#view-ramps .card')].filter(c => c.offsetParent !== null);
+    return { top: Math.round(ramps.getBoundingClientRect().top),
+             viewport: window.innerHeight,
+             cardsAbove: cards.filter(c => c.getBoundingClientRect().top < ramps.getBoundingClientRect().top).length,
+             talkingEmpties: cards.filter(c => /nothing on it yet|Drop a photograph/.test(c.textContent)).length,
+             band: document.querySelectorAll('.explore button').length }; })()`);
+  assert(cold.top < cold.viewport / 2, `the ramps start ${cold.top}px down a ${cold.viewport}px screen`);
+  assert(cold.cardsAbove <= 1, cold.cardsAbove + ' cards stand between the page and its subject');
+  assert(cold.talkingEmpties === 0, 'an empty panel is lecturing before anything has been done');
+  assert(cold.band >= 2, 'the ways in are gone rather than folded: ' + cold.band);
+
+  /* each way in opens on its own, and only one at a time */
+  await click('#btnCandShow');
+  let band = await evalJs(`({ six: !document.getElementById('candsOut').hidden,
+                              pic: !document.getElementById('pickDrop').hidden })`);
+  assert(band.six && !band.pic, 'opening the suggestions did not open them alone');
+  await click('#btnPickOpen');
+  band = await evalJs(`({ six: !document.getElementById('candsOut').hidden,
+                          pic: !document.getElementById('pickDrop').hidden })`);
+  assert(band.pic && !band.six, 'two panels are open at once');
+  await click('#btnPickOpen');
+  assert(await evalJs(`document.getElementById('pickDrop').hidden`), 'the panel would not close again');
+
+  /* one verb: the blind randomiser is gone */
+  const verbs = await evalJs(`[...document.querySelectorAll('button')].map(b => b.textContent.trim())
+    .filter(t => /surprise|shuffle/i.test(t))`);
+  assert(verbs.length === 0, 'there is still a second word for the same idea: ' + verbs.join(', '));
+
+  /* the shelf is reachable from every tab, with its count on the button */
+  const tabs = await evalJs(`[...document.querySelectorAll('#tabs button')].length`);
+  for (let i = 0; i < tabs; i++) {
+    await click('#tabs button', i);
+    const reach = await evalJs(`(() => { const b = document.getElementById('btnShelfToggle');
+      return b && b.offsetParent !== null; })()`);
+    assert(reach, 'the shelf cannot be reached from tab ' + i);
+  }
+  await click('#tabs button', 0);
+  await click('#btnShelfToggle');            /* the panel holds the button that puts one there */
+  await click('#btnShelve');
+  const label = await evalJs(`document.getElementById('btnShelfToggle').textContent`);
+  assert(/\(1\)/.test(label), 'the button does not say what is on the shelf: ' + label);
+});
+
+/* 38 — one picture serves both jobs, and reaches the sisters */
+await journey('a picture loaded once is used everywhere', async () => {
+  await click('#btnPickOpen');
+  await evalJs(`(async () => {
+    const c = document.createElement('canvas'); c.width = 300; c.height = 180;
+    const g = c.getContext('2d');
+    g.fillStyle = '#0f766e'; g.fillRect(0, 0, 150, 180);
+    g.fillStyle = '#f59e0b'; g.fillRect(150, 0, 150, 180);
+    const b = await new Promise(r => c.toBlob(r, 'image/png'));
+    const f = new File([b], 'one.png', { type: 'image/png' });
+    const dt = new DataTransfer(); dt.items.add(f);
+    const i = document.getElementById('pickIn'); i.files = dt.files;
+    i.dispatchEvent(new Event('change', { bubbles: true }));
+    return true; })()`);
+  await sleep(1000);
+  assert(await evalJs(`document.querySelectorAll('[data-pick]').length >= 2`), 'the picture gave up no colours');
+
+  /* the same picture is already loaded for the scrim check on another tab */
+  await click('#tabs button', 3);
+  const scrim = await evalJs(`(() => ({ box: !!document.getElementById('region'),
+    stats: document.querySelectorAll('#scrimStats tbody tr').length })) ()`);
+  assert(scrim.box, 'the picture was not handed to the scrim check as well');
+  assert(scrim.stats === 3, 'the scrim check did not measure the same picture');
+
+  /* and its colours are offered to a sister, not only to the parent */
+  await click('#tabs button', 6);
+  await click('#btnFamAdd');
+  const dots = await evalJs(`document.querySelectorAll('#famList [data-sisterpick]').length`);
+  assert(dots >= 2, 'the picture’s colours are not offered to a sister: ' + dots);
+  const was = await evalJs(`document.querySelector('#famList [data-fam="h"]').value`);
+  await click('[data-sisterpick]');
+  const now = await evalJs(`({ hue: document.querySelector('#famList [data-fam="h"]').value,
+                               hex: document.querySelector('#famList [data-fam="hex"]').value,
+                               undo: document.getElementById('btnUndo').textContent })`);
+  assert(now.hue !== was, 'giving a sister a colour from the picture did nothing');
+  assert(/^#[0-9A-F]{6}$/.test(now.hex), 'the sister did not keep the exact colour: ' + now.hex);
+  assert(/from the picture/.test(now.undo), 'it cannot be undone by name: ' + now.undo);
 });
 
 const failed = results.filter(r => !r[1]);
