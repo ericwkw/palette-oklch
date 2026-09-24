@@ -1455,6 +1455,105 @@ await journey('a family can be explored rather than typed', async () => {
   assert(/--main-brand: #b5123e/.test(css), 'the sister’s own brand colour is not exported');
 });
 
+/* 35 — a picture is a place to start, and the shelf catches what you replace */
+await journey('colours can be taken from a picture', async () => {
+  /* a picture with four clear colours and a grey ground */
+  await evalJs(`(async () => {
+    const c = document.createElement('canvas'); c.width = 320; c.height = 200;
+    const g = c.getContext('2d');
+    g.fillStyle = '#e8e9ec'; g.fillRect(0, 0, 320, 200);
+    g.fillStyle = '#14532d'; g.fillRect(0, 0, 160, 100);
+    g.fillStyle = '#d97706'; g.fillRect(160, 0, 160, 100);
+    g.fillStyle = '#1d4ed8'; g.fillRect(0, 100, 110, 100);
+    g.fillStyle = '#be123c'; g.fillRect(110, 100, 90, 100);
+    const b = await new Promise(r => c.toBlob(r, 'image/png'));
+    const f = new File([b], 'p.png', { type: 'image/png' });
+    const dt = new DataTransfer(); dt.items.add(f);
+    const i = document.getElementById('pickIn'); i.files = dt.files;
+    i.dispatchEvent(new Event('change', { bubbles: true }));
+    return true; })()`);
+  await sleep(900);
+
+  const found = await evalJs(`(() => ({
+    n: document.querySelectorAll('[data-pick]').length,
+    hues: [...document.querySelectorAll('[data-pick] .cand-meta b')].map(b => b.textContent),
+    shares: [...document.querySelectorAll('[data-pick] .cand-meta span')].map(s => s.textContent) }))()`);
+  assert(found.n >= 4, 'the picture gave up fewer colours than it has: ' + found.n);
+  assert(found.hues.includes('grey'), 'the grey ground of the picture was not offered');
+  assert(found.shares.some(t => /% of the picture/.test(t)), 'the colours do not say how much of the picture they are');
+  /* the four blocks are a quarter each, so the shares must be in that region */
+  const pct = found.shares.map(t => parseInt(t, 10)).filter(n => !isNaN(n));
+  assert(Math.max(...pct) < 45, 'the shares do not add up to a picture: ' + pct.join(','));
+
+  /* taking one sets the role and keeps the exact hex */
+  const before = await evalJs(`document.getElementById('hMain').value`);
+  await click('[data-pick]', 0);
+  await click('[data-pickuse="main"]');
+  const after = await evalJs(`({ hue: document.getElementById('hMain').value,
+                                 hex: document.getElementById('xMain').value,
+                                 undo: document.getElementById('btnUndo').textContent })`);
+  assert(after.hue !== before, 'taking a colour from the picture changed nothing');
+  assert(/^#[0-9A-F]{6}$/.test(after.hex), 'the exact colour was not kept: ' + after.hex);
+  assert(/from the picture/.test(after.undo), 'it cannot be undone by name: ' + after.undo);
+
+  /* and it can seed six palettes rather than being taken whole */
+  await click('[data-pickbuild]');
+  const seeded = await evalJs(`[...document.querySelectorAll('[data-cand] .cand-meta b')].map(b => parseInt(b.textContent, 10))`);
+  assert(seeded.length === 6, 'the picture did not seed six palettes: ' + seeded.length);
+  const src = parseInt(after.hue, 10);
+  const near = seeded.filter(h => { const d = Math.abs(((h - src + 540) % 360) - 180); return d < 30; });
+  assert(near.length >= 4, 'the six ignore the colour they were seeded from: ' + seeded.join(','));
+});
+
+await journey('the shelf catches what gets replaced', async () => {
+  await setRange('hMain', 111);
+  await sleep(500);
+  let shelf = await evalJs(`document.querySelectorAll('[data-shelf]').length`);
+  assert(shelf === 0, 'the shelf starts with something on it: ' + shelf);
+
+  /* taking a suggestion puts the old palette on the shelf */
+  await click('#btnCandShow');
+  await click('[data-cand]', 0);
+  await sleep(400);
+  let state = await evalJs(`({ shelf: document.querySelectorAll('[data-shelf]').length,
+                               hue: document.getElementById('hMain').value })`);
+  assert(state.shelf === 1, 'the palette that was replaced was not caught: ' + state.shelf);
+  assert(state.hue !== '111', 'the suggestion was not taken');
+
+  /* and clicking it puts it back */
+  await click('[data-shelf]');
+  await sleep(500);
+  state = await evalJs(`({ hue: document.getElementById('hMain').value,
+                           shelf: document.querySelectorAll('[data-shelf]').length,
+                           undo: document.getElementById('btnUndo').textContent })`);
+  assert(state.hue === '111', 'the shelved palette did not come back: ' + state.hue);
+  assert(state.shelf === 2, 'taking one off the shelf did not leave the other one there: ' + state.shelf);
+  assert(/shelf/.test(state.undo), 'it cannot be undone by name: ' + state.undo);
+
+  /* a reset is caught too, and one can be put there by hand */
+  await click('#btnReset');
+  await sleep(400);
+  assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 3, 'a reset threw the palette away');
+  await click('#btnShelve');
+  await sleep(300);
+  assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 4, 'putting one there by hand did nothing');
+  /* the same thing twice is not two things */
+  await click('#btnShelve');
+  await sleep(300);
+  assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 4, 'the shelf filled up with the same palette');
+
+  /* one can be dropped, and the shelf survives a reload */
+  await click('[data-shelfdrop]');
+  await sleep(300);
+  assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 3, 'dropping one did nothing');
+  await send('Page.navigate', { url: URL_ + '?sh=' + Date.now() });
+  await sleep(1600);
+  assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 3, 'the shelf did not survive a reload');
+  await click('#btnShelfClear');
+  await sleep(300);
+  assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 0, 'the shelf would not clear');
+});
+
 const failed = results.filter(r => !r[1]);
 console.log('');
 results.forEach(([name, ok, why]) => console.log(`${ok ? ' ok ' : 'FAIL'}  ${name}${why ? ' — ' + why : ''}`));

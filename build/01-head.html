@@ -190,6 +190,21 @@
   .gapstrip span:not(:first-child){transform:translateX(-50%)}
   .gapstrip span{padding:3px 0}
   .gapstrip span.tight{color:var(--bad);font-weight:600}
+  #pickDrop{margin:0 0 14px;transition:border-color .12s ease}
+  #pickDrop.over{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in oklab, var(--accent) 18%, transparent)}
+  .pickwrap{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+  .pickshot{flex:0 0 260px;max-width:100%}
+  .pickshot img{width:100%;border-radius:10px;border:1px solid var(--line);display:block;cursor:crosshair}
+  .pickside{flex:1 1 300px;min-width:0}
+  .pickchip.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+  .pickuse{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+  .shelf-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:8px}
+  .shelf-row .cand{padding:6px;gap:5px}
+  .shelf-row .cand-strip{height:30px}
+  .shelf-row .cand-meta b{font-size:.62rem;padding:1px 5px;background:var(--bg);color:var(--ink-2)}
+  .shelfitem{position:relative}
+  .shelfitem .shelfdrop{position:absolute;top:4px;right:4px;padding:1px 6px;opacity:0;transition:opacity .1s}
+  .shelfitem:hover .shelfdrop,.shelfitem:focus-within .shelfdrop{opacity:1}
   .cands{margin:0 0 14px}
   .cand-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
   .cand{display:grid;gap:7px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--bg);cursor:pointer;text-align:left}

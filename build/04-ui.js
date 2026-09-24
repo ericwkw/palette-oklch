@@ -1144,14 +1144,183 @@
     });
   }
 
+  /* ---------- the shelf ----------
+     Somewhere versions pile up without being named and kept on purpose. The
+     library is for palettes you have decided about; this is for the ones you
+     have not. Anything that replaces your work puts it here first. */
+  var SHELF_KEY = 'palette-shelf-v1', SHELF_MAX = 24;
+  function shelfRead(){
+    try{ var d = JSON.parse(localStorage.getItem(SHELF_KEY) || 'null'); return (d && d.items) ? d.items : []; }
+    catch(e){ return []; }
+  }
+  function shelfWrite(items){
+    try{ localStorage.setItem(SHELF_KEY, JSON.stringify({ items: items.slice(0, SHELF_MAX) })); }catch(e){}
+  }
+  function shelve(why){
+    var items = shelfRead(), snap = JSON.stringify(S);
+    if(items.length && items[0].snap === snap) return;     /* the same thing twice is not two things */
+    items.unshift({ at: Date.now(), why: why || null, snap: snap });
+    shelfWrite(items);
+    shelfUi();
+  }
+  function shelfChip(it, i){
+    var keep = S, strip = '', label = '';
+    try{
+      S = normalise(JSON.parse(it.snap)) || keep;
+      var p = build(false);
+      strip = [p.neutral, p.sup, p.main, p.a1, p.a2].map(function(r, k){
+        return '<span style="background:' + stepOf(r, [100,300,600,500,700][k]).hex + '"></span>'; }).join('');
+      label = (S.name && S.name !== 'Untitled' ? S.name + ' · ' : '') + Math.round(S.main.h) + '°';
+    } finally { S = keep; }
+    var mins = Math.round((Date.now() - it.at) / 60000);
+    var when = mins < 1 ? 'just now' : mins < 60 ? mins + ' min ago' : Math.round(mins / 60) + ' h ago';
+    return '<div class="shelfitem"><button class="cand" data-shelf="' + i + '" title="Put this back">' +
+      '<span class="cand-strip">' + strip + '</span>' +
+      '<span class="cand-meta"><b class="mono">' + label + '</b><span>' + when + '</span></span></button>' +
+      '<button class="btn mini shelfdrop" data-shelfdrop="' + i + '" aria-label="Drop this one">✕</button></div>';
+  }
+  function shelfUi(){
+    var box = el('shelfOut'); if(!box) return;
+    var items = shelfRead();
+    if(!items.length){
+      box.innerHTML = '<div class="card"><div class="head" style="margin:0 0 6px"><h3>The shelf</h3>' +
+        '<span class="meta">nothing on it yet</span></div>' +
+        '<p class="hint" style="margin:0">Anything that replaces your palette — a suggestion you take, a colour from a picture, a reset — leaves the old one here first, and you can put one here yourself. Nothing needs naming.</p>' +
+        '<div class="btns" style="margin-top:10px"><button class="btn" id="btnShelve">Put this one on the shelf</button></div></div>';
+      return;
+    }
+    box.innerHTML = '<div class="card"><div class="head" style="margin:0 0 8px"><h3>The shelf</h3>' +
+      '<span class="meta">' + items.length + (items.length === 1 ? ' version' : ' versions') + ' · click one to put it back</span></div>' +
+      '<div class="shelf-row">' + items.map(shelfChip).join('') + '</div>' +
+      '<div class="btns" style="margin-top:10px"><button class="btn" id="btnShelve">Put this one on the shelf</button>' +
+      '<button class="btn" id="btnShelfClear">Clear the shelf</button></div></div>';
+  }
+  function shelfTake(i){
+    var it = shelfRead()[i]; if(!it) return;
+    var clean = normalise(JSON.parse(it.snap)); if(!clean) return;
+    shelve('swapped out');          /* so taking one off the shelf is itself reversible */
+    S = clean; EDITING = null;
+    describe('a version from the shelf');
+    syncControls(); render();
+  }
+
+  /* ---------- a colour taken from a picture ----------
+     A photograph is where most palettes actually start. The pixels are read
+     in OKLCH, gathered by hue, and offered as colours you can take. */
+  var PICK = null;   /* { url, w, h, px:{L,C,h,hex}[], swatches:[] , chosen } */
+  function readPickImage(src){
+    var img = new Image();
+    img.onload = function(){
+      var w = 160, h = Math.max(1, Math.round(160 * img.height / img.width));
+      var c = document.createElement('canvas'); c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      var d = c.getContext('2d').getImageData(0, 0, w, h).data, px = [];
+      for(var i = 0; i < d.length; i += 4){
+        if(d[i+3] < 128) continue;
+        var hex = hex3(d[i], d[i+1], d[i+2]);
+        var o = hexToOklch(hex);
+        px.push({ L:o.L, C:o.C, h:o.h, hex:hex });
+      }
+      PICK = { url: src, w:w, h:h, px: px, swatches: gatherColours(px), chosen: null };
+      render();
+    };
+    img.onerror = function(){ PICK = null; notice('That image could not be read.'); };
+    img.src = src;
+  }
+  /* gather the pixels into the few colours a person would say the picture is */
+  function gatherColours(px){
+    var buckets = {}, greys = [];
+    px.forEach(function(p){
+      if(p.C < 0.03){ greys.push(p); return; }        /* greys are the paper, not the colour */
+      var key = Math.round(p.h / 14);
+      var b = buckets[key] || (buckets[key] = { n:0, L:0, C:0, x:0, y:0 });
+      b.n++; b.L += p.L; b.C += p.C;
+      b.x += Math.cos(p.h * Math.PI/180); b.y += Math.sin(p.h * Math.PI/180);
+    });
+    var out = Object.keys(buckets).map(function(k){
+      var b = buckets[k];
+      var h = (Math.atan2(b.y / b.n, b.x / b.n) * 180 / Math.PI + 360) % 360;
+      return { L: b.L / b.n, C: b.C / b.n, h: h, n: b.n,
+               share: b.n / px.length,
+               hex: oklchToHex(b.L / b.n, b.C / b.n, h, S.shape.gamut) };
+    });
+    /* the ones that carry the picture: common, and colourful enough to be a colour */
+    out.sort(function(a, b){ return (b.n * (0.05 + b.C)) - (a.n * (0.05 + a.C)); });
+    var keep = [];
+    out.forEach(function(o){
+      if(keep.length >= 6) return;
+      if(keep.some(function(k){ return hueGapDeg(k.h, o.h) < 18; })) return;
+      keep.push(o);
+    });
+    if(greys.length > px.length * 0.08){
+      var gl = greys.reduce(function(a, p){ return a + p.L; }, 0) / greys.length;
+      var gc = greys.reduce(function(a, p){ return a + p.C; }, 0) / greys.length;
+      var gx = greys.reduce(function(a, p){ return a + Math.cos(p.h*Math.PI/180); }, 0) / greys.length;
+      var gy = greys.reduce(function(a, p){ return a + Math.sin(p.h*Math.PI/180); }, 0) / greys.length;
+      keep.push({ L:gl, C:gc, h:(Math.atan2(gy,gx)*180/Math.PI+360)%360, n:greys.length,
+                  share: greys.length / px.length, grey:true,
+                  hex: oklchToHex(gl, gc, (Math.atan2(gy,gx)*180/Math.PI+360)%360, S.shape.gamut) });
+    }
+    return keep;
+  }
+  function pickHtml(){
+    if(!PICK){
+      return '<p class="hint" style="margin:0">Drop a photograph, a piece of artwork or a screenshot here, or choose one, and the colours it is actually made of become colours you can take.</p>';
+    }
+    var chips = PICK.swatches.map(function(sw, i){
+      return '<button class="cand pickchip' + (PICK.chosen === i ? ' on' : '') + '" data-pick="' + i + '">' +
+        '<span class="cand-strip"><span style="background:' + sw.hex + '"></span></span>' +
+        '<span class="cand-meta"><b style="background:' + sw.hex + ';color:' + (sw.L > 0.6 ? '#000' : '#fff') + '">' +
+          (sw.grey ? 'grey' : sw.spot ? 'picked' : Math.round(sw.h) + '°') + '</b><span>' +
+          (sw.spot ? 'straight off the picture' : Math.round(sw.share * 100) + '% of the picture' + (sw.grey ? ', its paper' : '')) +
+        '</span></span></button>';
+    }).join('');
+    var chosen = PICK.chosen === null ? null : PICK.swatches[PICK.chosen];
+    return '<div class="pickwrap">' +
+        '<div class="pickshot"><img id="pickImg" src="' + PICK.url + '" alt="" draggable="false">' +
+          '<p class="hint" style="margin:6px 0 0">Click anywhere on the picture to take that exact colour.</p></div>' +
+        '<div class="pickside"><div class="cand-row">' + chips + '</div>' +
+          (chosen
+            ? '<div class="pickuse"><span class="swatch-inline"><span class="dot" style="background:' + chosen.hex + '"></span>' +
+              '<span class="mono">' + chosen.hex.toUpperCase() + '</span></span>' +
+              '<div class="btns" style="margin:8px 0 0">' +
+                ['main','sup','a1','a2'].map(function(role, i){
+                  return '<button class="btn mini" data-pickuse="' + role + '">' + ['Main','Supporting','Accent 1','Accent 2'][i] + '</button>';
+                }).join('') +
+                '<button class="btn mini primary" data-pickbuild="1">Six palettes from it</button>' +
+              '</div></div>'
+            : '<p class="hint" style="margin:10px 0 0">Pick one of these, or click the picture itself, then say what it should be.</p>') +
+        '</div></div>';
+  }
+  function pickUse(role, hex){
+    var c = hexToOklch(hex);
+    shelve();                       /* what you had is on the shelf before this replaces it */
+    S[role].brand = hex.toUpperCase();
+    S[role].h = c.h; S[role].c = Math.min(c.C, 0.32); S[role].pin = true;
+    if(role === 'sup'){ S.sup.rel = 'custom'; el('relSup').value = 'custom'; }
+    describe('taking ' + hex.toUpperCase() + ' from the picture');
+    syncControls(); render();
+  }
+
   /* ---------- candidates ----------
      Everything else in this tool asks you to commit a number and then marks
      it. These offer several colours at once and change nothing until you
      take one, so looking costs nothing. */
   var CANDS = null;     /* { kind:'palette'|'sister', items:[...] } — never saved */
-  function candPalette(){
-    var h = Math.floor(Math.random() * 360), guard = 0;
-    while(hueClash(h, 22) && guard++ < 60) h = Math.floor(Math.random() * 360);
+  function candPalette(around){
+    var h;
+    if(around === undefined){
+      h = Math.floor(Math.random() * 360);
+      var guard = 0;
+      while(hueClash(h, 22) && guard++ < 60) h = Math.floor(Math.random() * 360);
+    } else {
+      /* stay near the colour this was seeded from: step aside, do not wander off */
+      h = ((around + (Math.random() * 20 - 10)) % 360 + 360) % 360;
+      for(var step = 0; step <= 40 && hueClash(h, 20); step += 2){
+        var up = (around + step) % 360, down = (around - step + 360) % 360;
+        h = hueClash(up, 20) ? (hueClash(down, 20) ? h : down) : up;
+      }
+    }
     var rel = ['same','near','far'][Math.floor(Math.random() * 3)];
     return {
       h: h, c: 0.09 + Math.random() * 0.13, rel: rel,
@@ -1161,6 +1330,7 @@
     };
   }
   function candApply(cand){
+    shelve();                       /* the palette you had does not vanish because you tried one */
     S.main.h = cand.h; S.main.c = cand.c;
     S.sup.rel = cand.rel; el('relSup').value = cand.rel;
     S.a1.h = cand.a1; S.a2.h = cand.a2;
@@ -1208,9 +1378,9 @@
       '<div class="btns" style="margin-top:10px"><button class="btn" id="btnCandMore">Six more</button>' +
       '<button class="btn" id="btnCandClose">Put them away</button></div></div>';
   }
-  function showCands(n){
+  function showCands(n, around){
     var items = [];
-    for(var i = 0; i < (n || 6); i++) items.push(candPalette());
+    for(var i = 0; i < (n || 6); i++) items.push(candPalette(around));
     CANDS = { kind:'palette', items: items };
     el('candsOut').innerHTML = candsHtml();
   }
@@ -1825,6 +1995,8 @@
     el('rampsLight').innerHTML = rampsHtml(L,false);
     el('rampsDark').innerHTML = rampsHtml(D,true);
     el('candsOut').innerHTML = (CANDS && CANDS.kind === 'palette') ? candsHtml() : '';
+    el('pickOut').innerHTML = pickHtml();
+    shelfUi();
     el('gapsLight').innerHTML = spacingStripHtml(L);
     el('gapsDark').innerHTML = spacingStripHtml(D);
     applyValues();
@@ -2196,6 +2368,56 @@
     render();
   });
   document.addEventListener('pointerup', function(){ WDRAG = null; });
+
+  /* ---------- picture and shelf controls ---------- */
+  el('pickIn').addEventListener('change', function(e){
+    var f = e.target.files && e.target.files[0]; if(!f) return;
+    readPickImage(URL.createObjectURL(f));
+  });
+  ['dragover','drop'].forEach(function(kind){
+    el('pickDrop').addEventListener(kind, function(e){
+      e.preventDefault();
+      if(kind === 'dragover'){ el('pickDrop').classList.add('over'); return; }
+      el('pickDrop').classList.remove('over');
+      var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if(f && /^image\//.test(f.type)) readPickImage(URL.createObjectURL(f));
+    });
+  });
+  el('pickDrop').addEventListener('dragleave', function(){ el('pickDrop').classList.remove('over'); });
+
+  document.addEventListener('click', function(e){
+    var chip = e.target.closest('[data-pick]');
+    if(chip){ PICK.chosen = +chip.dataset.pick; el('pickOut').innerHTML = pickHtml(); return; }
+    var use = e.target.closest('[data-pickuse]');
+    if(use && PICK && PICK.chosen !== null){ pickUse(use.dataset.pickuse, PICK.swatches[PICK.chosen].hex); return; }
+    if(e.target.closest('[data-pickbuild]') && PICK && PICK.chosen !== null){
+      showCands(6, PICK.swatches[PICK.chosen].h);
+      el('candsOut').scrollIntoView({ block:'nearest' });
+      return;
+    }
+    /* the picture itself is an eyedropper */
+    if(e.target.id === 'pickImg' && PICK){
+      var r = e.target.getBoundingClientRect();
+      var x = Math.floor((e.clientX - r.left) / r.width * PICK.w);
+      var y = Math.floor((e.clientY - r.top) / r.height * PICK.h);
+      var p = PICK.px[y * PICK.w + x];
+      if(p){
+        PICK.swatches = PICK.swatches.concat([{ L:p.L, C:p.C, h:p.h, share:0, hex:p.hex, spot:true }]).slice(-8);
+        PICK.chosen = PICK.swatches.length - 1;
+        el('pickOut').innerHTML = pickHtml();
+      }
+      return;
+    }
+    var sh = e.target.closest('[data-shelf]');
+    if(sh){ shelfTake(+sh.dataset.shelf); return; }
+    var drop = e.target.closest('[data-shelfdrop]');
+    if(drop){
+      var items = shelfRead(); items.splice(+drop.dataset.shelfdrop, 1);
+      shelfWrite(items); shelfUi(); return;
+    }
+    if(e.target.id === 'btnShelve'){ shelve('kept by hand'); announce('Put on the shelf'); return; }
+    if(e.target.id === 'btnShelfClear'){ shelfWrite([]); shelfUi(); return; }
+  });
 
   document.addEventListener('click', function(e){
     var c = e.target.closest('[data-cand]');
@@ -2830,6 +3052,7 @@
     r.readAsText(f);
   });
   el('btnRandom').addEventListener('click', function(){
+    shelve();
     var h = Math.floor(Math.random()*360);
     while(hueClash(h)) h = Math.floor(Math.random()*360);
     S.main.h = h; S.main.c = 0.11 + Math.random()*0.10;
@@ -2840,6 +3063,7 @@
     syncControls(); render();
   });
   el('btnReset').addEventListener('click', function(){
+    shelve();
     S = JSON.parse(JSON.stringify(DEFAULTS)); EDITING = null; describe('the reset'); syncControls(); render();
   });
 
