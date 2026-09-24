@@ -434,7 +434,7 @@ await journey('a sister brand joins the family and stays distinct', async () => 
   assert(/spoken for/.test(warn), 'a sister sitting on Danger raised no warning');
 
   /* spacing them out clears it, and removing is undoable */
-  await click('#btnFamSpread');
+  await click('#shapeSeg button', 0);   /* spread them round the wheel */
   warn = await evalJs(`document.querySelectorAll('#famList .card')[1].innerHTML`);
   assert(!/mistaken for each other/.test(warn), 'spacing them evenly left them colliding');
   await click('[data-famdel]');
@@ -448,7 +448,7 @@ await journey('the family holds its contrast parity', async () => {
   await click('#tabs button', 6);
   await click('#btnFamAdd');
   await click('#btnFamAdd');
-  await click('#btnFamSpread');
+  await click('#shapeSeg button', 0);   /* spread them round the wheel */
   const parity = await evalJs(`(() => {
     const rows = [...document.querySelectorAll('#famParity tbody tr')];
     return rows.map(r => [...r.children].map(c => c.textContent.trim()));
@@ -675,7 +675,7 @@ await journey('every unfamiliar word can be looked up', async () => {
 await journey('ten brands and the tool still moves', async () => {
   await click('#tabs button', 6);
   for (let i = 0; i < 9; i++) await click('#btnFamAdd');
-  await click('#btnFamSpread');
+  await click('#shapeSeg button', 0);   /* spread them round the wheel */
   const n = await evalJs(`document.querySelectorAll('#famList .card').length`);
   assert(n === 10, 'the family did not reach ten brands: ' + n);
 
@@ -1327,6 +1327,132 @@ await journey('the step editor reports the gaps a nudge creates', async () => {
   await sleep(400);
   ed = await evalJs(`document.getElementById('stepEditor').textContent`);
   assert(/in keeping with the rest/.test(ed), 'the warning survived the reset: ' + ed);
+});
+
+/* 33 — looking costs nothing: candidates change the palette only when taken */
+await journey('six candidates can be looked at before anything changes', async () => {
+  const before = await evalJs(`({ hue: document.getElementById('hMain').value,
+                                  css: document.getElementById('outCss') ? 1 : 1 })`);
+  await click('#btnCandShow');
+  let strip = await evalJs(`(() => ({ n: document.querySelectorAll('[data-cand]').length,
+    hue: document.getElementById('hMain').value,
+    hues: [...document.querySelectorAll('[data-cand] .cand-meta b')].map(b => parseInt(b.textContent, 10)),
+    swatches: document.querySelectorAll('[data-cand] .cand-strip span').length }))()`);
+  assert(strip.n === 6, 'six candidates were not offered: ' + strip.n);
+  assert(strip.hue === before.hue, 'merely looking changed the palette: ' + strip.hue);
+  assert(strip.swatches === 30, 'a candidate does not show a whole palette: ' + strip.swatches);
+  assert(new Set(strip.hues).size >= 5, 'the candidates are nearly the same: ' + strip.hues.join(','));
+
+  /* none of them sits on a state colour */
+  const STATE = [145, 85, 25, 220, 310, 185];
+  for (const h of strip.hues) {
+    const near = STATE.some(f => { const d = Math.abs(((h - f + 540) % 360) - 180); return d < 20; });
+    assert(!near, `a candidate at ${h}° sits on a state colour`);
+  }
+
+  /* taking one changes the palette, and it can be walked back */
+  const chosen = strip.hues[2];
+  await click('[data-cand]', 2);
+  let after = await evalJs(`({ hue: +document.getElementById('hMain').value,
+                               undo: document.getElementById('btnUndo').textContent,
+                               stripGone: document.getElementById('candsOut').innerHTML === '' })`);
+  assert(Math.abs(after.hue - chosen) < 2, `taking a candidate gave ${after.hue}, not ${chosen}`);
+  assert(/suggestion/.test(after.undo), 'taking a candidate cannot be undone by name: ' + after.undo);
+  assert(after.stripGone, 'the candidates stayed on screen after one was taken');
+  await click('#btnUndo');
+  after = await evalJs(`document.getElementById('hMain').value`);
+  assert(after === before.hue, 'undo did not put the old palette back: ' + after);
+
+  /* another six are different ones */
+  await click('#btnCandShow');
+  const firstSet = await evalJs(`[...document.querySelectorAll('[data-cand] .cand-meta b')].map(b => b.textContent).join()`);
+  await click('#btnCandMore');
+  const secondSet = await evalJs(`[...document.querySelectorAll('[data-cand] .cand-meta b')].map(b => b.textContent).join()`);
+  assert(firstSet !== secondSet, 'More gave the same six back');
+  await click('#btnCandClose');
+  assert(await evalJs(`document.getElementById('candsOut').innerHTML === ''`), 'the strip would not close');
+});
+
+/* 34 — the family can be handled on a wheel, shaped, and given real colours */
+await journey('a family can be explored rather than typed', async () => {
+  await click('#tabs button', 6);
+  await click('#btnFamSuggest');
+  const sibs = await evalJs(`[...document.querySelectorAll('[data-sibling] .cand-meta b')].map(b => parseInt(b.textContent, 10))`);
+  assert(sibs.length === 3, 'three siblings were not offered: ' + sibs.length);
+  assert(new Set(sibs).size === 3, 'the same sibling was offered twice: ' + sibs.join(','));
+  const parentHue = +(await evalJs(`document.getElementById('hMain').value`));
+  const gap = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
+  for (const h of sibs) assert(gap(h, parentHue) >= 26, `a suggested sibling at ${h}° is on top of the parent`);
+
+  await click('[data-sibling]', 0);
+  assert(await evalJs(`document.querySelectorAll('#famList .card').length`) === 2, 'taking a sibling did not add it');
+
+  /* the wheel shows every brand, and a dot can be dragged */
+  await click('#btnFamAdd');
+  let wheel = await evalJs(`(() => ({ dots: document.querySelectorAll('#famWheel [data-wheel]').length,
+    labels: document.querySelectorAll('#famWheel .wlabel').length,
+    states: document.querySelectorAll('#famWheel path title').length }))()`);
+  assert(wheel.dots === 3, 'the wheel does not show every brand: ' + wheel.dots);
+  assert(wheel.labels === 3, 'the dots are not labelled: ' + wheel.labels);
+  assert(wheel.states === 6, 'the wheel does not show what the states have taken: ' + wheel.states);
+
+  await evalJs(`document.getElementById('famWheel').scrollIntoView({ block: 'center' })`);
+  await sleep(300);
+  const geo = await evalJs(`(() => { const g = document.querySelectorAll('#famWheel [data-wheel]')[1];
+    const r = g.getBoundingClientRect(), s = document.getElementById('famWheel').getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2,
+             cx: s.left + s.width / 2, cy: s.top + s.height / 2, w: s.width }; })()`);
+  const wasHue = await evalJs(`document.querySelector('#famList [data-fam="h"]').value`);
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: geo.x, y: geo.y, button: 'left', clickCount: 1 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: geo.cx + geo.w * 0.18, y: geo.cy + geo.w * 0.10, button: 'left', buttons: 1 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: geo.cx + geo.w * 0.18, y: geo.cy + geo.w * 0.10, button: 'left' });
+  await sleep(500);
+  const nowHue = await evalJs(`document.querySelector('#famList [data-fam="h"]').value`);
+  assert(nowHue !== wasHue, 'dragging the wheel did not move the sister: ' + nowHue);
+  assert(/hue/.test(await evalJs(`document.getElementById('btnUndo').textContent`)), 'a wheel drag cannot be undone by name');
+
+  /* the shapes are different arrangements, and none lands on the parent or a state */
+  await click('#btnFamAdd');
+  await click('#btnFamAdd');
+  const arrange = async (i) => {
+    await click('#shapeSeg button', i);
+    return evalJs(`[...document.querySelectorAll('#famList [data-fam="h"]')].map(x => +x.value)`);
+  };
+  const shapes = [];
+  for (const i of [0, 1, 2, 3]) shapes.push(await arrange(i));
+  const STATE = [145, 85, 25, 220, 310, 185];
+  shapes.forEach((hues, i) => {
+    hues.forEach(h => {
+      assert(gap(h, parentHue) >= 24, `shape ${i} put a sister ${Math.round(gap(h, parentHue))}° from the parent`);
+      STATE.forEach(f => assert(gap(h, f) >= 18, `shape ${i} put a sister on a state colour at ${h}°`));
+    });
+    hues.forEach((h, a) => hues.forEach((k, b) => {
+      if (a < b) assert(gap(h, k) >= 20, `shape ${i} put two sisters ${Math.round(gap(h, k))}° apart`);
+    }));
+  });
+  assert(new Set(shapes.map(x => x.join())).size >= 3, 'the shapes all arrange the family the same way');
+
+  /* a sister takes a brand hex and a purpose, and keeps its selector when renamed */
+  await evalJs(`(() => { const i = document.querySelector('#famList [data-fam="hex"]');
+    i.value = '#B5123E'; i.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await sleep(400);
+  let sis = await evalJs(`(() => ({ hue: +document.querySelector('#famList [data-fam="h"]').value,
+    card: document.querySelectorAll('#famList .card')[1].textContent,
+    ring: document.querySelectorAll('#famWheel [data-wheel]')[1].innerHTML })) ()`);
+  assert(/pinned into this sister/.test(sis.card), 'the pasted colour is not reported as pinned');
+  assert(/stroke=/.test(sis.ring), 'the wheel does not mark a pasted brand colour');
+
+  await evalJs(`(() => { const i = document.querySelector('#famList [data-fam="note"]');
+    i.value = 'the further-education arm'; i.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await sleep(300);
+  await evalJs(`(() => { const i = document.querySelector('#famList [data-fam="name"]');
+    i.value = 'Coastal'; i.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await sleep(400);
+  await click('#tabs button', 6);
+  const css = await evalJs(`document.getElementById('outFamily').textContent`);
+  assert(/\[data-brand="sister-1"\]/.test(css), 'renaming moved the selector a stylesheet keys on');
+  assert(/Coastal/.test(css) && /further-education arm/.test(css), 'the export does not carry the name or the purpose');
+  assert(/--main-brand: #b5123e/.test(css), 'the sister’s own brand colour is not exported');
 });
 
 const failed = results.filter(r => !r[1]);

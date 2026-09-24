@@ -166,7 +166,9 @@
     <section class="view on" data-view="ramps" id="view-ramps" role="tabpanel" tabindex="0">
       <div class="head"><h2>Ramps</h2><span class="muted mono" id="rampMeta"></span></div>
       <p class="note">Every ramp shares the same lightness steps, so a shade means the same weight whatever the hue. Chroma peaks near the middle and eases off at both ends. Hover a swatch for its step and value, click it to copy, click again to nudge it.</p>
-      <div class="btns" style="margin:0 0 12px"><label class="check" style="margin:0"><input type="checkbox" id="showValues"> Show every value at once</label></div>
+      <div class="btns" style="margin:0 0 12px"><button class="btn primary" id="btnCandShow">Show me six</button>
+        <label class="check" style="margin:0"><input type="checkbox" id="showValues"> Show every value at once</label></div>
+      <div id="candsOut"></div>
       <div class="card" data-theme="light">
         <div class="steps-head" id="stepsHead"></div>
         <div id="rampsLight" class="ramps"></div>
@@ -257,11 +259,27 @@
     <section class="view" data-view="family" id="view-family" role="tabpanel" tabindex="0">
       <div class="head"><h2>Brand family</h2><span class="meta" id="famMeta"></span></div>
       <p class="note">One parent and its sisters. A sister sets its own main hue and colourfulness &mdash; it may travel a long way &mdash; and takes everything else from the parent: the same neutrals, the same six functional colours, the same lightness steps, ramp shape and token mapping. That is what makes them read as one family.</p>
-      <div class="btns" style="margin:0 0 16px">
+      <div class="btns" style="margin:0 0 12px">
         <button class="btn primary" id="btnFamAdd">Add a sister</button>
-        <button class="btn" id="btnFamSpread">Space them evenly</button>
+        <button class="btn" id="btnFamSuggest">Suggest three</button>
       </div>
-      <div id="famList" style="display:grid;gap:14px"></div>
+      <div class="card" style="margin:0 0 14px">
+        <h3>The shape of the family</h3>
+        <div class="shaperow">
+          <div class="seg" id="shapeSeg" role="group" aria-label="Family shape">
+            <button data-shape="spread" aria-selected="true">Spread</button>
+            <button data-shape="analogous" aria-selected="false">Analogous</button>
+            <button data-shape="wings" aria-selected="false">Two wings</button>
+            <button data-shape="triad" aria-selected="false">Triad</button>
+          </div>
+          <div class="row" style="flex:1 1 220px"><label for="famWidth">How wide</label>
+            <input type="range" id="famWidth" min="20" max="180" step="5" value="90"><output id="ofamWidth">90°</output></div>
+        </div>
+        <p class="hint" id="shapeNote" style="margin:8px 0 0"></p>
+      </div>
+      <div id="famSuggest"></div>
+      <div class="card" id="famWheel_wrap"></div>
+      <div id="famList" style="display:grid;gap:14px;margin-top:14px"></div>
       <div class="card" style="margin-top:18px"><h3>Every sister next to the parent</h3>
         <p class="hint" style="margin:0 0 10px">The same screen in each brand, so a hue that goes weak or shouty shows up beside the others.</p>
         <div id="famStrip" style="display:grid;gap:14px"></div>

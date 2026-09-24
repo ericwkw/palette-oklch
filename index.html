@@ -190,6 +190,28 @@
   .gapstrip span:not(:first-child){transform:translateX(-50%)}
   .gapstrip span{padding:3px 0}
   .gapstrip span.tight{color:var(--bad);font-weight:600}
+  .cands{margin:0 0 14px}
+  .cand-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .cand{display:grid;gap:7px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--bg);cursor:pointer;text-align:left}
+  .cand:hover{border-color:var(--ink-3)}
+  .cand-strip{display:flex;height:42px;border-radius:7px;overflow:hidden}
+  .cand-strip span{flex:1}
+  .cand-meta{display:flex;align-items:center;gap:8px;font-size:.72rem;color:var(--ink-3)}
+  .cand-meta b{font-family:var(--mono);font-size:.68rem;padding:2px 7px;border-radius:999px;font-weight:600}
+  .shaperow{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .shaperow .row{margin:0}
+  .wheelwrap{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+  .wheelwrap svg{touch-action:none;flex:0 0 auto}
+  .wheelnote{flex:1 1 240px;min-width:0}
+  .wdot{cursor:grab}
+  .wdot:active{cursor:grabbing}
+  .wdot:focus-visible{outline:none}
+  .wdot:focus-visible circle:last-of-type{stroke:var(--accent);stroke-width:3}
+  .wlabel{font-size:10.5px;font-family:var(--sans);fill:var(--ink);font-weight:600;paint-order:stroke;stroke:var(--panel);stroke-width:3.5px}
+  .wdeg{font-family:var(--mono);font-weight:400;font-size:9px;fill:var(--ink-3)}
+  .famgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:8px 0 2px}
+  .famfield{display:grid;gap:4px;font-size:.72rem;color:var(--ink-3)}
+  .famfield input{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:7px 9px;font-size:.82rem}
   .notice{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px;padding:9px 12px;
     border:1px solid var(--line);border-radius:10px;background:var(--panel);font-size:.8rem;color:var(--ink-2)}
   .notice.bad{border-color:color-mix(in oklab, var(--bad) 55%, var(--line));color:var(--bad)}
@@ -415,7 +437,9 @@
     <section class="view on" data-view="ramps" id="view-ramps" role="tabpanel" tabindex="0">
       <div class="head"><h2>Ramps</h2><span class="muted mono" id="rampMeta"></span></div>
       <p class="note">Every ramp shares the same lightness steps, so a shade means the same weight whatever the hue. Chroma peaks near the middle and eases off at both ends. Hover a swatch for its step and value, click it to copy, click again to nudge it.</p>
-      <div class="btns" style="margin:0 0 12px"><label class="check" style="margin:0"><input type="checkbox" id="showValues"> Show every value at once</label></div>
+      <div class="btns" style="margin:0 0 12px"><button class="btn primary" id="btnCandShow">Show me six</button>
+        <label class="check" style="margin:0"><input type="checkbox" id="showValues"> Show every value at once</label></div>
+      <div id="candsOut"></div>
       <div class="card" data-theme="light">
         <div class="steps-head" id="stepsHead"></div>
         <div id="rampsLight" class="ramps"></div>
@@ -506,11 +530,27 @@
     <section class="view" data-view="family" id="view-family" role="tabpanel" tabindex="0">
       <div class="head"><h2>Brand family</h2><span class="meta" id="famMeta"></span></div>
       <p class="note">One parent and its sisters. A sister sets its own main hue and colourfulness &mdash; it may travel a long way &mdash; and takes everything else from the parent: the same neutrals, the same six functional colours, the same lightness steps, ramp shape and token mapping. That is what makes them read as one family.</p>
-      <div class="btns" style="margin:0 0 16px">
+      <div class="btns" style="margin:0 0 12px">
         <button class="btn primary" id="btnFamAdd">Add a sister</button>
-        <button class="btn" id="btnFamSpread">Space them evenly</button>
+        <button class="btn" id="btnFamSuggest">Suggest three</button>
       </div>
-      <div id="famList" style="display:grid;gap:14px"></div>
+      <div class="card" style="margin:0 0 14px">
+        <h3>The shape of the family</h3>
+        <div class="shaperow">
+          <div class="seg" id="shapeSeg" role="group" aria-label="Family shape">
+            <button data-shape="spread" aria-selected="true">Spread</button>
+            <button data-shape="analogous" aria-selected="false">Analogous</button>
+            <button data-shape="wings" aria-selected="false">Two wings</button>
+            <button data-shape="triad" aria-selected="false">Triad</button>
+          </div>
+          <div class="row" style="flex:1 1 220px"><label for="famWidth">How wide</label>
+            <input type="range" id="famWidth" min="20" max="180" step="5" value="90"><output id="ofamWidth">90°</output></div>
+        </div>
+        <p class="hint" id="shapeNote" style="margin:8px 0 0"></p>
+      </div>
+      <div id="famSuggest"></div>
+      <div class="card" id="famWheel_wrap"></div>
+      <div id="famList" style="display:grid;gap:14px;margin-top:14px"></div>
       <div class="card" style="margin-top:18px"><h3>Every sister next to the parent</h3>
         <p class="hint" style="margin:0 0 10px">The same screen in each brand, so a hue that goes weak or shouty shows up beside the others.</p>
         <div id="famStrip" style="display:grid;gap:14px"></div>
@@ -856,7 +896,7 @@ function hueClash(h, within){
     map:{ primary:700, primaryDark:400, tint:100, tintDark:900, border:200, borderDark:800, ring:600, ringDark:400, chart:600, chartDark:400 },
     nudges:{},
     share:{neutral:55, sup:22, main:15, a1:6, a2:2},
-    family:{ sisters:[] },
+    family:{ sisters:[], shape:'spread', width:90 },
     func:{}          /* only what you have moved; the rest keep their defaults */
   };
   /* ---------- reading a saved palette ----------
@@ -924,14 +964,18 @@ function hueClash(h, within){
         if(one.h !== undefined || one.c !== undefined) out.func[f.id] = one;
       });
     }
-    out.family = { sisters: [] };
+    out.family = { sisters: [], shape: SHAPES[(raw.family || {}).shape] ? raw.family.shape : 'spread',
+                   width: num((raw.family || {}).width, 90, 20, 180) };
     var ss = (raw.family || {}).sisters;
     if(Object.prototype.toString.call(ss) === '[object Array]'){
       ss.slice(0, 40).forEach(function(x, i){
         if(!x || typeof x !== 'object') return;
         out.family.sisters.push({
           id: typeof x.id === 'string' ? x.id : 's' + i + Date.now().toString(36),
+          slug: typeof x.slug === 'string' && x.slug ? x.slug : null,
           name: typeof x.name === 'string' && x.name.trim() ? x.name : 'Sister ' + (i + 1),
+          note: typeof x.note === 'string' ? x.note.slice(0, 120) : '',
+          brand: hexOr(x.brand),
           h: ((num(x.h, 0, 0, 360) % 360) + 360) % 360,
           c: num(x.c, d.main.c, 0, 0.4)
         });
@@ -1921,13 +1965,15 @@ function hueClash(h, within){
      parent's: neutrals, functional colours, steps, ramp shape, token mapping. */
   function sisters(){ return (S.family && S.family.sisters) || []; }
   function slug(n){ return String(n).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'brand'; }
+  /* the name on screen can change; what a stylesheet keys on must not */
+  function sisterSlug(sis){ return sis.slug || (sis.slug = slug(sis.name)); }
 
   /* run fn with the palette seen through a sister's eyes, then put the parent back */
   function asSister(sis, fn){
     if(!sis) return fn();
     var keep = S, nh = neutralHue();
     var alt = JSON.parse(JSON.stringify(S));
-    alt.main = { h: sis.h, c: sis.c, brand: sis.brand || null, pin: !!sis.brand };
+    alt.main = { h: sis.h, c: sis.c, brand: sis.brand || null, pin: !!sis.brand };   /* a sister's own hex is pinned like the parent's */
     if(alt.sup.rel === 'same')      alt.sup.h = sis.h;
     else if(alt.sup.rel === 'near') alt.sup.h = (sis.h + 30) % 360;
     else if(alt.sup.rel === 'far')  alt.sup.h = (sis.h + 150) % 360;
@@ -1974,6 +2020,239 @@ function hueClash(h, within){
     });
   }
 
+  /* ---------- candidates ----------
+     Everything else in this tool asks you to commit a number and then marks
+     it. These offer several colours at once and change nothing until you
+     take one, so looking costs nothing. */
+  var CANDS = null;     /* { kind:'palette'|'sister', items:[...] } — never saved */
+  function candPalette(){
+    var h = Math.floor(Math.random() * 360), guard = 0;
+    while(hueClash(h, 22) && guard++ < 60) h = Math.floor(Math.random() * 360);
+    var rel = ['same','near','far'][Math.floor(Math.random() * 3)];
+    return {
+      h: h, c: 0.09 + Math.random() * 0.13, rel: rel,
+      a1: (h + 140 + Math.floor(Math.random() * 80)) % 360,
+      a2: (h + 200 + Math.floor(Math.random() * 100)) % 360,
+      tint: Math.random() < 0.3 ? 0 : 0.006 + Math.random() * 0.018
+    };
+  }
+  function candApply(cand){
+    S.main.h = cand.h; S.main.c = cand.c;
+    S.sup.rel = cand.rel; el('relSup').value = cand.rel;
+    S.a1.h = cand.a1; S.a2.h = cand.a2;
+    S.neutral.c = cand.tint; S.neutral.from = 'main';
+    S.main.brand = null;                       /* a candidate is not your brand colour */
+    describe('taking a suggestion');
+    CANDS = null;
+    syncControls(); render();
+  }
+  /* a candidate is only worth showing if it holds together on its own */
+  function candSwatches(cand){
+    var keep = S, alt = JSON.parse(JSON.stringify(S));
+    alt.main = { h:cand.h, c:cand.c, brand:null, pin:false };
+    alt.sup.rel = cand.rel;
+    if(cand.rel === 'same') alt.sup.h = cand.h;
+    if(cand.rel === 'near') alt.sup.h = (cand.h + 30) % 360;
+    if(cand.rel === 'far')  alt.sup.h = (cand.h + 150) % 360;
+    alt.a1.h = cand.a1; alt.a2.h = cand.a2;
+    alt.neutral = { c:cand.tint, from:'main', h:cand.h };
+    S = alt;
+    var p, out;
+    try{
+      p = build(false);
+      out = { strip: [p.neutral, p.sup, p.main, p.a1, p.a2].map(function(r, i){
+                return stepOf(r, [100, 300, 600, 500, 700][i]).hex; }),
+              primary: stepOf(p.main, S.map.primary).hex,
+              onPrimary: textOn(stepOf(p.main, S.map.primary).hex, p) };
+    } finally { S = keep; }
+    return out;
+  }
+  function candsHtml(){
+    if(!CANDS) return '';
+    var body = CANDS.items.map(function(cand, i){
+      var v = candSwatches(cand);
+      return '<button class="cand" data-cand="' + i + '">' +
+        '<span class="cand-strip">' + v.strip.map(function(hex){
+          return '<span style="background:' + hex + '"></span>'; }).join('') + '</span>' +
+        '<span class="cand-meta"><b style="background:' + v.primary + ';color:' + v.onPrimary + '">' + Math.round(cand.h) + '°</b>' +
+        '<span>' + (cand.rel === 'same' ? 'one hue' : cand.rel === 'near' ? 'near supporting' : 'far supporting') +
+        (cand.tint < 0.002 ? ' · true grey' : '') + '</span></span></button>';
+    }).join('');
+    return '<div class="card cands"><div class="head" style="margin:0 0 8px"><h3>Six to look at</h3>' +
+      '<span class="meta">nothing changes until you take one</span></div>' +
+      '<div class="cand-row">' + body + '</div>' +
+      '<div class="btns" style="margin-top:10px"><button class="btn" id="btnCandMore">Six more</button>' +
+      '<button class="btn" id="btnCandClose">Put them away</button></div></div>';
+  }
+  function showCands(n){
+    var items = [];
+    for(var i = 0; i < (n || 6); i++) items.push(candPalette());
+    CANDS = { kind:'palette', items: items };
+    el('candsOut').innerHTML = candsHtml();
+  }
+  /* three siblings for the family, from where the parent already is */
+  function suggestSiblings(){
+    var base = S.main.h, out = [];
+    var placed = sisters().map(function(x){ return x.h; });
+    [base + 40, base + 150, base + 250].forEach(function(h){
+      var got = placeNear(((h % 360) + 360) % 360, placed.concat(out));
+      out.push(got);
+    });
+    return out;
+  }
+  function famSuggestHtml(){
+    if(!CANDS || CANDS.kind !== 'sister') return '';
+    var L = build(false);
+    var body = CANDS.items.map(function(h, i){
+      var hex = asSister({ h:h, c:S.main.c }, function(){ return stepOf(build(false).main, 600).hex; });
+      return '<button class="cand" data-sibling="' + i + '">' +
+        '<span class="cand-strip"><span style="background:' + hex + '"></span></span>' +
+        '<span class="cand-meta"><b style="background:' + hex + ';color:#fff">' + Math.round(h) + '°</b>' +
+        '<span>' + (hueGapDeg(h, S.main.h) < 60 ? 'close to the parent' : hueGapDeg(h, S.main.h) > 140 ? 'opposite the parent' : 'a step away') + '</span></span></button>';
+    }).join('');
+    return '<div class="card cands" style="margin:0 0 14px"><div class="head" style="margin:0 0 8px"><h3>Three siblings to try</h3>' +
+      '<span class="meta">clear of the parent and of every state colour</span></div>' +
+      '<div class="cand-row">' + body + '</div>' +
+      '<div class="btns" style="margin-top:10px"><button class="btn" id="btnCandMore2">Three more</button>' +
+      '<button class="btn" id="btnCandClose">Put them away</button></div></div>';
+  }
+
+  /* ---------- family shapes ----------
+     A family is rarely "evenly spaced". It has a shape: a cluster around the
+     parent, a warm wing and a cool wing, three points of a triangle. */
+  var SHAPES = {
+    spread:    { name:'Spread right round', note:'as far from each other as the wheel allows' },
+    analogous: { name:'Analogous — a cluster', note:'close siblings, one family at a glance' },
+    wings:     { name:'Two wings', note:'half warmer than the parent, half cooler' },
+    triad:     { name:'Triad', note:'three points of a triangle, then repeat' }
+  };
+  var FAM_NEAR = 26;   /* closer than this to the parent and it is not a sister, it is the parent */
+  function shapeHues(kind, n, from, width){
+    /* siblings need room: a fan of five cannot live inside sixty degrees */
+    var needed = kind === 'analogous' ? FAM_NEAR + (n - 1) * 24
+               : kind === 'wings'     ? FAM_NEAR + (Math.ceil(n / 2) - 1) * 24
+               : 0;
+    var out = [], i, span = Math.max(width, needed, FAM_NEAR + 10);
+    if(kind === 'analogous'){
+      /* a fan on one side of the parent: nearest sibling first */
+      for(i = 0; i < n; i++){
+        var t = n === 1 ? 0 : i / (n - 1);
+        out.push(from + FAM_NEAR + t * (span - FAM_NEAR));
+      }
+    } else if(kind === 'wings'){
+      /* alternating sides, stepping outward in pairs */
+      for(i = 0; i < n; i++){
+        var side = (i % 2 ? -1 : 1), pair = Math.floor(i / 2);
+        var reach = n <= 2 ? span * 0.6 : FAM_NEAR + pair / Math.max(1, Math.ceil(n / 2) - 1 || 1) * (span - FAM_NEAR);
+        out.push(from + side * reach);
+      }
+    } else if(kind === 'triad'){
+      /* the two other points of the triangle first, then the gaps between them */
+      var base = [120, 240];
+      for(i = 0; i < n; i++){
+        var round = Math.floor(i / 2);
+        out.push(from + base[i % 2] + round * 30 * (i % 2 ? -1 : 1));
+      }
+    } else {
+      var step = 360 / (n + 1);
+      for(i = 0; i < n; i++) out.push(from + step * (i + 1));
+    }
+    return out.map(function(h){ return ((h % 360) + 360) % 360; });
+  }
+  /* the nearest free hue to the one a shape asked for: clear of the parent,
+     of the siblings already placed, and of every state colour */
+  function placeNear(want, placed){
+    function free(h){
+      if(hueGapDeg(h, S.main.h) < 26) return false;
+      for(var i = 0; i < placed.length; i++) if(hueGapDeg(h, placed[i]) < 22) return false;
+      return !hueClash(h, 20);
+    }
+    if(free(want)) return want;
+    for(var step = 2; step <= 180; step += 2){
+      var up = (want + step) % 360, down = (want - step + 360) % 360;
+      if(free(up)) return up;
+      if(free(down)) return down;
+    }
+    return want;
+  }
+  function applyShape(kind){
+    var ss = sisters(); if(!ss.length) return;
+    var width = num(S.family.width, 90, 20, 180);
+    var hues = shapeHues(kind, ss.length, S.main.h, width);
+    var placed = [];
+    ss.forEach(function(sis, i){
+      var h = placeNear(hues[i], placed);
+      placed.push(h);
+      sis.h = Math.round(h);
+    });
+    S.family.shape = kind;
+    describe('shaping the family');
+    render();
+  }
+
+  /* ---------- the family on one wheel ----------
+     Seven cards in a column is not a family; a circle is. Hue is the angle,
+     colourfulness the distance from the middle, and the arcs a state colour
+     has spoken for are shaded so you can see where there is room. */
+  var WHEEL = { size: 330, rIn: 44, rOut: 120 };
+  function wheelXY(h, c){
+    var r = WHEEL.rIn + (WHEEL.rOut - WHEEL.rIn) * Math.min(c, 0.30) / 0.30;
+    var a = (h - 90) * Math.PI / 180;
+    return { x: WHEEL.size / 2 + r * Math.cos(a), y: WHEEL.size / 2 + r * Math.sin(a) };
+  }
+  function arcPath(h0, h1, r0, r1){
+    function pt(h, r){ var a = (h - 90) * Math.PI / 180;
+      return [WHEEL.size/2 + r * Math.cos(a), WHEEL.size/2 + r * Math.sin(a)]; }
+    var a0 = pt(h0, r1), a1 = pt(h1, r1), b1 = pt(h1, r0), b0 = pt(h0, r0);
+    var large = ((h1 - h0 + 360) % 360) > 180 ? 1 : 0;
+    return 'M' + a0 + 'A' + r1 + ',' + r1 + ' 0 ' + large + ' 1 ' + a1 +
+           'L' + b1 + 'A' + r0 + ',' + r0 + ' 0 ' + large + ' 0 ' + b0 + 'Z';
+  }
+  function famWheelHtml(L){
+    var sz = WHEEL.size, mid = sz / 2;
+    /* the wheel itself, in the palette's own chroma so it is not a stock rainbow */
+    var ring = [];
+    for(var h = 0; h < 360; h += 4){
+      ring.push('<path d="' + arcPath(h, h + 4.4, WHEEL.rIn, WHEEL.rOut) +
+        '" fill="' + oklchToHex(0.74, 0.16, h, S.shape.gamut) + '" opacity=".78"/>');
+    }
+    /* what the state colours have spoken for */
+    var taken = FUNCTIONAL.map(function(f){
+      var fh = funcOf(f).h;
+      return '<path d="' + arcPath(fh - 19, fh + 19, WHEEL.rOut + 3, WHEEL.rOut + 11) +
+        '" fill="' + stepOf(L[f.id], 500).hex + '" opacity=".9"><title>' + f.name + ' — ' + Math.round(fh) + '°, and 19° either side</title></path>';
+    }).join('');
+    var dots = famMembers().map(function(m){
+      var p = wheelXY(m.h, m.c), fill = stepOf(asSister(m.parent ? null : m, function(){ return build(false).main; }), 600).hex;
+      var r = m.parent ? 13 : 10;
+      return '<g class="wdot' + (m.parent ? ' is-parent' : '') + '" data-wheel="' + (m.parent ? 'parent' : m.id) + '" tabindex="0" role="button"' +
+        ' aria-label="' + m.name + ', hue ' + Math.round(m.h) + ' degrees">' +
+        '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="' + (r + 4) + '" fill="var(--panel)"/>' +
+        '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="' + r + '" fill="' + fill + '"' +
+          (m.brand ? ' stroke="var(--ink)" stroke-width="2.5"' : '') + '>' +
+          '<title>' + m.name + ' · ' + Math.round(m.h) + '°' + (m.note ? ' · ' + m.note : '') + '</title></circle>' +
+        '</g>';
+    }).join('');
+    var labels = famMembers().map(function(m, i){
+      /* two brands on a similar hue would write over each other, so the labels
+         step outward in turn */
+      var a = (m.h - 90) * Math.PI / 180, r = WHEEL.rOut + 26 + (i % 2) * 15;
+      var x = WHEEL.size/2 + r * Math.cos(a), y = WHEEL.size/2 + r * Math.sin(a);
+      var anchor = Math.cos(a) > 0.3 ? 'start' : (Math.cos(a) < -0.3 ? 'end' : 'middle');
+      return '<text x="' + x.toFixed(1) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="' + anchor + '" class="wlabel">' +
+        m.name + ' <tspan class="wdeg">' + Math.round(m.h) + '°</tspan></text>';
+    }).join('');
+    var pad = 74, padY = 18;   /* room for the labels outside the ring */
+    return '<div class="wheelwrap"><svg id="famWheel" viewBox="' + (-pad) + ' ' + (-padY) + ' ' + (sz + pad * 2) + ' ' + (sz + padY * 2) +
+      '" width="' + (sz + pad * 2) + '" height="' + (sz + padY * 2) + '" role="img" aria-label="The family on a hue wheel">' +
+        ring.join('') + taken +
+        '<circle cx="' + mid + '" cy="' + mid + '" r="' + WHEEL.rIn + '" fill="var(--panel)"/>' +
+        '<circle cx="' + mid + '" cy="' + mid + '" r="' + WHEEL.rOut + '" fill="none" stroke="var(--line)"/>' +
+        dots + labels +
+      '</svg>' +
+      '<div class="wheelnote"><p class="hint" style="margin:0">Drag a dot to move that brand: round for its hue, in and out for how colourful it is. The band outside the ring is what the state colours have spoken for — a brand sitting under it will be mistaken for a status. A ringed dot is a brand colour you pasted.</p></div></div>';
+  }
+
   function famListHtml(){
     var ms = famMembers();
     return ms.map(function(m){
@@ -1986,14 +2265,20 @@ function hueClash(h, within){
       });
       var controls = m.parent
         ? '<p class="hint" style="margin:0">The parent takes its hue from the Main control in the rail. Its neutrals and functional colours are the ones every sister inherits.</p>'
-        : '<div class="row" style="margin-top:4px"><label>Hue</label><input type="range" data-fam="h" data-id="' + m.id + '" min="0" max="360" step="1" value="' + Math.round(m.h) + '"><output>' + Math.round(m.h) + '</output></div>' +
-          '<div class="row"><label>Colourfulness</label><input type="range" data-fam="c" data-id="' + m.id + '" min="0.02" max="0.30" step="0.005" value="' + m.c + '"><output>' + m.c.toFixed(3).replace(/^0/,'') + '</output></div>';
+        : '<div class="famgrid">' +
+            '<label class="famfield"><span>Brand hex</span><input type="text" data-fam="hex" data-id="' + m.id + '" value="' + (m.brand || '') + '" placeholder="#______" spellcheck="false"></label>' +
+            '<label class="famfield"><span>What it is for</span><input type="text" data-fam="note" data-id="' + m.id + '" value="' + (m.note || '').replace(/"/g,'&quot;') + '" placeholder="the further-education arm"></label>' +
+          '</div>' +
+          (m.brand ? '<p class="hint" style="margin:2px 0 0">Built around <span class="mono">' + m.brand + '</span>, pinned into this sister\'s ramp.</p>' : '') +
+          '<div class="row" style="margin-top:4px"><label>Hue</label><input type="range" data-fam="h" data-id="' + m.id + '" min="0" max="360" step="1" value="' + Math.round(m.h) + '"><output>' + Math.round(m.h) + '</output></div>' +
+          '<div class="row"><label>Colourfulness</label><input type="range" data-fam="c" data-id="' + m.id + '" min="0.02" max="0.30" step="0.005" value="' + m.c + '"><output>' + m.c.toFixed(3).replace(/^0/,'') + '</output></div>' +
+          '<p class="hint" style="margin:6px 0 0">Ships as <code>[data-brand="' + sisterSlug(m) + '"]</code>. Renaming does not change that, so a stylesheet already in use keeps working.</p>';
       return '<div class="card">' +
         '<div class="pv-row" style="justify-content:space-between;align-items:baseline">' +
           (m.parent
             ? '<h3 style="margin:0">' + m.name + ' <span class="muted" style="font-weight:400">· parent</span></h3>'
             : '<input type="text" data-fam="name" data-id="' + m.id + '" value="' + m.name + '" style="font-weight:600;max-width:15em">') +
-          '<span class="muted mono">' + Math.round(m.h) + '° · ' + (m.parent ? 'main' : slug(m.name)) + '</span>' +
+          '<span class="muted mono">' + Math.round(m.h) + '° · ' + (m.parent ? 'main' : sisterSlug(m)) + '</span>' +
         '</div>' +
         '<div style="display:flex;border-radius:8px;overflow:hidden;margin:10px 0 6px">' + strip + '</div>' +
         controls +
@@ -2033,7 +2318,7 @@ function hueClash(h, within){
     return '/* ' + (S.name || 'Family') + ' — the family, generated by Palette (OKLCH) */\n' +
       '/* Neutrals and functional colours come from the parent and are the same in every block. */\n\n' +
       ms.map(function(m){
-        var sel = m.parent ? ':root' : '[data-brand="' + slug(m.name) + '"]';
+        var sel = m.parent ? ':root' : '[data-brand="' + sisterSlug(m) + '"]';
         return asSister(m.parent ? null : m, function(){
           var L = build(false), D = build(true);
           function block(p, s2, dark){
@@ -2044,8 +2329,11 @@ function hueClash(h, within){
             });
             return s2 + ' {\n' + lines.join('\n') + '\n}';
           }
-          return '/* ' + m.name + ' — ' + Math.round(m.h) + '° */\n' +
-            block(L, sel, false) + '\n\n' + block(D, (m.parent ? '.dark' : sel + '.dark, .dark ' + sel), true);
+          var brandLine = (!m.parent && m.brand)
+            ? sel + ' {\n  --main-brand: ' + m.brand.toLowerCase() + ';   /* the exact colour you were given */\n}\n\n'
+            : '';
+          return '/* ' + m.name + ' — ' + Math.round(m.h) + '°' + (m.note ? ' — ' + m.note : '') + ' */\n' +
+            brandLine + block(L, sel, false) + '\n\n' + block(D, (m.parent ? '.dark' : sel + '.dark, .dark ' + sel), true);
         });
       }).join('\n\n') + '\n';
   }
@@ -2412,6 +2700,7 @@ function hueClash(h, within){
     el('stepsHeadDark').innerHTML = stepsHeadHtml();
     el('rampsLight').innerHTML = rampsHtml(L,false);
     el('rampsDark').innerHTML = rampsHtml(D,true);
+    el('candsOut').innerHTML = (CANDS && CANDS.kind === 'palette') ? candsHtml() : '';
     el('gapsLight').innerHTML = spacingStripHtml(L);
     el('gapsDark').innerHTML = spacingStripHtml(D);
     applyValues();
@@ -2458,6 +2747,25 @@ function hueClash(h, within){
       applyCvd();
     },
     family: function(L, D){
+    el('famSuggest').innerHTML = famSuggestHtml();
+    el('famWheel_wrap').innerHTML = famWheelHtml(L);
+    (function(){
+      var kind = (S.family && S.family.shape) || 'spread';
+      [].forEach.call(el('shapeSeg').children, function(x){ x.setAttribute('aria-selected', String(x.dataset.shape === kind)); });
+      el('famWidth').value = S.family.width || 90;
+      el('ofamWidth').textContent = (S.family.width || 90) + '°';
+      var ss = sisters().length;
+      var want = S.family.width || 90;
+      var need = kind === 'analogous' ? FAM_NEAR + (ss - 1) * 24
+               : kind === 'wings' ? FAM_NEAR + (Math.ceil(ss / 2) - 1) * 24 : 0;
+      el('shapeNote').textContent = ss
+        ? SHAPES[kind].name + ' — ' + SHAPES[kind].note + '. ' +
+          (need > want
+            ? ss + ' siblings will not fit inside ' + want + '°, so this one is using ' + Math.round(need) + '°. Widen it, or keep fewer.'
+            : 'How wide sets how far the siblings travel from the parent.') +
+          ' Nothing is placed within ' + FAM_NEAR + '° of the parent or on a state colour.'
+        : 'Add a sister and these arrange the family around the parent.';
+    })();
     el('famList').innerHTML = famListHtml();
     el('famStrip').innerHTML = forThemes(L, D, function(p, dk){ return famStripHtml(dk); });
     applyCvd();
@@ -2734,23 +3042,80 @@ function hueClash(h, within){
     if(v) libLoad(v); else { CURRENT = null; libUi(); }
   });
 
+  /* dragging on the wheel is the same change as moving the two sliders */
+  var WDRAG = null;
+  function wheelValue(e){
+    var svg = el('famWheel'); if(!svg) return null;
+    var box = svg.getBoundingClientRect();
+    /* the drawing is wider than the wheel, so map through the viewBox */
+    var vb = svg.viewBox.baseVal;
+    var x = vb.x + (e.clientX - box.left) / box.width * vb.width - WHEEL.size / 2;
+    var y = vb.y + (e.clientY - box.top) / box.height * vb.height - WHEEL.size / 2;
+    var h = (Math.atan2(y, x) * 180 / Math.PI + 90 + 360) % 360;
+    var r = Math.sqrt(x*x + y*y);
+    var c = (r - WHEEL.rIn) / (WHEEL.rOut - WHEEL.rIn) * 0.30;
+    return { h: Math.round(h), c: Math.max(0.02, Math.min(0.30, c)) };
+  }
+  document.addEventListener('pointerdown', function(e){
+    var g = e.target.closest('[data-wheel]'); if(!g) return;
+    WDRAG = g.dataset.wheel; e.preventDefault();
+  });
+  document.addEventListener('pointermove', function(e){
+    if(!WDRAG) return;
+    var v = wheelValue(e); if(!v) return;
+    if(WDRAG === 'parent'){ S.main.h = v.h; S.main.c = v.c; dragging('wheel:parent'); describe('the parent’s hue'); }
+    else {
+      var sis = sisters().filter(function(x){ return x.id === WDRAG; })[0]; if(!sis) return;
+      sis.h = v.h; sis.c = v.c; dragging('wheel:' + WDRAG); describe(sis.name + '’s hue');
+    }
+    syncControls();
+    render();
+  });
+  document.addEventListener('pointerup', function(){ WDRAG = null; });
+
+  document.addEventListener('click', function(e){
+    var c = e.target.closest('[data-cand]');
+    if(c){ candApply(CANDS.items[+c.dataset.cand]); return; }
+    var sib = e.target.closest('[data-sibling]');
+    if(sib){
+      var h = CANDS.items[+sib.dataset.sibling];
+      var nth = sisters().length + 1;
+      S.family.sisters.push({ id:'s' + Date.now().toString(36), slug:'sister-' + nth,
+        name:'Sister ' + nth, note:'', brand:null, h:h, c:S.main.c });
+      CANDS = null;
+      describe('taking a suggested sibling');
+      render();
+      return;
+    }
+    if(e.target.id === 'btnCandMore'){ showCands(6); return; }
+    if(e.target.id === 'btnCandMore2'){ CANDS = { kind:'sister', items: suggestSiblings() }; render(); return; }
+    if(e.target.id === 'btnCandClose'){ CANDS = null; el('candsOut').innerHTML = ''; render(); return; }
+  });
+  el('btnCandShow').addEventListener('click', function(){ showCands(6); });
+  el('btnFamSuggest').addEventListener('click', function(){
+    CANDS = { kind:'sister', items: suggestSiblings() };
+    render();
+  });
+
   /* ---------- family controls ---------- */
   el('btnFamAdd').addEventListener('click', function(){
     S.family = S.family || { sisters:[] };
     var h = freeHue();
-    S.family.sisters.push({ id:'s' + Date.now().toString(36), name:'Sister ' + (S.family.sisters.length + 1), h:h, c:S.main.c });
+    var nth = S.family.sisters.length + 1;
+    S.family.sisters.push({ id:'s' + Date.now().toString(36), slug:'sister-' + nth,
+      name:'Sister ' + nth, note:'', brand:null, h:h, c:S.main.c });
     describe('adding a sister'); render();
   });
-  /* push the sisters apart so no two are mistaken for each other */
-  el('btnFamSpread').addEventListener('click', function(){
-    var ss = sisters(); if(!ss.length) return;
-    var step = 360 / (ss.length + 1);
-    ss.forEach(function(sis, i){
-      var h = (S.main.h + step * (i + 1)) % 360, guard = 0;
-      while(hueClash(h) && guard++ < 40) h = (h + 3) % 360;   /* step off a functional hue */
-      sis.h = Math.round(h);
-    });
-    render();
+  el('shapeSeg').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-shape]'); if(!b) return;
+    [].forEach.call(el('shapeSeg').children, function(x){ x.setAttribute('aria-selected', String(x === b)); });
+    applyShape(b.dataset.shape);
+  });
+  el('famWidth').addEventListener('input', function(){
+    S.family.width = +el('famWidth').value;
+    el('ofamWidth').textContent = S.family.width + '°';
+    dragging('famwidth');
+    applyShape(S.family.shape || 'spread');
   });
   el('famList').addEventListener('input', function(e){
     var i = e.target.closest('[data-fam]'); if(!i) return;
@@ -2761,9 +3126,21 @@ function hueClash(h, within){
     render();
   });
   el('famList').addEventListener('change', function(e){
-    var i = e.target.closest('[data-fam="name"]'); if(!i) return;
+    var i = e.target.closest('[data-fam]'); if(!i || i.type !== 'text') return;
     var sis = sisters().filter(function(x){ return x.id === i.dataset.id; })[0]; if(!sis) return;
-    sis.name = i.value.trim() || 'Sister';
+    var kind = i.dataset.fam;
+    if(kind === 'name'){ sis.name = i.value.trim() || 'Sister'; sisterSlug(sis); describe('renaming a sister'); }
+    else if(kind === 'note'){ sis.note = i.value.trim().slice(0, 120); describe('what a sister is for'); }
+    else if(kind === 'hex'){
+      var v = i.value.trim();
+      if(!v){ sis.brand = null; describe('forgetting a sister’s colour'); }
+      else if(/^#?[0-9a-f]{6}$/i.test(v)){
+        var hex = (v[0] === '#' ? v : '#' + v).toUpperCase();
+        var c = hexToOklch(hex);
+        sis.brand = hex; sis.h = c.h; sis.c = Math.min(c.C, 0.32);
+        describe('pasting ' + hex + ' into ' + sis.name);
+      } else { return; }
+    } else return;
     render();
   });
   el('famList').addEventListener('click', function(e){

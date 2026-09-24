@@ -190,6 +190,28 @@
   .gapstrip span:not(:first-child){transform:translateX(-50%)}
   .gapstrip span{padding:3px 0}
   .gapstrip span.tight{color:var(--bad);font-weight:600}
+  .cands{margin:0 0 14px}
+  .cand-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .cand{display:grid;gap:7px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--bg);cursor:pointer;text-align:left}
+  .cand:hover{border-color:var(--ink-3)}
+  .cand-strip{display:flex;height:42px;border-radius:7px;overflow:hidden}
+  .cand-strip span{flex:1}
+  .cand-meta{display:flex;align-items:center;gap:8px;font-size:.72rem;color:var(--ink-3)}
+  .cand-meta b{font-family:var(--mono);font-size:.68rem;padding:2px 7px;border-radius:999px;font-weight:600}
+  .shaperow{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .shaperow .row{margin:0}
+  .wheelwrap{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+  .wheelwrap svg{touch-action:none;flex:0 0 auto}
+  .wheelnote{flex:1 1 240px;min-width:0}
+  .wdot{cursor:grab}
+  .wdot:active{cursor:grabbing}
+  .wdot:focus-visible{outline:none}
+  .wdot:focus-visible circle:last-of-type{stroke:var(--accent);stroke-width:3}
+  .wlabel{font-size:10.5px;font-family:var(--sans);fill:var(--ink);font-weight:600;paint-order:stroke;stroke:var(--panel);stroke-width:3.5px}
+  .wdeg{font-family:var(--mono);font-weight:400;font-size:9px;fill:var(--ink-3)}
+  .famgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:8px 0 2px}
+  .famfield{display:grid;gap:4px;font-size:.72rem;color:var(--ink-3)}
+  .famfield input{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:7px 9px;font-size:.82rem}
   .notice{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px;padding:9px 12px;
     border:1px solid var(--line);border-radius:10px;background:var(--panel);font-size:.8rem;color:var(--ink-2)}
   .notice.bad{border-color:color-mix(in oklab, var(--bad) 55%, var(--line));color:var(--bad)}
