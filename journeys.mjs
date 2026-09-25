@@ -1583,29 +1583,30 @@ await journey('the shelf catches what gets replaced', async () => {
                            shelf: document.querySelectorAll('[data-shelf]').length,
                            undo: document.getElementById('btnUndo').textContent })`);
   assert(state.hue === '111', 'the shelved palette did not come back: ' + state.hue);
-  assert(state.shelf === 2, 'taking one off the shelf did not leave the other one there: ' + state.shelf);
+  assert(state.shelf === 1, 'taking one off the shelf should swap, leaving one: ' + state.shelf);
   assert(/shelf/.test(state.undo), 'it cannot be undone by name: ' + state.undo);
 
   /* a reset is caught too, and one can be put there by hand */
   await click('#btnReset');
   await sleep(400);
-  assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 3, 'a reset threw the palette away');
+  assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 2, 'a reset threw the palette away');
   await click('#btnShelve');
   await sleep(300);
-  assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 4, 'putting one there by hand did nothing');
+  const after = await evalJs(`document.querySelectorAll('[data-shelf]').length`);
   /* the same thing twice is not two things */
   await click('#btnShelve');
   await sleep(300);
-  assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 4, 'the shelf filled up with the same palette');
+  assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === after, 'the shelf filled up with the same palette');
 
   /* one can be dropped — it asks first — and the shelf survives a reload */
+  const before = await evalJs(`document.querySelectorAll('[data-shelf]').length`);
   await click('[data-shelfdrop]');
   await click('[data-shelfdrop]');
   await sleep(300);
-  assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 3, 'dropping one did nothing');
+  assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === before - 1, 'dropping one did nothing');
   await send('Page.navigate', { url: URL_ + '?sh=' + Date.now() });
   await sleep(1600);
-  assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 3, 'the shelf did not survive a reload');
+  assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === before - 1, 'the shelf did not survive a reload');
   await click('#btnShelfClear');
   await click('#btnShelfClear');
   await sleep(300);
@@ -1833,6 +1834,7 @@ await journey('every step can be reached', async () => {
 
 /* 45 — the tool is quiet by default, and explains itself when asked */
 await journey('the explaining is there when wanted and out of the way when not', async () => {
+  await click('#btnExplain');          /* a first visit explains; this is the second week */
   await type('xMain', '#0B6E4F');
   await click('#tabs button', 6);
   await click('#btnFamAdd');
@@ -1903,13 +1905,120 @@ await journey('the explaining is there when wanted and out of the way when not',
   assert(still === 'true', 'the choice to have things explained was forgotten');
   await click('#btnExplain');
   const off = await words();
-  assert(off.total < 220, 'turning it off again did not quieten the tool: ' + off.total);
+  assert(off.total < 40, 'turning it off again did not quieten the tool: ' + off.total);
 
   /* with it off, a word can still be looked up one at a time */
   await click('.term', 0);
   const gloss = await evalJs(`(() => ({ open: document.getElementById('gloss').open,
     entries: document.querySelectorAll('#glossList dt').length }))()`);
   assert(gloss.open && gloss.entries > 20, 'the glossary went with the explaining');
+});
+
+/* 46 — being quiet is not the same as being silent about what you can do */
+await journey('what you can do is always on screen, even when nothing is explained', async () => {
+  const explaining = await evalJs(`document.getElementById('btnExplain').getAttribute('aria-pressed')`);
+  if (explaining === 'true') await click('#btnExplain');          /* the quiet state */
+
+  /* no line that tells you what you can do is allowed to be hidden */
+  const swallowed = await evalJs(`(() => {
+    const doing = /\b(drop|drag|click|hover|double-click|press) /i;
+    return [...document.querySelectorAll('.teach')]
+      .map(el => el.textContent.replace(/\s+/g, ' ').trim())
+      .filter(t => doing.test(t))
+      .map(t => t.slice(0, 80)); })()`);
+  assert(swallowed.length === 0,
+    swallowed.length + ' lines telling you what you can do are hidden: ' + swallowed.slice(0, 3).join(' // '));
+
+  /* the interactions that have no other route must say so on screen */
+  await click('#btnPickOpen');
+  const picture = await evalJs(`document.getElementById('pickDrop').innerText.replace(/\s+/g,' ').trim()`);
+  assert(/drop|choose/i.test(picture), 'the drop zone does not say it is one: ' + JSON.stringify(picture));
+  assert(picture.split(' ').length > 3, 'the picture panel is an empty box: ' + JSON.stringify(picture));
+
+  const ramps = await evalJs(`(() => [...document.querySelectorAll('#view-ramps .hint, #view-ramps .note')]
+    .filter(el => el.offsetParent !== null).map(el => el.innerText).join(' '))()`);
+  assert(/click/i.test(ramps), 'nothing says a swatch can be clicked: ' + JSON.stringify(ramps));
+
+  await click('#tabs button', 6);
+  const wheel = await evalJs(`document.querySelector('.wheelnote').innerText.replace(/\s+/g,' ').trim()`);
+  assert(/drag|arrow/i.test(wheel), 'the wheel does not say it can be moved: ' + JSON.stringify(wheel));
+
+  /* and the short version really is short */
+  const words = t => t.trim().split(/\s+/).length;
+  assert(words(wheel) < 30, 'the wheel note is a paragraph again: ' + words(wheel));
+  assert(words(picture) < 30, 'the picture panel is a paragraph again: ' + words(picture));
+
+  /* the rationale is still gone */
+  const rationale = await evalJs(`(() => [...document.querySelectorAll('.teach')]
+    .filter(el => getComputedStyle(el).display !== 'none').length)()`);
+  assert(rationale === 0, rationale + ' lines of rationale are showing while explaining is off');
+});
+
+/* 47 — a first visit is not the expert view, and a build can be named */
+await journey('a newcomer is told things, and anyone can say which build they have', async () => {
+  await evalJs(`localStorage.clear(); sessionStorage.clear()`);
+  await send('Page.navigate', { url: URL_ + '?first=' + Date.now() });
+  await sleep(1700);
+  const first = await evalJs(`(() => ({ explaining: document.getElementById('btnExplain').getAttribute('aria-pressed'),
+    visible: [...document.querySelectorAll('.teach')].filter(e => getComputedStyle(e).display !== 'none').length }))()`);
+  assert(first.explaining === 'true', 'someone opening this for the first time gets the expert view');
+  assert(first.visible > 5, 'a first visit explains nothing: ' + first.visible);
+
+  /* turning it off is remembered, and staying off is remembered too */
+  await click('#btnExplain');
+  await send('Page.navigate', { url: URL_ + '?second=' + Date.now() });
+  await sleep(1700);
+  const second = await evalJs(`document.getElementById('btnExplain').getAttribute('aria-pressed')`);
+  assert(second === 'false', 'the tool went back to explaining after being told not to');
+
+  /* which build is this */
+  const build = await evalJs(`(() => { const el = document.getElementById('buildStamp');
+    return el ? el.textContent.replace(/\s+/g,' ').trim() : null; })()`);
+  assert(build, 'nothing on screen says which build this is');
+  assert(/20[0-9]{2}/.test(build), 'the build marker does not carry a date: ' + build);
+
+  /* and it travels with the work, so a stylesheet can be traced back */
+  await click('#tabs button', 7);
+  const css = await evalJs(`document.getElementById('outCss').textContent`);
+  assert(/20[0-9]{2}/.test(css.split('\n').slice(0, 4).join(' ')),
+    'the export does not say which build made it: ' + css.split('\n')[0]);
+});
+
+/* 48 — taking a version off the shelf is a swap, not a copy */
+await journey('the shelf holds what you are not using', async () => {
+  await click('#btnShelfToggle');
+  await setRange('hMain', 100);
+  await sleep(500);
+  await click('#btnShelve');                 /* 100 goes on the shelf */
+  await setRange('hMain', 200);
+  await sleep(500);
+  let n = await evalJs(`document.querySelectorAll('[data-shelf]').length`);
+  assert(n === 1, 'one version should be on the shelf, there are ' + n);
+
+  /* taking it back swaps: 100 comes out, 200 goes on */
+  await click('[data-shelf]');
+  await sleep(500);
+  let state = await evalJs(`(() => ({ hue: document.getElementById('hMain').value,
+    shelf: document.querySelectorAll('[data-shelf]').length,
+    hues: [...document.querySelectorAll('[data-shelf] .cand-meta b')].map(b => b.textContent.trim()) }))()`);
+  assert(state.hue === '100', 'the shelved version did not come back: ' + state.hue);
+  assert(state.shelf === 1, `the shelf went from 1 to ${state.shelf}; taking one should swap, not copy`);
+  assert(state.hues.join().includes('200'), 'the palette that was replaced is not on the shelf: ' + state.hues.join());
+
+  /* and doing it again swaps back, rather than piling up */
+  await click('[data-shelf]');
+  await sleep(500);
+  state = await evalJs(`(() => ({ hue: document.getElementById('hMain').value,
+    shelf: document.querySelectorAll('[data-shelf]').length }))()`);
+  assert(state.hue === '200', 'swapping back did not work: ' + state.hue);
+  assert(state.shelf === 1, `the shelf grew to ${state.shelf} by swapping back and forth`);
+
+  /* the same palette is never on the shelf twice */
+  await click('#btnShelve');
+  await click('#btnShelve');
+  const dupes = await evalJs(`(() => { const all = [...document.querySelectorAll('[data-shelf] .cand-meta b')].map(b => b.textContent.trim());
+    return all.length - new Set(all).size; })()`);
+  assert(dupes === 0, dupes + ' duplicate versions are on the shelf');
 });
 
 const failed = results.filter(r => !r[1]);

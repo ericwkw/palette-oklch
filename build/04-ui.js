@@ -964,6 +964,7 @@
     }
     return JSON.stringify({
       name: S.name || 'Palette',
+      build: buildStamp(),
       collection: S.name || 'Palette',
       modes: ['Light', 'Dark'],
       space: S.shape.gamut === 'p3' ? 'display-p3' : 'srgb',
@@ -1144,13 +1145,34 @@
     });
   }
 
+  /* ---------- which build is this ----------
+     The page carries its own date: whatever the server last modified. Nothing
+     to stamp at build time, and nothing that can drift out of step with the
+     file it describes. */
+  function buildStamp(){
+    var d = new Date(document.lastModified);
+    if(isNaN(d.getTime())) return 'build unknown';
+    return d.toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' }) +
+           ' ' + d.toLocaleTimeString(undefined, { hour:'2-digit', minute:'2-digit' });
+  }
+  (function(){
+    var el2 = el('buildStamp');
+    if(el2) el2.textContent = buildStamp();
+  })();
+
   /* ---------- how much the tool says ----------
      Every line that teaches carries class "teach". They are off until asked
      for, because the second week of using a tool should be quieter than the
      first. What the tool has to say about your own palette is not teaching,
      and is never hidden. */
-  var EXPLAIN = false;
-  try{ EXPLAIN = localStorage.getItem('palette-explain-v1') === '1'; }catch(e){}
+  /* the first visit is somebody's first visit: explained. After that it is
+     whatever they chose, including choosing to be left alone. */
+  var EXPLAIN = true;
+  try{
+    var pref = localStorage.getItem('palette-explain-v1');
+    if(pref !== null) EXPLAIN = pref === '1';
+    else localStorage.setItem('palette-explain-v1', '1');
+  }catch(e){}
   function explainUi(){
     document.documentElement.classList.toggle('explain', EXPLAIN);
     var b = el('btnExplain');
@@ -1198,7 +1220,8 @@
   }
   function shelve(why){
     var items = shelfRead(), snap = JSON.stringify(S);
-    if(items.length && items[0].snap === snap) return;     /* the same thing twice is not two things */
+    /* the same palette is one version however many times it is put here */
+    items = items.filter(function(it){ return it.snap !== snap; });
     items.unshift({ at: Date.now(), why: why || null, snap: snap });
     shelfWrite(items);
     shelfUi();
@@ -1243,9 +1266,13 @@
       (items.length ? '<button class="btn" id="btnShelfClear">Clear the shelf</button>' : '') + '</div></div>';
   }
   function shelfTake(i){
-    var it = shelfRead()[i]; if(!it) return;
+    var items = shelfRead(), it = items[i]; if(!it) return;
     var clean = normalise(JSON.parse(it.snap)); if(!clean) return;
-    shelve('swapped out');          /* so taking one off the shelf is itself reversible */
+    /* a swap, not a copy: the shelf holds what you are not using, so the one
+       you take comes off as the one you were using goes on */
+    items.splice(i, 1);
+    shelfWrite(items);
+    shelve('swapped out');
     S = clean; EDITING = null;
     describe('a version from the shelf');
     syncControls(); render();
@@ -1312,7 +1339,7 @@
   }
   function pickHtml(){
     if(!PICK){
-      return '<p class="hint teach" style="margin:0">Drop a photograph, a piece of artwork or a screenshot here, or choose one, and the colours it is actually made of become colours you can take.</p>';
+      return '<p class="hint" style="margin:0">Drop a picture here, or choose one.<span class="teach"> A photograph, a piece of artwork or a screenshot: the colours it is actually made of become colours you can take.</span></p>';
     }
     var chips = PICK.swatches.map(function(sw, i){
       return '<button class="cand pickchip' + (PICK.chosen === i ? ' on' : '') + '" data-pick="' + i + '">' +
@@ -1325,7 +1352,7 @@
     var chosen = PICK.chosen === null ? null : PICK.swatches[PICK.chosen];
     return '<div class="pickwrap">' +
         '<div class="pickshot"><img id="pickImg" src="' + PICK.url + '" alt="" draggable="false">' +
-          '<p class="hint teach" style="margin:6px 0 0">Click anywhere on the picture to take that exact colour.</p></div>' +
+          '<p class="hint" style="margin:6px 0 0">Click the picture to take that exact colour.</p></div>' +
         '<div class="pickside"><div class="cand-row">' + chips + '</div>' +
           (chosen
             ? '<div class="pickuse"><span class="swatch-inline"><span class="dot" style="background:' + chosen.hex + '"></span>' +
@@ -1336,7 +1363,7 @@
                 }).join('') +
                 '<button class="btn mini primary" data-pickbuild="1">Six palettes from it</button>' +
               '</div></div>'
-            : '<p class="hint teach" style="margin:10px 0 0">Pick one of these, or click the picture itself, then say what it should be.</p>') +
+            : '<p class="hint" style="margin:10px 0 0">Pick one, then say what it should be.</p>') +
         '</div></div>';
   }
   function pickUse(role, hex){
@@ -1592,7 +1619,8 @@
         '<circle cx="' + mid + '" cy="' + mid + '" r="' + WHEEL.rOut + '" fill="none" stroke="var(--line)"/>' +
         dots + labels +
       '</svg>' +
-      '<div class="wheelnote"><p class="hint teach" style="margin:0">Drag a dot to move that brand: round for its hue, in and out for how colourful it is. The band outside the ring is what the state colours have spoken for — a brand sitting under it will be mistaken for a status. A ringed dot is a brand colour you pasted.</p></div></div>';
+      '<div class="wheelnote"><p class="hint" style="margin:0">Drag a dot, or focus it and use the arrow keys: round for hue, in and out for colourfulness.' +
+        '<span class="teach"> The band outside the ring is what the state colours have spoken for — a brand sitting under it will be mistaken for a status. A ringed dot is a brand colour you pasted.</span></p></div></div>';
   }
 
   function famListHtml(){
@@ -1675,7 +1703,7 @@
 
   function famExport(){
     var ms = famMembers();
-    return '/* ' + (S.name || 'Family') + ' — the family, generated by Palette (OKLCH) */\n' +
+    return '/* ' + (S.name || 'Family') + ' — the family, generated by Palette (OKLCH), build ' + buildStamp() + ' */\n' +
       '/* Neutrals and functional colours come from the parent and are the same in every block. */\n\n' +
       ms.map(function(m){
         var sel = m.parent ? ':root' : '[data-brand="' + sisterSlug(m) + '"]';
@@ -1715,7 +1743,7 @@
     var brands = ['main','sup','a1','a2'].filter(function(k){ return S[k] && S[k].brand; })
       .map(function(k){ return '  --' + k + '-brand: ' + S[k].brand.toLowerCase() + ';   /* the exact colour you gave */'; });
     var brandBlock = brands.length ? ':root {\n' + brands.join('\n') + '\n}\n\n' : '';
-    return '/* ' + S.name + ' — generated by Palette (OKLCH) */\n\n' + brandBlock + prim + '\n\n' + block(L, ':root', false) + '\n\n' + block(D, '.dark', true) + '\n';
+    return '/* ' + S.name + ' — generated by Palette (OKLCH), build ' + buildStamp() + ' */\n\n' + brandBlock + prim + '\n\n' + block(L, ':root', false) + '\n\n' + block(D, '.dark', true) + '\n';
   }
   function jsonExport(){
     var L = build(false), D = build(true);
@@ -1727,7 +1755,7 @@
       });
       return o;
     }
-    return JSON.stringify({ name:S.name, settings:S, steps:STEPS, light:pack(L), dark:pack(D) }, null, 2);
+    return JSON.stringify({ name:S.name, build:buildStamp(), settings:S, steps:STEPS, light:pack(L), dark:pack(D) }, null, 2);
   }
 
   /* ---------- scrim check ----------
@@ -1796,7 +1824,7 @@
     }
     return head +
       '<table id="scrimStats"><thead><tr><th>In the box</th><th>Colour</th><th>Scrim white text needs</th></tr></thead><tbody>' + rows + '</tbody></table>' +
-      '<p class="hint teach">' + st.n + ' pixels sampled from the box. Drag it to where the caption will really sit; the numbers follow.</p>';
+      '<p class="hint">' + st.n + ' pixels sampled from the box.<span class="teach"> Drag it to where the caption will really sit; the numbers follow.</span></p>';
   }
 
   function shotHtml(){
@@ -1809,7 +1837,7 @@
           '<span class="cap-demo">Caption text here</span><span class="grip"></span>' +
         '</div>' +
       '</div>' +
-      '<p class="hint teach" style="margin:8px 0 14px">The box carries the scrim it recommends, so you are reading the real thing.</p>';
+      '<p class="hint" style="margin:8px 0 14px">Drag the box, or its corner, to where the caption will sit.<span class="teach"> It carries the scrim it recommends, so you are reading the real thing.</span></p>';
   }
 
   /* the same region at each scrim, to judge by eye as well as by number */
@@ -1840,7 +1868,7 @@
         '<b>'+b.name+'</b><span class="mono">'+b.hex.toUpperCase()+'</span>'+
         '<span class="pill '+(need===null?'fail':(need<=0.4?'pass':'mid'))+'">'+
         (need===null ? 'white text never passes' : 'white text passes at ' + Math.round(need*100) + '% black scrim') + '</span></div>';
-    }).join('') + '<p class="hint teach">Measured with APCA Lc 60, the body-text level. Drop an image in to measure its own pixels instead.</p>';
+    }).join('') + '<p class="hint">Drop an image in to measure its own pixels instead.<span class="teach"> Measured with APCA Lc 60, the body-text level.</span></p>';
   }
 
   function readImage(src){

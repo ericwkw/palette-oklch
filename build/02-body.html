@@ -3,6 +3,7 @@
 
   <aside class="rail">
     <div class="brand"><h1>Palette</h1><span>OKLCH studio</span></div>
+    <p class="build" id="buildStamp" title="Which build of the tool this is — useful when telling someone what you saw"></p>
     <p class="sub">Ramps on fixed lightness steps (shadcn / Tailwind 50–950), roles on top, light and dark from one source.</p>
     <div class="showing">
       <span class="showing-label">Showing</span>
@@ -52,7 +53,7 @@
       <label class="check"><input type="checkbox" id="pinMain" checked> Keep my exact colour in the ramp</label>
       <div class="row"><label for="hMain">Hue</label><input type="range" id="hMain" min="0" max="360" step="1" value="250"><output id="oMain">250</output></div>
       <div class="row"><label for="cMain">Colourfulness <button class="term" data-term="chroma" title="What does this mean?">?</button></label><input type="range" id="cMain" min="0.02" max="0.30" step="0.005" value="0.16"><output id="ocMain">.160</output></div>
-      <p class="hint teach">Paste a brand hex and the ramp is built around it: the hue and colourfulness come from your colour, the lightness comes from the shared steps. The line above shows your colour beside the step it lands on, and whether the two match.</p>
+      <p class="hint">Paste a brand hex and the ramp is built around it.<span class="teach"> The hue and colourfulness come from your colour, the lightness from the shared steps; the line above shows your colour beside the step it lands on, and whether the two match.</span></p>
     </fieldset>
 
     <fieldset data-sec="sup" data-open="1">
@@ -168,7 +169,7 @@
 
     <section class="view on" data-view="ramps" id="view-ramps" role="tabpanel" tabindex="0">
       <div class="head"><h2>Ramps</h2><span class="muted mono" id="rampMeta"></span></div>
-      <p class="note teach">Every ramp shares the same lightness steps, so a shade means the same weight whatever the hue. Chroma peaks near the middle and eases off at both ends. Hover a swatch for its step and value, click it to copy, click again to nudge it.</p>
+      <p class="note">Hover a swatch for its step and value, click it to copy, click again to nudge it.<span class="teach"> Every ramp shares the same lightness steps, so a shade means the same weight whatever the hue, and chroma peaks near the middle and eases off at both ends.</span></p>
       <div class="explore">
         <span class="explore-label">Explore</span>
         <button class="btn mini" id="btnCandShow" aria-expanded="false">Six to look at</button>
@@ -245,10 +246,10 @@
 
     <section class="view" data-view="alpha" id="view-alpha" role="tabpanel" tabindex="0">
       <div class="head"><h2>Opacity &amp; overlays</h2></div>
-      <p class="note teach">A colour at an alpha over a known background composites to an exact solid — shown here so a tint can be matched back to a real ramp step. Over photographs there is no single background, so drop an image in and the worst case is measured from its own pixels.</p>
+      <p class="note">Drop an image in and the worst case is measured from its own pixels.<span class="teach"> A colour at an alpha over a known background composites to an exact solid — shown here so a tint can be matched back to a real ramp step; over a photograph there is no single background.</span></p>
       <div class="card"><h3>Alpha over surfaces</h3><div id="alphaMatrix"></div></div>
       <div class="card"><h3>Scrims over an image</h3>
-        <p class="cap teach">No image loaded uses a light-and-dark test pattern. With an image, drag the box to where the caption will really sit &mdash; the pixels inside it are measured by percentile, so one glint of sunlight does not decide the scrim for the whole picture.</p>
+        <p class="cap">With an image, drag the box to where the caption will really sit.<span class="teach"> No image loaded uses a light-and-dark test pattern; with one, the pixels inside the box are measured by percentile, so one glint of sunlight does not decide the scrim for the whole picture.</span></p>
         <div class="field" style="grid-template-columns:7em minmax(0,1fr)"><label for="imgIn">Image</label><input type="file" id="imgIn" accept="image/*"></div>
         <div id="scrimOut"></div>
       </div>
