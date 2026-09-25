@@ -1,5 +1,7 @@
 # Palette — an OKLCH ramp studio
 
+**[Open it →](https://ericwkw.github.io/palette-oklch/)** — published from `main`, and only when the checks pass.
+
 A single HTML file. Open `index.html` in a browser; nothing to install. It is assembled from the parts in `build/` — edit those and run `./build.sh` (or `npm run build`). The committed page and its parts are checked against each other on every push, so the two cannot drift apart.
 
 Colour is generated in OKLCH and stays there: every ramp sits on the same lightness steps, so a shade means the same weight whatever the hue, and chroma is fitted to the gamut step by step so no swatch is a lie.
