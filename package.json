@@ -1,0 +1,15 @@
+{
+  "name": "palette-oklch",
+  "version": "1.0.0",
+  "private": true,
+  "description": "An OKLCH ramp studio: palettes on fixed lightness steps, light and dark from one source, with a brand family.",
+  "type": "module",
+  "scripts": {
+    "build": "./build.sh",
+    "check": "node check-build.mjs",
+    "journeys": "node journeys.mjs",
+    "test": "npm run build && npm run check && npm run journeys",
+    "start": "node serve.mjs"
+  },
+  "engines": { "node": ">=20" }
+}

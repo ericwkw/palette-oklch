@@ -1,0 +1,72 @@
+name: Check and publish
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# so the deploy job can publish to Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # the runner usually has Chrome; install one if it does not
+      - name: Make sure there is a Chrome
+        run: |
+          if [ -x /usr/bin/google-chrome ]; then
+            echo "CHROME=/usr/bin/google-chrome" >> "$GITHUB_ENV"
+          elif [ -x /usr/bin/chromium-browser ]; then
+            echo "CHROME=/usr/bin/chromium-browser" >> "$GITHUB_ENV"
+          else
+            sudo apt-get update && sudo apt-get install -y chromium-browser
+            echo "CHROME=/usr/bin/chromium-browser" >> "$GITHUB_ENV"
+          fi
+
+      # the page in the repo must be the one the parts make
+      - name: The published page matches its parts
+        run: node check-build.mjs
+
+      # every change is driven through the tool with real clicks
+      - name: Journeys
+        run: node journeys.mjs
+
+      - name: Keep the failure around
+        if: failure()
+        run: |
+          echo "The journeys drive a real browser. A failure here is a real one:"
+          echo "run 'npm test' locally to see the same thing."
+
+  publish:
+    needs: check
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gather the page
+        run: |
+          mkdir -p _site
+          cp index.html _site/index.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4

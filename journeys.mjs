@@ -8,12 +8,32 @@
  */
 import { spawn } from 'node:child_process';
 
-const URL_ = process.argv[2] || 'http://localhost:8829/index.html';
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+import { existsSync } from 'node:fs';
+import { serve } from './serve.mjs';
+
+/* Start our own server unless one was handed to us, so this runs anywhere Node
+   does — including a CI box with nothing else installed. */
+const SITE_PORT = Number(process.env.PORT || 8829);
+const URL_ = process.argv[2] || `http://localhost:${SITE_PORT}/index.html`;
+let ownServer = null;
+if (!process.argv[2]) ownServer = await serve(SITE_PORT);
+
+/* Chrome lives somewhere different on every machine */
+const CHROME = process.env.CHROME || [
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/usr/bin/google-chrome',
+  '/usr/bin/google-chrome-stable',
+  '/usr/bin/chromium-browser',
+  '/usr/bin/chromium',
+].find(p => existsSync(p));
+if (!CHROME) {
+  console.error('No Chrome found. Install one, or set CHROME=/path/to/chrome.');
+  process.exit(2);
+}
 const PORT = 9350 + Math.floor(Math.random() * 40);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${PORT}`,
+const chrome = spawn(CHROME, ['--headless=new', '--no-sandbox', '--disable-dev-shm-usage', `--remote-debugging-port=${PORT}`,
   `--user-data-dir=/tmp/journeys-${Date.now()}`, '--hide-scrollbars', '--window-size=1500,950', 'about:blank'], { stdio: 'ignore' });
 
 let target;
@@ -1796,4 +1816,5 @@ console.log('');
 results.forEach(([name, ok, why]) => console.log(`${ok ? ' ok ' : 'FAIL'}  ${name}${why ? ' — ' + why : ''}`));
 console.log(`\n${results.length - failed.length}/${results.length} journeys passed`);
 ws.close(); chrome.kill();
+if (ownServer) ownServer.close();
 process.exit(failed.length ? 1 : 0);
