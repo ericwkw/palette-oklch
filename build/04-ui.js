@@ -401,7 +401,7 @@
             (clashing.length === 1 ? ' sits' : ' sit') + ' close enough to a brand colour, or to another state, to be mistaken for it.'
           : 'Every state colour is far enough from the brand colours, and from the others, to read as a state.') +
       '</p>' +
-      '<p class="hint" style="margin:0 0 8px">A state colour is only useful if it cannot be read as brand. Moving one stays within 45° of where it started, because a Danger that lands in the greens has stopped meaning danger.</p>' +
+      '<p class="hint teach" style="margin:0 0 8px">A state colour is only useful if it cannot be read as brand. Moving one stays within 45° of where it started, because a Danger that lands in the greens has stopped meaning danger.</p>' +
       '<div class="btns" style="margin:0 0 10px"><button class="btn" id="btnFuncClear">Move them off the brand hues</button><button class="btn" id="btnFuncReset">Back to defaults</button></div>' +
       '<table><thead><tr><th style="width:38%">Meaning</th><th>Surface</th><th>Border</th><th>Text</th><th>Fill</th></tr></thead><tbody>'+rows+'</tbody></table>';
   }
@@ -531,7 +531,7 @@
     var sh = S.share, total = 0;
     SHARE_ROLES.forEach(function(k){ total += sh[k]; });
     if(!MEASURED){
-      return '<p class="hint">Open the Preview once and this will say what that screen actually covers, against the shares you set.</p>';
+      return '<p class="hint">Not measured yet — open the Preview.<span class="teach"> Whatever that screen draws is then counted and set beside the shares you asked for.</span></p>';
     }
     var rows = SHARE_ROLES.map(function(k){
       var want = sh[k] / (total || 1) * 100, got = MEASURED[k];
@@ -542,7 +542,7 @@
         '<td class="mono">' + Math.round(got) + '%</td><td>' + verdict + '</td></tr>';
     }).join('');
     return '<table><thead><tr><th>Role</th><th>You asked for</th><th>The preview draws</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>' +
-      '<p class="hint">Measured off the preview screen by area, counting only what is drawn in a role colour. One screen is not a whole product, so read it as a sanity check on the intention — not as a verdict.</p>';
+      '<p class="hint teach">Measured off the preview screen by area, counting only what is drawn in a role colour. One screen is not a whole product, so read it as a sanity check on the intention — not as a verdict.</p>';
   }
 
   /* ---------- does the brand colour reach the interface? ----------
@@ -699,7 +699,7 @@
         '<td>'+badge(r, apca(t,s.hex), false)+'</td><td>'+fix+'</td></tr>';
     }).join('');
     return '<table><thead><tr><th>Fill</th><th>Value</th><th>Label</th><th>Contrast</th><th>If it fails</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-      '<p class="hint">Button labels are body text, so 4.5 applies. A fill that fails is usually fixed by taking the next step or two down the ramp.</p>';
+      '<p class="hint teach">Button labels are body text, so 4.5 applies. A fill that fails is usually fixed by taking the next step or two down the ramp.</p>';
   }
 
   var ALPHAS = [0.04,0.08,0.12,0.16,0.24,0.40,0.60,0.80];
@@ -1144,6 +1144,25 @@
     });
   }
 
+  /* ---------- how much the tool says ----------
+     Every line that teaches carries class "teach". They are off until asked
+     for, because the second week of using a tool should be quieter than the
+     first. What the tool has to say about your own palette is not teaching,
+     and is never hidden. */
+  var EXPLAIN = false;
+  try{ EXPLAIN = localStorage.getItem('palette-explain-v1') === '1'; }catch(e){}
+  function explainUi(){
+    document.documentElement.classList.toggle('explain', EXPLAIN);
+    var b = el('btnExplain');
+    if(b){ b.setAttribute('aria-pressed', String(EXPLAIN)); b.textContent = EXPLAIN ? 'Explaining' : 'Explain'; }
+  }
+  el('btnExplain').addEventListener('click', function(){
+    EXPLAIN = !EXPLAIN;
+    try{ localStorage.setItem('palette-explain-v1', EXPLAIN ? '1' : '0'); }catch(e){}
+    explainUi();
+    announce(EXPLAIN ? 'Explaining every control' : 'Explanations hidden');
+  });
+
   /* ---------- explore band ----------
      Three ways in, each one line tall until it is asked for, so the ramps are
      the first thing on the page again. */
@@ -1219,7 +1238,7 @@
         : 'nothing on it yet') + '</span></div>' +
       (items.length
         ? '<div class="shelf-row">' + items.map(shelfChip).join('') + '</div>'
-        : '<p class="hint" style="margin:0">Anything that replaces your palette — a suggestion taken, a colour from a picture, a reset — leaves the old one here first. Nothing needs naming.</p>') +
+        : '<p class="hint teach" style="margin:0">Anything that replaces your palette — a suggestion taken, a colour from a picture, a reset — leaves the old one here first. Nothing needs naming.</p>') +
       '<div class="btns" style="margin-top:10px"><button class="btn" id="btnShelve">Put this one on the shelf</button>' +
       (items.length ? '<button class="btn" id="btnShelfClear">Clear the shelf</button>' : '') + '</div></div>';
   }
@@ -1293,7 +1312,7 @@
   }
   function pickHtml(){
     if(!PICK){
-      return '<p class="hint" style="margin:0">Drop a photograph, a piece of artwork or a screenshot here, or choose one, and the colours it is actually made of become colours you can take.</p>';
+      return '<p class="hint teach" style="margin:0">Drop a photograph, a piece of artwork or a screenshot here, or choose one, and the colours it is actually made of become colours you can take.</p>';
     }
     var chips = PICK.swatches.map(function(sw, i){
       return '<button class="cand pickchip' + (PICK.chosen === i ? ' on' : '') + '" data-pick="' + i + '">' +
@@ -1306,7 +1325,7 @@
     var chosen = PICK.chosen === null ? null : PICK.swatches[PICK.chosen];
     return '<div class="pickwrap">' +
         '<div class="pickshot"><img id="pickImg" src="' + PICK.url + '" alt="" draggable="false">' +
-          '<p class="hint" style="margin:6px 0 0">Click anywhere on the picture to take that exact colour.</p></div>' +
+          '<p class="hint teach" style="margin:6px 0 0">Click anywhere on the picture to take that exact colour.</p></div>' +
         '<div class="pickside"><div class="cand-row">' + chips + '</div>' +
           (chosen
             ? '<div class="pickuse"><span class="swatch-inline"><span class="dot" style="background:' + chosen.hex + '"></span>' +
@@ -1317,7 +1336,7 @@
                 }).join('') +
                 '<button class="btn mini primary" data-pickbuild="1">Six palettes from it</button>' +
               '</div></div>'
-            : '<p class="hint" style="margin:10px 0 0">Pick one of these, or click the picture itself, then say what it should be.</p>') +
+            : '<p class="hint teach" style="margin:10px 0 0">Pick one of these, or click the picture itself, then say what it should be.</p>') +
         '</div></div>';
   }
   function pickUse(role, hex){
@@ -1573,7 +1592,7 @@
         '<circle cx="' + mid + '" cy="' + mid + '" r="' + WHEEL.rOut + '" fill="none" stroke="var(--line)"/>' +
         dots + labels +
       '</svg>' +
-      '<div class="wheelnote"><p class="hint" style="margin:0">Drag a dot to move that brand: round for its hue, in and out for how colourful it is. The band outside the ring is what the state colours have spoken for — a brand sitting under it will be mistaken for a status. A ringed dot is a brand colour you pasted.</p></div></div>';
+      '<div class="wheelnote"><p class="hint teach" style="margin:0">Drag a dot to move that brand: round for its hue, in and out for how colourful it is. The band outside the ring is what the state colours have spoken for — a brand sitting under it will be mistaken for a status. A ringed dot is a brand colour you pasted.</p></div></div>';
   }
 
   function famListHtml(){
@@ -1587,7 +1606,7 @@
         }).join('');
       });
       var controls = m.parent
-        ? '<p class="hint" style="margin:0">The parent takes its hue from the Main control in the rail. Its neutrals and functional colours are the ones every sister inherits.</p>'
+        ? '<p class="hint teach" style="margin:0">The parent takes its hue from the Main control in the rail. Its neutrals and functional colours are the ones every sister inherits.</p>'
         : '<div class="famgrid">' +
             '<label class="famfield"><span>Brand hex</span><input type="text" data-fam="hex" data-id="' + m.id + '" value="' + (m.brand || '') + '" placeholder="#______" spellcheck="false"></label>' +
             '<label class="famfield"><span>What it is for</span><input type="text" data-fam="note" data-id="' + m.id + '" value="' + (m.note || '').replace(/"/g,'&quot;') + '" placeholder="the further-education arm"></label>' +
@@ -1603,7 +1622,7 @@
             : '') +
           '<div class="row" style="margin-top:4px"><label>Hue</label><input type="range" data-fam="h" data-id="' + m.id + '" min="0" max="360" step="1" value="' + Math.round(m.h) + '"><output>' + Math.round(m.h) + '</output></div>' +
           '<div class="row"><label>Colourfulness</label><input type="range" data-fam="c" data-id="' + m.id + '" min="0.02" max="0.30" step="0.005" value="' + m.c + '"><output>' + m.c.toFixed(3).replace(/^0/,'') + '</output></div>' +
-          '<p class="hint" style="margin:6px 0 0">Ships as <code>[data-brand="' + sisterSlug(m) + '"]</code>. Renaming does not change that, so a stylesheet already in use keeps working.</p>';
+          '<p class="hint teach" style="margin:6px 0 0">Ships as <code>[data-brand="' + sisterSlug(m) + '"]</code>. Renaming does not change that, so a stylesheet already in use keeps working.</p>';
       return '<div class="card">' +
         '<div class="pv-row" style="justify-content:space-between;align-items:baseline">' +
           (m.parent
@@ -1633,7 +1652,7 @@
     var html = asSister(m.parent ? null : m, function(){ return previewHtml(build(dark), dark); });
     return '<div class="brandrow">' + chooser + '</div>' +
       '<p class="hint" style="margin:8px 0 6px">' + m.name + ' · ' + Math.round(m.h) + '°' + (m.note ? ' · ' + m.note : '') +
-        ' — the same screen is drawn for whichever brand you pick, so they can be held against each other one at a time.</p>' + html;
+        '<span class="teach"> — the same screen is drawn for whichever brand you pick, so they can be held against each other one at a time.</span></p>' + html;
   }
 
   function famParityHtml(dark){
@@ -1651,7 +1670,7 @@
         '<td style="color:' + (ok ? 'inherit' : 'var(--bad)') + '">' + note + '</td></tr>';
     }).join('');
     return '<table><thead><tr><th>Brand</th><th>Button against the page</th><th>Label on the button</th><th>Reading</th></tr></thead><tbody>' + rows + '</tbody></table>' +
-      '<p class="hint">A sister whose button is much quieter or much louder than the parent&rsquo;s will look like a different product, however close the hue is.</p>';
+      '<p class="hint teach">A sister whose button is much quieter or much louder than the parent&rsquo;s will look like a different product, however close the hue is.</p>';
   }
 
   function famExport(){
@@ -1777,7 +1796,7 @@
     }
     return head +
       '<table id="scrimStats"><thead><tr><th>In the box</th><th>Colour</th><th>Scrim white text needs</th></tr></thead><tbody>' + rows + '</tbody></table>' +
-      '<p class="hint">' + st.n + ' pixels sampled from the box. Drag it to where the caption will really sit; the numbers follow.</p>';
+      '<p class="hint teach">' + st.n + ' pixels sampled from the box. Drag it to where the caption will really sit; the numbers follow.</p>';
   }
 
   function shotHtml(){
@@ -1790,7 +1809,7 @@
           '<span class="cap-demo">Caption text here</span><span class="grip"></span>' +
         '</div>' +
       '</div>' +
-      '<p class="hint" style="margin:8px 0 14px">The box carries the scrim it recommends, so you are reading the real thing.</p>';
+      '<p class="hint teach" style="margin:8px 0 14px">The box carries the scrim it recommends, so you are reading the real thing.</p>';
   }
 
   /* the same region at each scrim, to judge by eye as well as by number */
@@ -1821,7 +1840,7 @@
         '<b>'+b.name+'</b><span class="mono">'+b.hex.toUpperCase()+'</span>'+
         '<span class="pill '+(need===null?'fail':(need<=0.4?'pass':'mid'))+'">'+
         (need===null ? 'white text never passes' : 'white text passes at ' + Math.round(need*100) + '% black scrim') + '</span></div>';
-    }).join('') + '<p class="hint">Measured with APCA Lc 60, the body-text level. Drop an image in to measure its own pixels instead.</p>';
+    }).join('') + '<p class="hint teach">Measured with APCA Lc 60, the body-text level. Drop an image in to measure its own pixels instead.</p>';
   }
 
   function readImage(src){
@@ -1955,7 +1974,7 @@
       '<div class="row"><label for="edL">Lightness</label><input type="range" id="edL" min="-0.12" max="0.12" step="0.005" value="'+(n.dL||0)+'"><output>'+(n.dL>0?'+':'')+(n.dL||0).toFixed(3)+'</output></div>' +
       '<div class="row"><label for="edC">Colourfulness</label><input type="range" id="edC" min="-0.10" max="0.10" step="0.005" value="'+(n.dC||0)+'"><output>'+(n.dC>0?'+':'')+(n.dC||0).toFixed(3)+'</output></div>' +
       neighbourNoteHtml(ramp, EDITING.step) +
-      '<p class="hint">Nudges this one step only; the rest of the ramp stays where it is. A dashed outline marks steps you have moved.</p>';
+      '<p class="hint teach">Nudges this one step only; the rest of the ramp stays where it is. A dashed outline marks steps you have moved.</p>';
     function setNudge(key, val){
       S.nudges[EDITING.role] = S.nudges[EDITING.role] || {};
       var cur = S.nudges[EDITING.role][EDITING.step] || { dL:0, dC:0 };
@@ -2107,12 +2126,13 @@
       var want = S.family.width || 90;
       var need = kind === 'analogous' ? FAM_NEAR + (ss - 1) * 24
                : kind === 'wings' ? FAM_NEAR + (Math.ceil(ss / 2) - 1) * 24 : 0;
-      el('shapeNote').textContent = ss
-        ? SHAPES[kind].name + ' — ' + SHAPES[kind].note + '. ' +
+      el('shapeNote').innerHTML = ss
+        ? SHAPES[kind].name +
           (need > want
-            ? ss + ' siblings will not fit inside ' + want + '°, so this one is using ' + Math.round(need) + '°. Widen it, or keep fewer.'
-            : 'How wide sets how far the siblings travel from the parent.') +
-          ' Nothing is placed within ' + FAM_NEAR + '° of the parent or on a state colour.'
+            ? '. ' + ss + ' siblings will not fit inside ' + want + '°, so this one is using ' + Math.round(need) + '°.'
+            : '') +
+          '<span class="teach"> — ' + SHAPES[kind].note + '. How wide sets how far the siblings travel from the parent, and nothing is placed within ' +
+          FAM_NEAR + '° of the parent or on a state colour.</span>'
         : 'Add a sister and these arrange the family around the parent.';
     })();
     el('famList').innerHTML = famListHtml();
@@ -2758,7 +2778,7 @@
         var shown = kind ? simulate(c[1], kind) : c[1];
         return '<span class="swatch-inline" style="gap:6px"><span class="dot" style="background:' + shown + ';width:18px;height:18px"></span>' + c[0] + '</span>';
       }).join('');
-    return '<p class="hint" style="margin:0 0 10px">' +
+    return '<p class="hint teach" style="margin:0 0 10px">' +
         (kind ? CVD[kind].name + ' — ' + CVD[kind].note + '. The swatches below are your colours as that eye receives them.'
               : 'Ordinary colour vision. Switch above to see the same colours through each kind of colour blindness.') + '</p>' +
       '<div class="legend" style="margin-bottom:12px">' + chips + '</div>' +
@@ -2827,7 +2847,7 @@
       var tight = g < f.hi * 0.55;
       return '<span class="' + (tight ? 'tight' : '') + '" title="' + f.ratios[i].toFixed(2) + ':1 between these two">' + g.toFixed(1) + '</span>';
     }).join('') + '</div>' +
-      '<p class="hint" style="margin:6px 0 0">Lightness between neighbouring steps, in points. ' +
+      '<p class="hint teach" style="margin:6px 0 0">Lightness between neighbouring steps, in points. ' +
       (f.spread > 1.6 ? 'The narrow ones are marked: those steps are nearly the same colour. Change <b>Step spacing</b> in the rail if you would rather they were even.' : 'They are within a third of each other all the way along.') + '</p>';
   }
 
@@ -3221,6 +3241,7 @@
     }
   })();
   railRestore();
+  explainUi();
   if(OPEN_PANEL === 'six') showCands(6);   /* a panel remembered open is not an empty box */
   safely(function(){ syncControls(); render(); });
   histUi();

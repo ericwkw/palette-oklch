@@ -213,6 +213,9 @@
   .pickrow{display:flex;gap:5px;flex-wrap:wrap;margin:0 0 2px}
   .pickdot{width:22px;height:22px;border-radius:6px;border:1px solid var(--line);cursor:pointer;padding:0}
   .pickdot:hover{transform:translateY(-1px)}
+  /* the tool explains itself when asked to, and is quiet the rest of the time */
+  :root:not(.explain) .teach{display:none}
+  .btn.mini[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--panel)}
   .quickbar{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
   .explore{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px}
   .explore-label{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
@@ -313,6 +316,7 @@
       <button class="btn mini" id="btnUndo">Undo</button>
       <button class="btn mini" id="btnRedo">Redo</button>
       <button class="btn mini" id="btnShelfToggle" aria-expanded="false">Shelf</button>
+      <button class="btn mini" id="btnExplain" aria-pressed="false" title="Show the lines that explain what each thing is for">Explain</button>
       <button class="btn mini" id="btnGloss" title="What the words mean">Words</button>
       <button class="btn mini" id="btnSecAll">Open every section</button>
     </div>
@@ -331,13 +335,13 @@
         <button class="btn" id="btnLibDel">Delete</button>
       </div>
       <p class="hint" id="libMeta"></p>
-      <p class="hint">Kept in this browser, under the palette&rsquo;s name. Switching loads it straight away, and the switch itself can be undone.</p>
+      <p class="hint teach">Kept in this browser, under the palette&rsquo;s name. Switching loads it straight away, and the switch itself can be undone.</p>
     </fieldset>
 
     <fieldset data-sec="history">
       <legend><button class="sec-toggle" type="button" aria-expanded="false"><span class="sec-name">History</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
       <p class="hint" id="histMeta" style="margin-top:0"></p>
-      <p class="hint">The last 30 changes, with <kbd>&#8984;Z</kbd> and <kbd>&#8679;&#8984;Z</kbd>. A whole slider drag counts as one.</p>
+      <p class="hint teach">The last 30 changes, with <kbd>&#8984;Z</kbd> and <kbd>&#8679;&#8984;Z</kbd>. A whole slider drag counts as one.</p>
     </fieldset>
 
     <fieldset data-sec="main" data-open="1">
@@ -348,7 +352,7 @@
       <label class="check"><input type="checkbox" id="pinMain" checked> Keep my exact colour in the ramp</label>
       <div class="row"><label for="hMain">Hue</label><input type="range" id="hMain" min="0" max="360" step="1" value="250"><output id="oMain">250</output></div>
       <div class="row"><label for="cMain">Colourfulness <button class="term" data-term="chroma" title="What does this mean?">?</button></label><input type="range" id="cMain" min="0.02" max="0.30" step="0.005" value="0.16"><output id="ocMain">.160</output></div>
-      <p class="hint">Paste a brand hex and the ramp is built around it: the hue and colourfulness come from your colour, the lightness comes from the shared steps. The line above shows your colour beside the step it lands on, and whether the two match.</p>
+      <p class="hint teach">Paste a brand hex and the ramp is built around it: the hue and colourfulness come from your colour, the lightness comes from the shared steps. The line above shows your colour beside the step it lands on, and whether the two match.</p>
     </fieldset>
 
     <fieldset data-sec="sup" data-open="1">
@@ -366,7 +370,7 @@
         </select></div>
       <div class="row"><label for="hSup">Hue</label><input type="range" id="hSup" min="0" max="360" step="1" value="280"><output id="oSup">280</output></div>
       <div class="row"><label for="cSup">Colourfulness</label><input type="range" id="cSup" min="0.01" max="0.30" step="0.005" value="0.09"><output id="ocSup">.090</output></div>
-      <p class="hint">Relation sets the hue from the main colour. Pick Custom to move it yourself.</p>
+      <p class="hint teach">Relation sets the hue from the main colour. Pick Custom to move it yourself.</p>
     </fieldset>
 
     <fieldset data-sec="a1">
@@ -387,7 +391,7 @@
       <label class="check"><input type="checkbox" id="pinA2" checked> Keep my exact colour in the ramp</label>
       <div class="row"><label for="hA2">Hue</label><input type="range" id="hA2" min="0" max="360" step="1" value="340"><output id="oA2">340</output></div>
       <div class="row"><label for="cA2">Colourfulness</label><input type="range" id="cA2" min="0.02" max="0.32" step="0.005" value="0.20"><output id="ocA2">.200</output></div>
-      <p class="hint">One accent appears often — a tag, a marker. The other is kept for the single most important thing in a view.</p>
+      <p class="hint teach">One accent appears often — a tag, a marker. The other is kept for the single most important thing in a view.</p>
     </fieldset>
 
     <fieldset data-sec="neutral">
@@ -397,7 +401,7 @@
       <div class="field"><label for="hNeu">Hue from</label>
         <select id="hNeu"><option value="main" selected>Main</option><option value="sup">Supporting</option><option value="own">Own</option></select></div>
       <div class="row"><label for="hNeuOwn">Own hue</label><input type="range" id="hNeuOwn" min="0" max="360" step="1" value="250"><output id="oNeuOwn">250</output></div>
-      <p class="hint">A little tint keeps greys from looking dead. Zero gives true grey.</p>
+      <p class="hint teach">A little tint keeps greys from looking dead. Zero gives true grey.</p>
     </fieldset>
 
     <fieldset data-sec="shape">
@@ -406,7 +410,7 @@
       <p class="hint" id="peakNote" style="margin:2px 0 0"></p>
       <div class="row"><label for="cFall">Dark fade <button class="term" data-term="falloff" title="What does this mean?">?</button></label><input type="range" id="cFall" min="0.2" max="1.6" step="0.05" value="0.85"><output id="ocFall">.85</output></div>
       <div class="row"><label for="cTwist">Hue turn <button class="term" data-term="twist" title="What does this mean?">?</button></label><input type="range" id="cTwist" min="0" max="2" step="0.05" value="1"><output id="ocTwist">1.00</output></div>
-      <p class="hint">Which step is the most colourful, how quickly the dark end loses colour, and how far the hue turns between the two ends — dark yellows toward orange, dark blues toward indigo. Zero holds one hue throughout.</p>
+      <p class="hint teach">Which step is the most colourful, how quickly the dark end loses colour, and how far the hue turns between the two ends — dark yellows toward orange, dark blues toward indigo. Zero holds one hue throughout.</p>
       <div class="field"><label for="spacing">Step spacing <button class="term" data-term="spacing" title="What does this mean?">?</button></label>
         <select id="spacing">
           <option value="tailwind" selected>Tailwind — tight at the pale end</option>
@@ -421,10 +425,10 @@
 
     <fieldset data-sec="dark">
       <legend><button class="sec-toggle" type="button" aria-expanded="false"><span class="sec-name">Dark mode — same hues, different curve</span><span class="sec-sum"></span><span class="sec-caret">▾</span></button></legend>
-      <p class="hint" style="margin-top:8px">Every hue and colourfulness above is shared by both themes. Only the lightness curve differs, and tokens read the ramp from the opposite end: paper is step 50 in light, step 950 in dark.</p>
+      <p class="hint teach" style="margin-top:8px">Every hue and colourfulness above is shared by both themes. Only the lightness curve differs, and tokens read the ramp from the opposite end: paper is step 50 in light, step 950 in dark.</p>
       <div class="row"><label for="dLift">Deep end lift <button class="term" data-term="lift" title="What does this mean?">?</button></label><input type="range" id="dLift" min="0" max="0.14" step="0.005" value="0.055"><output id="odLift">.055</output></div>
       <div class="row"><label for="dBoost">Colourfulness</label><input type="range" id="dBoost" min="0.6" max="1.4" step="0.02" value="1"><output id="odBoost">1.00</output></div>
-      <p class="hint">Lift keeps dark surfaces apart from each other; colourfulness compensates for colours looking weaker on a dark ground.</p>
+      <p class="hint teach">Lift keeps dark surfaces apart from each other; colourfulness compensates for colours looking weaker on a dark ground.</p>
     </fieldset>
 
     <fieldset data-sec="share">
@@ -436,7 +440,7 @@
       <div class="row"><label for="sA1">Accent 1</label><input type="range" id="sA1" min="0" max="100" step="1" value="6"><output id="osA1">6</output></div>
       <div class="row"><label for="sA2">Accent 2</label><input type="range" id="sA2" min="0" max="100" step="1" value="2"><output id="osA2">2</output></div>
       <p class="hint" id="shareSum"></p>
-      <p class="hint">Set how much of a screen each one should cover. The five always add up to 100%.</p>
+      <p class="hint teach">Set how much of a screen each one should cover. The five always add up to 100%.</p>
     </fieldset>
 
     <div class="btns">
@@ -464,7 +468,7 @@
 
     <section class="view on" data-view="ramps" id="view-ramps" role="tabpanel" tabindex="0">
       <div class="head"><h2>Ramps</h2><span class="muted mono" id="rampMeta"></span></div>
-      <p class="note">Every ramp shares the same lightness steps, so a shade means the same weight whatever the hue. Chroma peaks near the middle and eases off at both ends. Hover a swatch for its step and value, click it to copy, click again to nudge it.</p>
+      <p class="note teach">Every ramp shares the same lightness steps, so a shade means the same weight whatever the hue. Chroma peaks near the middle and eases off at both ends. Hover a swatch for its step and value, click it to copy, click again to nudge it.</p>
       <div class="explore">
         <span class="explore-label">Explore</span>
         <button class="btn mini" id="btnCandShow" aria-expanded="false">Six to look at</button>
@@ -485,7 +489,7 @@
       </div>
       <div class="card dark-card" data-theme="dark">
         <h3>Dark mode</h3>
-        <p class="cap">Same hues, same step order: 50 stays the lightest. The curve lifts the deep end and eases the light end, so dark surfaces stay separable.</p>
+        <p class="cap teach">Same hues, same step order: 50 stays the lightest. The curve lifts the deep end and eases the light end, so dark surfaces stay separable.</p>
         <div class="steps-head" id="stepsHeadDark"></div>
         <div id="rampsDark" class="ramps"></div>
         <div id="gapsDark"></div>
@@ -494,24 +498,24 @@
 
     <section class="view" data-view="roles" id="view-roles" role="tabpanel" tabindex="0">
       <div class="head"><h2>Roles &amp; tokens</h2></div>
-      <p class="note">Roles name what a colour is for; tokens are what a product uses. Ramp steps are the primitives underneath, so a palette swap never changes a token name.</p>
+      <p class="note teach">Roles name what a colour is for; tokens are what a product uses. Ramp steps are the primitives underneath, so a palette swap never changes a token name.</p>
       <div class="card"><h3>Share of surface</h3><div class="share" id="shareBar"></div><div class="legend" id="shareLegend"></div>
         <h4 style="margin:16px 0 4px;font-size:.8rem">Asked for, and drawn</h4>
         <div id="shareCheck"></div>
       </div>
       <div class="card"><h3>Where your brand colours land</h3>
-        <p class="cap">Pinning a hex into a ramp is not the same as a token using it. This is the check: does the exact colour you were given appear anywhere a product would actually draw it?</p>
+        <p class="cap teach">Pinning a hex into a ramp is not the same as a token using it. This is the check: does the exact colour you were given appear anywhere a product would actually draw it?</p>
         <div id="brandReach"></div>
       </div>
 
       <div class="card"><h3>Which step each token uses</h3>
-        <p class="cap">These decide the primary button, the tinted surface behind secondary and accent, the hairline on every border and input, the focus ring, and the five chart series. Change one and watch the row below, the preview and the export move with it. A step marked <em>your brand colour</em> is the one your pasted hex landed on.</p>
+        <p class="cap teach">These decide the primary button, the tinted surface behind secondary and accent, the hairline on every border and input, the focus ring, and the five chart series. Change one and watch the row below, the preview and the export move with it. A step marked <em>your brand colour</em> is the one your pasted hex landed on.</p>
         <div class="grid3" id="mapControls"></div>
         <div id="mapDemo" style="margin-top:14px"></div>
       </div>
       <div class="card"><h3>Brand roles</h3><div id="roleTable"></div></div>
       <div class="card"><h3>Functional colours</h3>
-        <p class="cap">Meaning stays constant across a brand family — these hues do not move when a sister brand changes its main colour. Each one carries a surface, border, text and solid fill.</p>
+        <p class="cap teach">Meaning stays constant across a brand family — these hues do not move when a sister brand changes its main colour. Each one carries a surface, border, text and solid fill.</p>
         <div id="funcTable"></div>
       </div>
       <div class="card"><h3>States</h3><div id="stateTable"></div></div>
@@ -519,14 +523,14 @@
 
     <section class="view" data-view="contrast" id="view-contrast" role="tabpanel" tabindex="0">
       <div class="head"><h2>Contrast</h2><span class="muted mono" id="contrastMeta"></span></div>
-      <p class="note">WCAG 2 ratios with APCA alongside. WCAG needs 4.5 for body text and 3.0 for large text or UI edges; APCA Lc 60 is roughly body text, Lc 45 large text.</p>
+      <p class="note teach">WCAG 2 ratios with APCA alongside. WCAG needs 4.5 for body text and 3.0 for large text or UI edges; APCA Lc 60 is roughly body text, Lc 45 large text.</p>
       <div class="card"><h3>Token pairs</h3>
-        <p class="cap">Every pair the tokens actually put together, at the level each one needs: 4.5 for text, 3.0 for edges and marks.</p>
+        <p class="cap teach">Every pair the tokens actually put together, at the level each one needs: 4.5 for text, 3.0 for edges and marks.</p>
         <div id="ctTokens"></div>
       </div>
       <div class="card"><h3>Text on surfaces</h3><div id="ctText"></div></div>
       <div class="card"><h3>Colour vision</h3>
-        <p class="cap">Status colours that differ only by hue can collapse into one another. These are your own colours, put through the cone response of each kind of colour blindness.</p>
+        <p class="cap teach">Status colours that differ only by hue can collapse into one another. These are your own colours, put through the cone response of each kind of colour blindness.</p>
         <div class="seg" id="cvdSeg" role="group" aria-label="Colour vision" style="margin:0 0 12px">
           <button data-cvd="" aria-selected="true">Normal</button>
           <button data-cvd="deuter" aria-selected="false">Deuteranopia</button>
@@ -541,10 +545,10 @@
 
     <section class="view" data-view="alpha" id="view-alpha" role="tabpanel" tabindex="0">
       <div class="head"><h2>Opacity &amp; overlays</h2></div>
-      <p class="note">A colour at an alpha over a known background composites to an exact solid — shown here so a tint can be matched back to a real ramp step. Over photographs there is no single background, so drop an image in and the worst case is measured from its own pixels.</p>
+      <p class="note teach">A colour at an alpha over a known background composites to an exact solid — shown here so a tint can be matched back to a real ramp step. Over photographs there is no single background, so drop an image in and the worst case is measured from its own pixels.</p>
       <div class="card"><h3>Alpha over surfaces</h3><div id="alphaMatrix"></div></div>
       <div class="card"><h3>Scrims over an image</h3>
-        <p class="cap">No image loaded uses a light-and-dark test pattern. With an image, drag the box to where the caption will really sit &mdash; the pixels inside it are measured by percentile, so one glint of sunlight does not decide the scrim for the whole picture.</p>
+        <p class="cap teach">No image loaded uses a light-and-dark test pattern. With an image, drag the box to where the caption will really sit &mdash; the pixels inside it are measured by percentile, so one glint of sunlight does not decide the scrim for the whole picture.</p>
         <div class="field" style="grid-template-columns:7em minmax(0,1fr)"><label for="imgIn">Image</label><input type="file" id="imgIn" accept="image/*"></div>
         <div id="scrimOut"></div>
       </div>
@@ -552,13 +556,13 @@
 
     <section class="view" data-view="gradients" id="view-gradients" role="tabpanel" tabindex="0">
       <div class="head"><h2>Gradients</h2></div>
-      <p class="note">Interpolated in OKLCH, so a blend between two hues keeps its chroma instead of passing through grey. Copy the CSS under each.</p>
+      <p class="note teach">Interpolated in OKLCH, so a blend between two hues keeps its chroma instead of passing through grey. Copy the CSS under each.</p>
       <div id="gradOut" class="grid2"></div>
     </section>
 
     <section class="view" data-view="preview" id="view-preview" role="tabpanel" tabindex="0">
       <div class="head"><h2>Preview</h2></div>
-      <p class="note">One dense screen &mdash; sidebar, table with statuses, a form with an error and a disabled field, a chart on the chart tokens, text at three sizes &mdash; drawn only from tokens. Change a mapping and it moves here.</p>
+      <p class="note teach">One dense screen &mdash; sidebar, table with statuses, a form with an error and a disabled field, a chart on the chart tokens, text at three sizes &mdash; drawn only from tokens. Change a mapping and it moves here.</p>
       <p class="hint" id="cvdPreviewNote" style="margin:0 0 8px"></p>
       <div id="previewOut" style="display:grid;gap:18px"></div>
       <div class="card" style="margin-top:18px"><h3>Asked for, and drawn</h3><div id="previewShare"></div></div>
@@ -566,7 +570,7 @@
 
     <section class="view" data-view="family" id="view-family" role="tabpanel" tabindex="0">
       <div class="head"><h2>Brand family</h2><span class="meta" id="famMeta"></span></div>
-      <p class="note">One parent and its sisters. A sister sets its own main hue and colourfulness &mdash; it may travel a long way &mdash; and takes everything else from the parent: the same neutrals, the same six functional colours, the same lightness steps, ramp shape and token mapping. That is what makes them read as one family.</p>
+      <p class="note teach">One parent and its sisters. A sister sets its own main hue and colourfulness &mdash; it may travel a long way &mdash; and takes everything else from the parent: the same neutrals, the same six functional colours, the same lightness steps, ramp shape and token mapping. That is what makes them read as one family.</p>
       <div class="btns" style="margin:0 0 12px">
         <button class="btn primary" id="btnFamAdd">Add a sister</button>
         <button class="btn" id="btnFamSuggest">Three to look at</button>
@@ -589,7 +593,7 @@
       <div class="card" id="famWheel_wrap"></div>
       <div id="famList" style="display:grid;gap:14px;margin-top:14px"></div>
       <div class="card" style="margin-top:18px"><h3>Every sister next to the parent</h3>
-        <p class="hint" style="margin:0 0 10px">The same screen in each brand, so a hue that goes weak or shouty shows up beside the others.</p>
+        <p class="hint teach" style="margin:0 0 10px">The same screen in each brand, so a hue that goes weak or shouty shows up beside the others.</p>
         <div id="famStrip" style="display:grid;gap:14px"></div>
       </div>
       <div class="card" style="margin-top:14px"><h3>Does every brand read as strongly?</h3>
@@ -603,16 +607,16 @@
 
     <section class="view" data-view="export" id="view-export" role="tabpanel" tabindex="0">
       <div class="head"><h2>Export</h2><span class="meta" id="exportMeta"></span></div>
-      <p class="note">The same palette in the shapes the next person needs it in: a stylesheet to paste, a Tailwind theme, variables for Figma, a link to send, and a sheet to print.</p>
+      <p class="note teach">The same palette in the shapes the next person needs it in: a stylesheet to paste, a Tailwind theme, variables for Figma, a link to send, and a sheet to print.</p>
 
       <div class="card"><h3>Send this palette to someone</h3>
-        <p class="cap">The whole state travels in the link &mdash; nothing is uploaded, and nothing is stored on a server. Open it and the tool comes up exactly as it is here.</p>
+        <p class="cap teach">The whole state travels in the link &mdash; nothing is uploaded, and nothing is stored on a server. Open it and the tool comes up exactly as it is here.</p>
         <div class="btns" style="margin:0 0 10px"><button class="btn primary" id="btnLink">Copy link</button><button class="btn" id="btnLinkOpen">Open in a new tab</button></div>
         <pre id="outLink" style="max-height:88px"></pre>
       </div>
 
       <div class="card"><h3>shadcn <code>globals.css</code></h3>
-        <p class="cap">All thirty shadcn token names, light and dark, in OKLCH. Fonts and radius beyond <code>--radius</code> are left to the project.</p>
+        <p class="cap teach">All thirty shadcn token names, light and dark, in OKLCH. Fonts and radius beyond <code>--radius</code> are left to the project.</p>
         <div class="btns" style="margin:0 0 10px"><button class="btn" data-copy="outCss">Copy</button><button class="btn" data-dl="css">Download</button></div><pre id="outCss"></pre></div>
 
       <div class="card"><h3>Tailwind</h3>
@@ -624,12 +628,12 @@
         <div class="btns" style="margin:0 0 10px"><button class="btn" data-copy="outTw">Copy</button><button class="btn" data-dl="tw">Download</button></div><pre id="outTw"></pre></div>
 
       <div class="card"><h3>Figma variables</h3>
-        <p class="cap">One collection with a Light and a Dark mode, so a token switches mode in Figma the way it switches class in the browser. Import with a variables-import plugin.</p>
+        <p class="cap teach">One collection with a Light and a Dark mode, so a token switches mode in Figma the way it switches class in the browser. Import with a variables-import plugin.</p>
         <p class="cap" id="figmaNote"></p>
         <div class="btns" style="margin:0 0 10px"><button class="btn" data-copy="outFigma">Copy</button><button class="btn" data-dl="figma">Download</button></div><pre id="outFigma"></pre></div>
 
       <div class="card"><h3>A sheet to print or paste</h3>
-        <p class="cap">Every ramp with its steps and hex values, drawn as one image.</p>
+        <p class="cap teach">Every ramp with its steps and hex values, drawn as one image.</p>
         <div class="btns" style="margin:0 0 10px"><button class="btn" id="btnSheet">Download PNG</button></div>
         <canvas id="sheet" style="max-width:100%;border:1px solid var(--line);border-radius:10px"></canvas></div>
 
@@ -1314,7 +1318,7 @@ function hueClash(h, within){
             (clashing.length === 1 ? ' sits' : ' sit') + ' close enough to a brand colour, or to another state, to be mistaken for it.'
           : 'Every state colour is far enough from the brand colours, and from the others, to read as a state.') +
       '</p>' +
-      '<p class="hint" style="margin:0 0 8px">A state colour is only useful if it cannot be read as brand. Moving one stays within 45° of where it started, because a Danger that lands in the greens has stopped meaning danger.</p>' +
+      '<p class="hint teach" style="margin:0 0 8px">A state colour is only useful if it cannot be read as brand. Moving one stays within 45° of where it started, because a Danger that lands in the greens has stopped meaning danger.</p>' +
       '<div class="btns" style="margin:0 0 10px"><button class="btn" id="btnFuncClear">Move them off the brand hues</button><button class="btn" id="btnFuncReset">Back to defaults</button></div>' +
       '<table><thead><tr><th style="width:38%">Meaning</th><th>Surface</th><th>Border</th><th>Text</th><th>Fill</th></tr></thead><tbody>'+rows+'</tbody></table>';
   }
@@ -1444,7 +1448,7 @@ function hueClash(h, within){
     var sh = S.share, total = 0;
     SHARE_ROLES.forEach(function(k){ total += sh[k]; });
     if(!MEASURED){
-      return '<p class="hint">Open the Preview once and this will say what that screen actually covers, against the shares you set.</p>';
+      return '<p class="hint">Not measured yet — open the Preview.<span class="teach"> Whatever that screen draws is then counted and set beside the shares you asked for.</span></p>';
     }
     var rows = SHARE_ROLES.map(function(k){
       var want = sh[k] / (total || 1) * 100, got = MEASURED[k];
@@ -1455,7 +1459,7 @@ function hueClash(h, within){
         '<td class="mono">' + Math.round(got) + '%</td><td>' + verdict + '</td></tr>';
     }).join('');
     return '<table><thead><tr><th>Role</th><th>You asked for</th><th>The preview draws</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>' +
-      '<p class="hint">Measured off the preview screen by area, counting only what is drawn in a role colour. One screen is not a whole product, so read it as a sanity check on the intention — not as a verdict.</p>';
+      '<p class="hint teach">Measured off the preview screen by area, counting only what is drawn in a role colour. One screen is not a whole product, so read it as a sanity check on the intention — not as a verdict.</p>';
   }
 
   /* ---------- does the brand colour reach the interface? ----------
@@ -1612,7 +1616,7 @@ function hueClash(h, within){
         '<td>'+badge(r, apca(t,s.hex), false)+'</td><td>'+fix+'</td></tr>';
     }).join('');
     return '<table><thead><tr><th>Fill</th><th>Value</th><th>Label</th><th>Contrast</th><th>If it fails</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-      '<p class="hint">Button labels are body text, so 4.5 applies. A fill that fails is usually fixed by taking the next step or two down the ramp.</p>';
+      '<p class="hint teach">Button labels are body text, so 4.5 applies. A fill that fails is usually fixed by taking the next step or two down the ramp.</p>';
   }
 
   var ALPHAS = [0.04,0.08,0.12,0.16,0.24,0.40,0.60,0.80];
@@ -2057,6 +2061,25 @@ function hueClash(h, within){
     });
   }
 
+  /* ---------- how much the tool says ----------
+     Every line that teaches carries class "teach". They are off until asked
+     for, because the second week of using a tool should be quieter than the
+     first. What the tool has to say about your own palette is not teaching,
+     and is never hidden. */
+  var EXPLAIN = false;
+  try{ EXPLAIN = localStorage.getItem('palette-explain-v1') === '1'; }catch(e){}
+  function explainUi(){
+    document.documentElement.classList.toggle('explain', EXPLAIN);
+    var b = el('btnExplain');
+    if(b){ b.setAttribute('aria-pressed', String(EXPLAIN)); b.textContent = EXPLAIN ? 'Explaining' : 'Explain'; }
+  }
+  el('btnExplain').addEventListener('click', function(){
+    EXPLAIN = !EXPLAIN;
+    try{ localStorage.setItem('palette-explain-v1', EXPLAIN ? '1' : '0'); }catch(e){}
+    explainUi();
+    announce(EXPLAIN ? 'Explaining every control' : 'Explanations hidden');
+  });
+
   /* ---------- explore band ----------
      Three ways in, each one line tall until it is asked for, so the ramps are
      the first thing on the page again. */
@@ -2132,7 +2155,7 @@ function hueClash(h, within){
         : 'nothing on it yet') + '</span></div>' +
       (items.length
         ? '<div class="shelf-row">' + items.map(shelfChip).join('') + '</div>'
-        : '<p class="hint" style="margin:0">Anything that replaces your palette — a suggestion taken, a colour from a picture, a reset — leaves the old one here first. Nothing needs naming.</p>') +
+        : '<p class="hint teach" style="margin:0">Anything that replaces your palette — a suggestion taken, a colour from a picture, a reset — leaves the old one here first. Nothing needs naming.</p>') +
       '<div class="btns" style="margin-top:10px"><button class="btn" id="btnShelve">Put this one on the shelf</button>' +
       (items.length ? '<button class="btn" id="btnShelfClear">Clear the shelf</button>' : '') + '</div></div>';
   }
@@ -2206,7 +2229,7 @@ function hueClash(h, within){
   }
   function pickHtml(){
     if(!PICK){
-      return '<p class="hint" style="margin:0">Drop a photograph, a piece of artwork or a screenshot here, or choose one, and the colours it is actually made of become colours you can take.</p>';
+      return '<p class="hint teach" style="margin:0">Drop a photograph, a piece of artwork or a screenshot here, or choose one, and the colours it is actually made of become colours you can take.</p>';
     }
     var chips = PICK.swatches.map(function(sw, i){
       return '<button class="cand pickchip' + (PICK.chosen === i ? ' on' : '') + '" data-pick="' + i + '">' +
@@ -2219,7 +2242,7 @@ function hueClash(h, within){
     var chosen = PICK.chosen === null ? null : PICK.swatches[PICK.chosen];
     return '<div class="pickwrap">' +
         '<div class="pickshot"><img id="pickImg" src="' + PICK.url + '" alt="" draggable="false">' +
-          '<p class="hint" style="margin:6px 0 0">Click anywhere on the picture to take that exact colour.</p></div>' +
+          '<p class="hint teach" style="margin:6px 0 0">Click anywhere on the picture to take that exact colour.</p></div>' +
         '<div class="pickside"><div class="cand-row">' + chips + '</div>' +
           (chosen
             ? '<div class="pickuse"><span class="swatch-inline"><span class="dot" style="background:' + chosen.hex + '"></span>' +
@@ -2230,7 +2253,7 @@ function hueClash(h, within){
                 }).join('') +
                 '<button class="btn mini primary" data-pickbuild="1">Six palettes from it</button>' +
               '</div></div>'
-            : '<p class="hint" style="margin:10px 0 0">Pick one of these, or click the picture itself, then say what it should be.</p>') +
+            : '<p class="hint teach" style="margin:10px 0 0">Pick one of these, or click the picture itself, then say what it should be.</p>') +
         '</div></div>';
   }
   function pickUse(role, hex){
@@ -2486,7 +2509,7 @@ function hueClash(h, within){
         '<circle cx="' + mid + '" cy="' + mid + '" r="' + WHEEL.rOut + '" fill="none" stroke="var(--line)"/>' +
         dots + labels +
       '</svg>' +
-      '<div class="wheelnote"><p class="hint" style="margin:0">Drag a dot to move that brand: round for its hue, in and out for how colourful it is. The band outside the ring is what the state colours have spoken for — a brand sitting under it will be mistaken for a status. A ringed dot is a brand colour you pasted.</p></div></div>';
+      '<div class="wheelnote"><p class="hint teach" style="margin:0">Drag a dot to move that brand: round for its hue, in and out for how colourful it is. The band outside the ring is what the state colours have spoken for — a brand sitting under it will be mistaken for a status. A ringed dot is a brand colour you pasted.</p></div></div>';
   }
 
   function famListHtml(){
@@ -2500,7 +2523,7 @@ function hueClash(h, within){
         }).join('');
       });
       var controls = m.parent
-        ? '<p class="hint" style="margin:0">The parent takes its hue from the Main control in the rail. Its neutrals and functional colours are the ones every sister inherits.</p>'
+        ? '<p class="hint teach" style="margin:0">The parent takes its hue from the Main control in the rail. Its neutrals and functional colours are the ones every sister inherits.</p>'
         : '<div class="famgrid">' +
             '<label class="famfield"><span>Brand hex</span><input type="text" data-fam="hex" data-id="' + m.id + '" value="' + (m.brand || '') + '" placeholder="#______" spellcheck="false"></label>' +
             '<label class="famfield"><span>What it is for</span><input type="text" data-fam="note" data-id="' + m.id + '" value="' + (m.note || '').replace(/"/g,'&quot;') + '" placeholder="the further-education arm"></label>' +
@@ -2516,7 +2539,7 @@ function hueClash(h, within){
             : '') +
           '<div class="row" style="margin-top:4px"><label>Hue</label><input type="range" data-fam="h" data-id="' + m.id + '" min="0" max="360" step="1" value="' + Math.round(m.h) + '"><output>' + Math.round(m.h) + '</output></div>' +
           '<div class="row"><label>Colourfulness</label><input type="range" data-fam="c" data-id="' + m.id + '" min="0.02" max="0.30" step="0.005" value="' + m.c + '"><output>' + m.c.toFixed(3).replace(/^0/,'') + '</output></div>' +
-          '<p class="hint" style="margin:6px 0 0">Ships as <code>[data-brand="' + sisterSlug(m) + '"]</code>. Renaming does not change that, so a stylesheet already in use keeps working.</p>';
+          '<p class="hint teach" style="margin:6px 0 0">Ships as <code>[data-brand="' + sisterSlug(m) + '"]</code>. Renaming does not change that, so a stylesheet already in use keeps working.</p>';
       return '<div class="card">' +
         '<div class="pv-row" style="justify-content:space-between;align-items:baseline">' +
           (m.parent
@@ -2546,7 +2569,7 @@ function hueClash(h, within){
     var html = asSister(m.parent ? null : m, function(){ return previewHtml(build(dark), dark); });
     return '<div class="brandrow">' + chooser + '</div>' +
       '<p class="hint" style="margin:8px 0 6px">' + m.name + ' · ' + Math.round(m.h) + '°' + (m.note ? ' · ' + m.note : '') +
-        ' — the same screen is drawn for whichever brand you pick, so they can be held against each other one at a time.</p>' + html;
+        '<span class="teach"> — the same screen is drawn for whichever brand you pick, so they can be held against each other one at a time.</span></p>' + html;
   }
 
   function famParityHtml(dark){
@@ -2564,7 +2587,7 @@ function hueClash(h, within){
         '<td style="color:' + (ok ? 'inherit' : 'var(--bad)') + '">' + note + '</td></tr>';
     }).join('');
     return '<table><thead><tr><th>Brand</th><th>Button against the page</th><th>Label on the button</th><th>Reading</th></tr></thead><tbody>' + rows + '</tbody></table>' +
-      '<p class="hint">A sister whose button is much quieter or much louder than the parent&rsquo;s will look like a different product, however close the hue is.</p>';
+      '<p class="hint teach">A sister whose button is much quieter or much louder than the parent&rsquo;s will look like a different product, however close the hue is.</p>';
   }
 
   function famExport(){
@@ -2690,7 +2713,7 @@ function hueClash(h, within){
     }
     return head +
       '<table id="scrimStats"><thead><tr><th>In the box</th><th>Colour</th><th>Scrim white text needs</th></tr></thead><tbody>' + rows + '</tbody></table>' +
-      '<p class="hint">' + st.n + ' pixels sampled from the box. Drag it to where the caption will really sit; the numbers follow.</p>';
+      '<p class="hint teach">' + st.n + ' pixels sampled from the box. Drag it to where the caption will really sit; the numbers follow.</p>';
   }
 
   function shotHtml(){
@@ -2703,7 +2726,7 @@ function hueClash(h, within){
           '<span class="cap-demo">Caption text here</span><span class="grip"></span>' +
         '</div>' +
       '</div>' +
-      '<p class="hint" style="margin:8px 0 14px">The box carries the scrim it recommends, so you are reading the real thing.</p>';
+      '<p class="hint teach" style="margin:8px 0 14px">The box carries the scrim it recommends, so you are reading the real thing.</p>';
   }
 
   /* the same region at each scrim, to judge by eye as well as by number */
@@ -2734,7 +2757,7 @@ function hueClash(h, within){
         '<b>'+b.name+'</b><span class="mono">'+b.hex.toUpperCase()+'</span>'+
         '<span class="pill '+(need===null?'fail':(need<=0.4?'pass':'mid'))+'">'+
         (need===null ? 'white text never passes' : 'white text passes at ' + Math.round(need*100) + '% black scrim') + '</span></div>';
-    }).join('') + '<p class="hint">Measured with APCA Lc 60, the body-text level. Drop an image in to measure its own pixels instead.</p>';
+    }).join('') + '<p class="hint teach">Measured with APCA Lc 60, the body-text level. Drop an image in to measure its own pixels instead.</p>';
   }
 
   function readImage(src){
@@ -2868,7 +2891,7 @@ function hueClash(h, within){
       '<div class="row"><label for="edL">Lightness</label><input type="range" id="edL" min="-0.12" max="0.12" step="0.005" value="'+(n.dL||0)+'"><output>'+(n.dL>0?'+':'')+(n.dL||0).toFixed(3)+'</output></div>' +
       '<div class="row"><label for="edC">Colourfulness</label><input type="range" id="edC" min="-0.10" max="0.10" step="0.005" value="'+(n.dC||0)+'"><output>'+(n.dC>0?'+':'')+(n.dC||0).toFixed(3)+'</output></div>' +
       neighbourNoteHtml(ramp, EDITING.step) +
-      '<p class="hint">Nudges this one step only; the rest of the ramp stays where it is. A dashed outline marks steps you have moved.</p>';
+      '<p class="hint teach">Nudges this one step only; the rest of the ramp stays where it is. A dashed outline marks steps you have moved.</p>';
     function setNudge(key, val){
       S.nudges[EDITING.role] = S.nudges[EDITING.role] || {};
       var cur = S.nudges[EDITING.role][EDITING.step] || { dL:0, dC:0 };
@@ -3020,12 +3043,13 @@ function hueClash(h, within){
       var want = S.family.width || 90;
       var need = kind === 'analogous' ? FAM_NEAR + (ss - 1) * 24
                : kind === 'wings' ? FAM_NEAR + (Math.ceil(ss / 2) - 1) * 24 : 0;
-      el('shapeNote').textContent = ss
-        ? SHAPES[kind].name + ' — ' + SHAPES[kind].note + '. ' +
+      el('shapeNote').innerHTML = ss
+        ? SHAPES[kind].name +
           (need > want
-            ? ss + ' siblings will not fit inside ' + want + '°, so this one is using ' + Math.round(need) + '°. Widen it, or keep fewer.'
-            : 'How wide sets how far the siblings travel from the parent.') +
-          ' Nothing is placed within ' + FAM_NEAR + '° of the parent or on a state colour.'
+            ? '. ' + ss + ' siblings will not fit inside ' + want + '°, so this one is using ' + Math.round(need) + '°.'
+            : '') +
+          '<span class="teach"> — ' + SHAPES[kind].note + '. How wide sets how far the siblings travel from the parent, and nothing is placed within ' +
+          FAM_NEAR + '° of the parent or on a state colour.</span>'
         : 'Add a sister and these arrange the family around the parent.';
     })();
     el('famList').innerHTML = famListHtml();
@@ -3671,7 +3695,7 @@ function hueClash(h, within){
         var shown = kind ? simulate(c[1], kind) : c[1];
         return '<span class="swatch-inline" style="gap:6px"><span class="dot" style="background:' + shown + ';width:18px;height:18px"></span>' + c[0] + '</span>';
       }).join('');
-    return '<p class="hint" style="margin:0 0 10px">' +
+    return '<p class="hint teach" style="margin:0 0 10px">' +
         (kind ? CVD[kind].name + ' — ' + CVD[kind].note + '. The swatches below are your colours as that eye receives them.'
               : 'Ordinary colour vision. Switch above to see the same colours through each kind of colour blindness.') + '</p>' +
       '<div class="legend" style="margin-bottom:12px">' + chips + '</div>' +
@@ -3740,7 +3764,7 @@ function hueClash(h, within){
       var tight = g < f.hi * 0.55;
       return '<span class="' + (tight ? 'tight' : '') + '" title="' + f.ratios[i].toFixed(2) + ':1 between these two">' + g.toFixed(1) + '</span>';
     }).join('') + '</div>' +
-      '<p class="hint" style="margin:6px 0 0">Lightness between neighbouring steps, in points. ' +
+      '<p class="hint teach" style="margin:6px 0 0">Lightness between neighbouring steps, in points. ' +
       (f.spread > 1.6 ? 'The narrow ones are marked: those steps are nearly the same colour. Change <b>Step spacing</b> in the rail if you would rather they were even.' : 'They are within a third of each other all the way along.') + '</p>';
   }
 
@@ -4134,6 +4158,7 @@ function hueClash(h, within){
     }
   })();
   railRestore();
+  explainUi();
   if(OPEN_PANEL === 'six') showCands(6);   /* a panel remembered open is not an empty box */
   safely(function(){ syncControls(); render(); });
   histUi();

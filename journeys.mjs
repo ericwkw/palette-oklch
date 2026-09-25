@@ -1831,6 +1831,87 @@ await journey('every step can be reached', async () => {
   assert(/copied|taken|css/i.test(st[4].note), 'the last step does not say what was handed over: ' + st[4].note);
 });
 
+/* 45 — the tool is quiet by default, and explains itself when asked */
+await journey('the explaining is there when wanted and out of the way when not', async () => {
+  await type('xMain', '#0B6E4F');
+  await click('#tabs button', 6);
+  await click('#btnFamAdd');
+
+  const words = () => evalJs(`(() => {
+    const w = t => t.trim() ? t.trim().split(/\s+/).length : 0;
+    const out = { byView: {}, total: 0 };
+    document.querySelectorAll('section.view').forEach(v => {
+      const was = v.classList.contains('on'); v.classList.add('on');
+      let n = 0;
+      v.querySelectorAll('.note, .cap, .hint').forEach(el => { if (el.offsetParent !== null) n += w(el.innerText); });
+      out.byView[v.dataset.view] = n; out.total += n;
+      if (!was) v.classList.remove('on');
+    });
+    return out; })()`);
+
+  /* quiet by default */
+  const quiet = await words();
+  assert(quiet.total < 40, `${quiet.total} words of explaining are on screen before anything is asked`);
+  for (const [view, n] of Object.entries(quiet.byView)) {
+    assert(n < 20, `the ${view} tab still explains itself in ${n} words`);
+  }
+
+  /* but what the tool has to SAY about your palette is not explaining, and stays */
+  await click('#tabs button', 2);      /* the views are drawn when looked at */
+  await click('#tabs button', 1);
+  const verdicts = await evalJs(`(() => {
+    const on = sel => { const e = document.querySelector(sel); return e ? e.textContent.trim() : ''; };
+    document.querySelectorAll('section.view').forEach(v => v.classList.add('on'));
+    return { audit: on('#ctTokens .cap'),
+             reach: on('#brandReach .cap, #brandReach .fail-cap'),
+             states: on('#funcTable .cap'),
+             rail: on('#anMain'),
+             shelf: document.getElementById('btnShelfToggle').textContent }; })()`);
+  assert(/clears its level|fall short/.test(verdicts.audit), 'the audit verdict was hidden with the explaining: ' + verdicts.audit);
+  assert(/step [0-9]+|no token/.test(verdicts.rail), 'the rail stopped saying where your colour landed: ' + verdicts.rail);
+  assert(verdicts.states.length > 10, 'the state-colour verdict was hidden: ' + verdicts.states);
+  assert(verdicts.reach.length > 10, 'the brand-reach verdict was hidden: ' + verdicts.reach);
+
+  /* one switch brings the teaching back — all of it, not some of it */
+  /* only the ones whose own surroundings are open: a folded rail section or a
+     closed panel hides its contents for its own reasons */
+  const teaching = () => evalJs(`(() => {
+    const reachable = [...document.querySelectorAll('.teach')].filter(el => {
+      const sec = el.closest('fieldset[data-sec]');
+      if (sec && !sec.hasAttribute('data-open')) return false;
+      if (el.closest('[hidden]')) return false;
+      return true;
+    });
+    return { marked: document.querySelectorAll('.teach').length,
+             reachable: reachable.length,
+             shown: reachable.filter(el => getComputedStyle(el).display !== 'none').length }; })()`);
+  const before = await teaching();
+  assert(before.marked > 30, 'hardly any of the explaining is marked as such: ' + before.marked);
+  assert(before.shown === 0, before.shown + ' lines of explaining are showing while it is turned off');
+  assert(before.reachable > 8, 'almost nothing would come back: ' + before.reachable);
+
+  await click('#btnExplain');
+  const loud = await words();
+  const after = await teaching();
+  assert(after.shown === after.reachable, `${after.reachable - after.shown} lines stayed hidden when explaining was turned on`);
+  assert(loud.total > quiet.total * 2.5, `turning explaining on barely changed anything: ${quiet.total} then ${loud.total}`);
+
+  /* and it is remembered */
+  await send('Page.navigate', { url: URL_ + '?x=' + Date.now() });
+  await sleep(1700);
+  const still = await evalJs(`document.getElementById('btnExplain').getAttribute('aria-pressed')`);
+  assert(still === 'true', 'the choice to have things explained was forgotten');
+  await click('#btnExplain');
+  const off = await words();
+  assert(off.total < 220, 'turning it off again did not quieten the tool: ' + off.total);
+
+  /* with it off, a word can still be looked up one at a time */
+  await click('.term', 0);
+  const gloss = await evalJs(`(() => ({ open: document.getElementById('gloss').open,
+    entries: document.querySelectorAll('#glossList dt').length }))()`);
+  assert(gloss.open && gloss.entries > 20, 'the glossary went with the explaining');
+});
+
 const failed = results.filter(r => !r[1]);
 console.log('');
 results.forEach(([name, ok, why]) => console.log(`${ok ? ' ok ' : 'FAIL'}  ${name}${why ? ' — ' + why : ''}`));
