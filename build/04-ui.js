@@ -1335,6 +1335,7 @@
      it. These offer several colours at once and change nothing until you
      take one, so looking costs nothing. */
   var CANDS = null;     /* { kind:'palette'|'sister', items:[...] } — never saved */
+  var HANDED = null;    /* what has actually been copied or downloaded this session */
   function candPalette(around){
     var h;
     if(around === undefined){
@@ -1618,11 +1619,21 @@
     }).join('');
   }
 
+  var SHOWN_BRAND = 'parent';   /* whose screen is being looked at */
   function famStripHtml(dark){
-    return famMembers().map(function(m){
-      var html = asSister(m.parent ? null : m, function(){ return previewHtml(build(dark), dark); });
-      return '<div><p class="hint" style="margin:0 0 6px"><b>' + m.name + '</b> · ' + Math.round(m.h) + '°</p>' + html + '</div>';
+    var ms = famMembers();
+    if(!ms.some(function(m){ return (m.parent ? 'parent' : m.id) === SHOWN_BRAND; })) SHOWN_BRAND = 'parent';
+    var chooser = ms.map(function(m){
+      var key = m.parent ? 'parent' : m.id, on = key === SHOWN_BRAND;
+      var fill = stepOf(asSister(m.parent ? null : m, function(){ return build(false).main; }), 600).hex;
+      return '<button class="brandpick' + (on ? ' on' : '') + '" data-showbrand="' + key + '" aria-pressed="' + on + '">' +
+        '<span class="dot" style="background:' + fill + '"></span>' + m.name + '</button>';
     }).join('');
+    var m = ms.filter(function(x){ return (x.parent ? 'parent' : x.id) === SHOWN_BRAND; })[0] || ms[0];
+    var html = asSister(m.parent ? null : m, function(){ return previewHtml(build(dark), dark); });
+    return '<div class="brandrow">' + chooser + '</div>' +
+      '<p class="hint" style="margin:8px 0 6px">' + m.name + ' · ' + Math.round(m.h) + '°' + (m.note ? ' · ' + m.note : '') +
+        ' — the same screen is drawn for whichever brand you pick, so they can be held against each other one at a time.</p>' + html;
   }
 
   function famParityHtml(dark){
@@ -2394,9 +2405,39 @@
     var c = (r - WHEEL.rIn) / (WHEEL.rOut - WHEEL.rIn) * 0.30;
     return { h: Math.round(h), c: Math.max(0.02, Math.min(0.30, c)) };
   }
+  /* arrows nudge the brand under focus: round for hue, in and out for chroma */
+  document.addEventListener('keydown', function(e){
+    var g = e.target.closest && e.target.closest('[data-wheel]'); if(!g) return;
+    var dh = 0, dc = 0, big = e.shiftKey ? 5 : 1;
+    if(e.key === 'ArrowRight') dh = 2 * big;
+    else if(e.key === 'ArrowLeft') dh = -2 * big;
+    else if(e.key === 'ArrowUp') dc = 0.01 * big;
+    else if(e.key === 'ArrowDown') dc = -0.01 * big;
+    else return;
+    e.preventDefault();
+    var who = g.dataset.wheel;
+    function move(o, label){
+      if(dh) o.h = ((o.h + dh) % 360 + 360) % 360;
+      if(dc) o.c = Math.max(0.02, Math.min(0.30, o.c + dc));
+      describe(label + (dh ? '’s hue' : '’s colourfulness'));
+      dragging('wheelkey:' + who);
+    }
+    if(who === 'parent') move(S.main, 'the parent');
+    else {
+      var sis = sisters().filter(function(x){ return x.id === who; })[0]; if(!sis) return;
+      move(sis, sis.name);
+    }
+    SHOWN_BRAND = who;
+    syncControls(); render();
+    var again = document.querySelector('[data-wheel="' + who + '"]');
+    if(again) again.focus();          /* the ramp is redrawn, so focus is put back */
+  });
+
   document.addEventListener('pointerdown', function(e){
     var g = e.target.closest('[data-wheel]'); if(!g) return;
-    WDRAG = g.dataset.wheel; e.preventDefault();
+    WDRAG = g.dataset.wheel;
+    if(SHOWN_BRAND !== WDRAG){ SHOWN_BRAND = WDRAG; }   /* the dot you grab is the one you are looking at */
+    e.preventDefault();
   });
   document.addEventListener('pointermove', function(e){
     if(!WDRAG) return;
@@ -2465,11 +2506,21 @@
     if(sh){ shelfTake(+sh.dataset.shelf); return; }
     var drop = e.target.closest('[data-shelfdrop]');
     if(drop){
+      /* the shelf holds the versions nothing else is holding, so it asks */
+      if(drop.dataset.armed !== '1'){
+        document.querySelectorAll('[data-shelfdrop]').forEach(function(b){ b.dataset.armed = '0'; b.textContent = '✕'; });
+        drop.dataset.armed = '1'; drop.textContent = 'Drop it?';
+        return;
+      }
       var items = shelfRead(); items.splice(+drop.dataset.shelfdrop, 1);
-      shelfWrite(items); shelfUi(); return;
+      shelfWrite(items); shelfUi(); announce('Dropped from the shelf'); return;
     }
     if(e.target.id === 'btnShelve'){ shelve('kept by hand'); announce('Put on the shelf'); return; }
-    if(e.target.id === 'btnShelfClear'){ shelfWrite([]); shelfUi(); return; }
+    if(e.target.id === 'btnShelfClear'){
+      var b = e.target;
+      if(b.dataset.armed !== '1'){ b.dataset.armed = '1'; b.textContent = 'Clear it for good?'; b.classList.add('danger'); return; }
+      shelfWrite([]); shelfUi(); announce('The shelf is empty'); return;
+    }
   });
 
   document.addEventListener('click', function(e){
@@ -2548,6 +2599,11 @@
     } else return;
     render();
   });
+  document.addEventListener('click', function(e){
+    var pb = e.target.closest('[data-showbrand]'); if(!pb) return;
+    SHOWN_BRAND = pb.dataset.showbrand;
+    render();
+  });
   el('famList').addEventListener('click', function(e){
     var b = e.target.closest('[data-famdel]'); if(!b) return;
     var gone = sisters().filter(function(x){ return x.id === b.dataset.famdel; })[0];
@@ -2588,6 +2644,18 @@
       'WCAG 2 gives a ratio and is what most standards still ask for. APCA gives a number called Lc, models light and dark text differently, and matches what the eye does rather better — especially in dark mode. Both are shown, and neither is ignored.'],
     ['scrim', 'Scrim', 'the dim layer under text on an image',
       'A black layer at some opacity, laid over a photograph so text on top stays readable. How much is needed depends on the brightest pixels the text actually covers, which is what the caption box measures.'],
+    ['family', 'Brand family', 'a parent and the brands that belong with it',
+      'One palette serving several brands at once. The parent sets the neutrals, the state colours, the lightness steps, the ramp shape and the token mapping; each sister changes only its own main colour. What they share is what makes them look related, and what they do not share is what tells them apart.'],
+    ['shape', 'Family shape', 'how the siblings sit around the parent',
+      'A family is rarely spaced evenly. Analogous puts the siblings in a fan to one side of the parent, two wings puts them warmer and cooler in pairs, a triad places them at the points of a triangle, and spread puts them as far apart as the wheel allows. The width control opens and closes the arrangement.'],
+    ['wheel', 'The wheel', 'every brand in the family, at once',
+      'Hue is the angle round the circle and colourfulness the distance out from the middle, so the whole family can be read in one picture. Drag a dot, or focus it and use the arrow keys, to move that brand. The band outside the ring is the hue each state colour has spoken for; a ringed dot is a colour that was pasted rather than generated.'],
+    ['candidates', 'Six to look at', 'options that cost nothing to consider',
+      'Six whole palettes, each built through the same engine as yours and each clear of the state colours. Nothing changes until one is clicked, and taking one is a single change that can be undone. Six more gives another set; a colour taken from a picture can seed six around itself.'],
+    ['picture', 'From a picture', 'the colours an image is actually made of',
+      'The pixels are read in OKLCH and gathered by hue, so what comes back is the few colours a person would say the picture is, each with the share of the image it covers and its greys offered separately as a ground. Any of them can become a role, be handed to a sister, or seed six palettes. The same picture is used to check the scrim a caption needs over it.'],
+    ['shelf', 'The shelf', 'where versions go that you have not decided about',
+      'The library is for palettes you have named and kept on purpose. The shelf is for the ones you were only trying: anything that replaces the current palette leaves the old one here first, and one can be put here by hand. Click a chip to have it back, and the palette it replaced is caught in turn. Nothing needs naming, and nothing is deleted without asking.'],
     ['sister', 'Sister brand', 'a second brand in the same family',
       'A brand that sets its own main hue and colourfulness but inherits the parent’s neutrals, functional colours, steps, ramp shape and token mapping. The inheritance is what makes a group of brands read as a family.']
   ];
@@ -2782,14 +2850,19 @@
     var clashes = FUNCTIONAL.filter(function(f){ return funcWarnings(f).length; }).length;
 
     var shelf = shelfRead().length;
+    /* a palette that has been moved from where it arrived is a palette you chose,
+       whether you pasted a hex, took a suggestion or lifted a colour from a picture */
+    var chosen = pinned.length ||
+      Math.round(S.main.h) !== Math.round(DEFAULTS.main.h) ||
+      Math.abs(S.main.c - DEFAULTS.main.c) > 0.001;
     var steps = [
       { view:'ramps', title:'Find your colours',
-        state: pinned.length ? 'done' : 'todo',
+        state: chosen ? 'done' : 'todo',
         note: pinned.length ? pinned.length + ' pinned'
-              : (shelf ? 'a picture, six to look at, or the shelf' : 'a picture, six to look at, or your own hex') },
+              : (chosen ? 'chosen' : (shelf ? 'a picture, six to look at, or the shelf' : 'a picture, six to look at, or your own hex')) },
       { view:'roles', title:'Check they are used',
-        state: !pinned.length ? 'todo' : (unreached.length ? 'warn' : 'done'),
-        note: !pinned.length ? 'nothing pinned yet'
+        state: !pinned.length ? 'done' : (unreached.length ? 'warn' : 'done'),
+        note: !pinned.length ? 'nothing pinned — nothing to check'
               : (unreached.length ? unreached.length + ' unused' : 'all in use') },
       { view:'contrast', title:'Clear the audit',
         state: bad ? 'warn' : 'done',
@@ -2798,7 +2871,8 @@
         state: clashes ? 'warn' : 'done',
         note: clashes ? clashes + ' too close' : 'no clashes' },
       { view:'export', title:'Hand it over',
-        state: 'todo', note: 'css, Tailwind, Figma' + (shelf ? ' · ' + shelf + ' on the shelf' : '') }
+        state: HANDED ? 'done' : 'todo',
+        note: HANDED ? HANDED + ' taken' : 'css, Tailwind, Figma' + (shelf ? ' · ' + shelf + ' on the shelf' : '') }
     ];
     return steps.map(function(st, i){
       var mark = st.state === 'done' ? '✓' : (st.state === 'warn' ? '!' : '→');
@@ -2957,6 +3031,7 @@
     shareLink().then(function(u){
       el('outLink').textContent = u;
       if(navigator.clipboard) navigator.clipboard.writeText(u);
+      HANDED = 'a link'; el('steps').innerHTML = stepsHtml();
       b.textContent = 'Link copied';
       setTimeout(function(){ b.textContent = 'Copy link'; }, 1200);
     });
@@ -3079,7 +3154,9 @@
     var mapSel = e.target.closest('[data-map]');
     if(mapSel) return;
     var cp = e.target.closest('[data-copy]');
-    if(cp){ navigator.clipboard && navigator.clipboard.writeText(el(cp.dataset.copy).textContent); cp.textContent='Copied'; announce('Copied to the clipboard'); setTimeout(function(){ cp.textContent='Copy'; },900); return; }
+    if(cp){ navigator.clipboard && navigator.clipboard.writeText(el(cp.dataset.copy).textContent); cp.textContent='Copied'; announce('Copied to the clipboard');
+      HANDED = ({ outCss:'css', outTw:'Tailwind', outFigma:'Figma', outJson:'JSON', outFamily:'the family', outLink:'a link' })[cp.dataset.copy] || 'the palette';
+      el('steps').innerHTML = stepsHtml(); setTimeout(function(){ cp.textContent='Copy'; },900); return; }
     var dl = e.target.closest('[data-dl]');
     if(dl){
       var kind = dl.dataset.dl;
@@ -3089,6 +3166,8 @@
       var blob = new Blob([text], { type: type });
       var a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
+      HANDED = ({ css:'css', tw:'Tailwind', figma:'Figma', json:'JSON', family:'the family' })[kind] || 'the palette';
+      el('steps').innerHTML = stepsHtml();
       var ext = { json:'.json', family:'.family.css', figma:'.figma-variables.json',
                   tw: TW === 'v4' ? '.theme.css' : '.tailwind.config.js', css:'.css' }[kind];
       a.download = slug(S.name) + ext;
@@ -3142,6 +3221,7 @@
     }
   })();
   railRestore();
+  if(OPEN_PANEL === 'six') showCands(6);   /* a panel remembered open is not an empty box */
   safely(function(){ syncControls(); render(); });
   histUi();
   libUi();

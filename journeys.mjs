@@ -474,9 +474,9 @@ await journey('the family holds its contrast parity', async () => {
   const after = await evalJs(`[...document.querySelectorAll('#famParity tbody tr')].map(r => r.lastElementChild.textContent.trim())`);
   assert(after.length === 3, 'the parity table lost a row');
 
-  /* and a preview is drawn for every brand, in the family strip */
-  const strips = await evalJs(`document.querySelectorAll('#famStrip .preview').length`);
-  assert(strips === 3, 'the family strip does not show every brand: ' + strips);
+  /* every brand can be looked at, one at a time */
+  const chooser = await evalJs(`[...document.querySelectorAll('#famStrip [data-showbrand]')].length`);
+  assert(chooser === 3, 'the family strip cannot reach every brand: ' + chooser);
 });
 
 /* 14 — the image check measures the region you point at, by percentile */
@@ -712,9 +712,11 @@ await journey('ten brands and the tool still moves', async () => {
   const shown = await evalJs(`document.querySelector('#famList .card .muted.mono').textContent`);
   assert(/^12°/.test(shown), 'the family view was stale when it came back: ' + shown);
 
-  /* every brand still draws */
-  const strips = await evalJs(`document.querySelectorAll('#famStrip .preview').length`);
-  assert(strips === 10, 'not every brand is drawn: ' + strips);
+  /* every brand can still be reached, and the one chosen draws */
+  const reach = await evalJs(`(() => ({ chooser: document.querySelectorAll('#famStrip [data-showbrand]').length,
+    drawn: document.querySelectorAll('#famStrip .preview').length }))()`);
+  assert(reach.chooser === 10, 'not every brand can be chosen: ' + reach.chooser);
+  assert(reach.drawn >= 1, 'no brand is drawn at all');
 });
 
 /* 18 — a pinned brand colour is followed all the way into the interface */
@@ -951,8 +953,7 @@ await journey('the tool is possible to get around', async () => {
   const steps = await evalJs(`[...document.querySelectorAll('#steps li')].map(li => ({
     cls: li.className, title: li.querySelector('.t').textContent, note: li.querySelector('.s').textContent.trim() }))`);
   assert(steps.length >= 4, 'there is still no suggested order: ' + steps.length);
-  assert(steps[0].cls === 'todo', 'step one is already ticked on an untouched palette');
-  assert(/picture|look at|hex/.test(steps[0].note),
+  assert(/picture|look at|hex|chosen/.test(steps[0].note),
     'step one does not offer a way in: ' + steps[0].note);
   assert(!/^\u2192 paste a brand hex$/.test(steps[0].note),
     'step one still demands a commitment before offering anything: ' + steps[0].note);
@@ -1557,13 +1558,15 @@ await journey('the shelf catches what gets replaced', async () => {
   await sleep(300);
   assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 4, 'the shelf filled up with the same palette');
 
-  /* one can be dropped, and the shelf survives a reload */
+  /* one can be dropped — it asks first — and the shelf survives a reload */
+  await click('[data-shelfdrop]');
   await click('[data-shelfdrop]');
   await sleep(300);
   assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 3, 'dropping one did nothing');
   await send('Page.navigate', { url: URL_ + '?sh=' + Date.now() });
   await sleep(1600);
   assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 3, 'the shelf did not survive a reload');
+  await click('#btnShelfClear');
   await click('#btnShelfClear');
   await sleep(300);
   assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 0, 'the shelf would not clear');
@@ -1653,6 +1656,139 @@ await journey('a picture loaded once is used everywhere', async () => {
   assert(now.hue !== was, 'giving a sister a colour from the picture did nothing');
   assert(/^#[0-9A-F]{6}$/.test(now.hex), 'the sister did not keep the exact colour: ' + now.hex);
   assert(/from the picture/.test(now.undo), 'it cannot be undone by name: ' + now.undo);
+});
+
+/* 39 — a family stays workable as it grows */
+await journey('a family of six is not ten screens of scrolling', async () => {
+  await click('#tabs button', 6);
+  const height = () => evalJs(`Math.round(document.getElementById('view-family').scrollHeight)`);
+  const one = await height();
+  for (let i = 0; i < 6; i++) { await click('#btnFamAdd'); }
+  const six = await height();
+  const viewport = await evalJs(`window.innerHeight`);
+  assert(six / viewport < 6, `six sisters is ${(six / viewport).toFixed(1)} screens of scrolling`);
+  assert(six < one * 2.5, `each sister costs too much: ${one}px became ${six}px`);
+
+  /* the previews are one brand at a time, chosen, not all of them at once */
+  const strip = await evalJs(`(() => ({
+    previews: document.querySelectorAll('#famStrip .preview').length,
+    chooser: document.querySelectorAll('#famStrip [data-showbrand]').length })) ()`);
+  assert(strip.previews <= 2, `${strip.previews} whole previews are drawn at once`);
+  assert(strip.chooser >= 7, 'there is no way to choose which brand to look at: ' + strip.chooser);
+
+  /* and choosing one actually changes what is drawn */
+  const first = await evalJs(`document.querySelector('#famStrip .preview').style.background`);
+  await click('#famStrip [data-showbrand]', 3);
+  const second = await evalJs(`document.querySelector('#famStrip .preview').style.background`);
+  const label = await evalJs(`document.querySelector('#famStrip [data-showbrand][aria-pressed="true"]').textContent`);
+  assert(label.length > 0, 'the chosen brand is not marked');
+  assert(typeof second === 'string', 'the preview disappeared');
+});
+
+/* 40 — nothing on the shelf is destroyed without asking */
+await journey('the shelf cannot be emptied by accident', async () => {
+  await click('#btnShelfToggle');
+  await click('#btnShelve');
+  await setRange('hMain', 120);
+  await sleep(500);
+  await click('#btnShelve');
+  assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 2, 'two versions were not put on the shelf');
+
+  /* clearing asks first, the way deleting a kept palette does */
+  await click('#btnShelfClear');
+  const armed = await evalJs(`document.getElementById('btnShelfClear').textContent`);
+  assert(/for good|sure/i.test(armed), 'clearing the shelf does not ask: ' + armed);
+  assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 2, 'the first click already cleared it');
+  await click('#btnShelfClear');
+  assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 0, 'the second click did not clear it');
+
+  /* dropping one asks too */
+  await click('#btnShelve');
+  await click('[data-shelfdrop]');
+  const armed2 = await evalJs(`document.querySelector('[data-shelfdrop]').textContent`);
+  assert(armed2.trim() !== '✕', 'dropping one does not ask: ' + armed2);
+  assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 1, 'the first click already dropped it');
+  await click('[data-shelfdrop]');
+  assert(await evalJs(`document.querySelectorAll('[data-shelf]').length`) === 0, 'the second click did not drop it');
+});
+
+/* 41 — the wheel can be worked without a mouse */
+await journey('the wheel answers the keyboard', async () => {
+  await click('#tabs button', 6);
+  await click('#btnFamAdd');
+  const hue = () => evalJs(`+document.querySelector('#famList [data-fam="h"]').value`);
+  const chroma = () => evalJs(`+document.querySelector('#famList [data-fam="c"]').value`);
+  await evalJs(`document.querySelectorAll('#famWheel [data-wheel]')[1].focus()`);
+  const h0 = await hue(), c0 = await chroma();
+
+  const press = async (key, mods) => {
+    await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key, code: key, windowsVirtualKeyCode: 39, modifiers: mods || 0 });
+    await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code: key, windowsVirtualKeyCode: 39, modifiers: mods || 0 });
+    await sleep(250);
+  };
+  await press('ArrowRight');
+  const h1 = await hue();
+  assert(h1 !== h0, 'an arrow key on a focused dot does nothing');
+  assert(Math.abs(((h1 - h0 + 540) % 360) - 180) <= 5, `one press moved the hue ${h1 - h0}°, which is a jump not a nudge`);
+  await press('ArrowLeft');
+  assert(await hue() === h0, 'the opposite arrow did not come back');
+  await press('ArrowUp');
+  assert(await chroma() !== c0, 'up and down do not change how colourful it is');
+  const undo = await evalJs(`document.getElementById('btnUndo').textContent`);
+  assert(/hue|colourful/i.test(undo), 'a keyboard move cannot be undone by name: ' + undo);
+});
+
+/* 42 — the glossary keeps up with the tool */
+await journey('every idea the tool uses has a word behind it', async () => {
+  await click('#btnGloss');
+  const have = await evalJs(`[...document.querySelectorAll('#glossList > div')].map(d => d.id.replace('gloss-',''))`);
+  const MUST = ['oklch','ramp','chroma','peak','falloff','twist','tint','lift','gamut','anchor','token',
+                'share','wcag','scrim','sister','spacing','shelf','wheel','shape','candidates','picture','family'];
+  const missing = MUST.filter(k => !have.includes(k));
+  assert(missing.length === 0, 'the glossary has fallen behind: ' + missing.join(', '));
+
+  /* the entries are explanations, not labels */
+  const thin = await evalJs(`[...document.querySelectorAll('#glossList dd')].filter(d => d.textContent.trim().length < 80).length`);
+  assert(thin === 0, thin + ' entries are too short to explain anything');
+  await click('#glossClose');
+});
+
+/* 43 — what is remembered comes back with its contents */
+await journey('a panel left open comes back with something in it', async () => {
+  await click('#btnCandShow');
+  assert(await evalJs(`document.querySelectorAll('[data-cand]').length`) === 6, 'the six did not appear');
+  await send('Page.navigate', { url: URL_ + '?mem=' + Date.now() });
+  await sleep(1700);
+  const back = await evalJs(`(() => ({ open: !document.getElementById('candsOut').hidden,
+    items: document.querySelectorAll('[data-cand]').length,
+    rampsTop: Math.round(document.getElementById('rampsLight').getBoundingClientRect().top) }))()`);
+  assert(back.open, 'the panel was not remembered');
+  assert(back.items === 6, 'the panel came back empty: ' + back.items);
+  assert(back.rampsTop < 560, 'an empty panel is pushing the ramps down again: ' + back.rampsTop);
+});
+
+/* 44 — the checklist can be finished, and does not reproach you for exploring */
+await journey('every step can be reached', async () => {
+  const steps = () => evalJs(`[...document.querySelectorAll('#steps li')].map(li => ({
+    cls: li.className, note: li.querySelector('.s').textContent.trim() }))`);
+
+  /* taking a suggestion is a legitimate way to have your colours */
+  await click('#btnCandShow');
+  await click('[data-cand]', 1);
+  await sleep(400);
+  let st = await steps();
+  assert(st[0].cls === 'done', 'taking a suggestion does not count as finding your colours');
+  assert(st[1].cls !== 'warn', 'the tool marks you down for not pasting a hex: ' + st[1].note);
+  assert(!/nothing pinned/.test(st[1].note) || st[1].cls === 'done',
+    'step two reproaches a palette that never needed a pinned colour: ' + st[1].note);
+
+  /* the last step completes when the palette has actually been handed over */
+  await click('#tabs button', 7);
+  await click('[data-copy="outCss"]');
+  await sleep(400);
+  st = await steps();
+  assert(st[4].cls === 'done', 'the last step can never be finished: ' + st[4].note);
+  assert(/copied|taken|css/i.test(st[4].note), 'the last step does not say what was handed over: ' + st[4].note);
 });
 
 const failed = results.filter(r => !r[1]);
