@@ -39,13 +39,27 @@ if (!CHROME) {
 const PORT = 9350 + Math.floor(Math.random() * 40);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-const chrome = spawn(CHROME, ['--headless=new', '--no-sandbox', '--disable-dev-shm-usage', `--remote-debugging-port=${PORT}`,
-  `--user-data-dir=/tmp/journeys-${Date.now()}`, '--hide-scrollbars', '--window-size=1500,950', 'about:blank'], { stdio: 'ignore' });
+const chrome = spawn(CHROME, ['--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu',
+  '--no-first-run', '--no-default-browser-check', `--remote-debugging-port=${PORT}`,
+  `--user-data-dir=/tmp/journeys-${Date.now()}`, '--hide-scrollbars', '--window-size=1500,950', 'about:blank'],
+  { stdio: ['ignore', 'ignore', 'pipe'] });
+/* keep what Chrome says about itself; it is the only clue when it will not start */
+let chromeSaid = '';
+chrome.stderr.on('data', d => { chromeSaid += d.toString(); });
+chrome.on('error', e => { chromeSaid += '\ncould not run ' + CHROME + ': ' + e.message; });
 
+/* a cold CI box is slower to start a browser than a warm laptop */
 let target;
-for (let i = 0; i < 60; i++) {
+for (let i = 0; i < 150; i++) {
   try { const l = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json(); target = l.find(t => t.type === 'page'); if (target) break; } catch {}
   await sleep(200);
+}
+if (!target) {
+  console.error(`Chrome never offered a page to drive on port ${PORT}, after 30 seconds.`);
+  console.error(`Tried: ${CHROME}`);
+  if (chromeSaid.trim()) console.error('Chrome said:\n' + chromeSaid.trim().split('\n').slice(-12).join('\n'));
+  chrome.kill();
+  process.exit(2);
 }
 const ws = new WebSocket(target.webSocketDebuggerUrl);
 await new Promise(r => ws.onopen = r);
