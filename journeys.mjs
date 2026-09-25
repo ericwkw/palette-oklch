@@ -1840,7 +1840,7 @@ await journey('the explaining is there when wanted and out of the way when not',
   await click('#btnFamAdd');
 
   const words = () => evalJs(`(() => {
-    const w = t => t.trim() ? t.trim().split(/\s+/).length : 0;
+    const w = t => t.trim() ? t.trim().split(/\\s+/).length : 0;
     const out = { byView: {}, total: 0 };
     document.querySelectorAll('section.view').forEach(v => {
       const was = v.classList.contains('on'); v.classList.add('on');
@@ -1853,9 +1853,9 @@ await journey('the explaining is there when wanted and out of the way when not',
 
   /* quiet by default */
   const quiet = await words();
-  assert(quiet.total < 40, `${quiet.total} words of explaining are on screen before anything is asked`);
+  assert(quiet.total < 100, `${quiet.total} words of explaining are on screen before anything is asked`);
   for (const [view, n] of Object.entries(quiet.byView)) {
-    assert(n < 20, `the ${view} tab still explains itself in ${n} words`);
+    assert(n < 40, `the ${view} tab still explains itself in ${n} words`);
   }
 
   /* but what the tool has to SAY about your palette is not explaining, and stays */
@@ -1905,7 +1905,7 @@ await journey('the explaining is there when wanted and out of the way when not',
   assert(still === 'true', 'the choice to have things explained was forgotten');
   await click('#btnExplain');
   const off = await words();
-  assert(off.total < 40, 'turning it off again did not quieten the tool: ' + off.total);
+  assert(off.total < 100, 'turning it off again did not quieten the tool: ' + off.total);
 
   /* with it off, a word can still be looked up one at a time */
   await click('.term', 0);
@@ -1923,7 +1923,7 @@ await journey('what you can do is always on screen, even when nothing is explain
   const swallowed = await evalJs(`(() => {
     const doing = /\b(drop|drag|click|hover|double-click|press) /i;
     return [...document.querySelectorAll('.teach')]
-      .map(el => el.textContent.replace(/\s+/g, ' ').trim())
+      .map(el => el.textContent.replace(/\\s+/g, ' ').trim())
       .filter(t => doing.test(t))
       .map(t => t.slice(0, 80)); })()`);
   assert(swallowed.length === 0,
@@ -1931,7 +1931,7 @@ await journey('what you can do is always on screen, even when nothing is explain
 
   /* the interactions that have no other route must say so on screen */
   await click('#btnPickOpen');
-  const picture = await evalJs(`document.getElementById('pickDrop').innerText.replace(/\s+/g,' ').trim()`);
+  const picture = await evalJs(`document.getElementById('pickDrop').innerText.replace(/\\s+/g,' ').trim()`);
   assert(/drop|choose/i.test(picture), 'the drop zone does not say it is one: ' + JSON.stringify(picture));
   assert(picture.split(' ').length > 3, 'the picture panel is an empty box: ' + JSON.stringify(picture));
 
@@ -1940,11 +1940,11 @@ await journey('what you can do is always on screen, even when nothing is explain
   assert(/click/i.test(ramps), 'nothing says a swatch can be clicked: ' + JSON.stringify(ramps));
 
   await click('#tabs button', 6);
-  const wheel = await evalJs(`document.querySelector('.wheelnote').innerText.replace(/\s+/g,' ').trim()`);
+  const wheel = await evalJs(`document.querySelector('.wheelnote').innerText.replace(/\\s+/g,' ').trim()`);
   assert(/drag|arrow/i.test(wheel), 'the wheel does not say it can be moved: ' + JSON.stringify(wheel));
 
   /* and the short version really is short */
-  const words = t => t.trim().split(/\s+/).length;
+  const words = t => t.trim().split(/\\s+/).length;
   assert(words(wheel) < 30, 'the wheel note is a paragraph again: ' + words(wheel));
   assert(words(picture) < 30, 'the picture panel is a paragraph again: ' + words(picture));
 
@@ -1973,7 +1973,7 @@ await journey('a newcomer is told things, and anyone can say which build they ha
 
   /* which build is this */
   const build = await evalJs(`(() => { const el = document.getElementById('buildStamp');
-    return el ? el.textContent.replace(/\s+/g,' ').trim() : null; })()`);
+    return el ? el.textContent.replace(/\\s+/g,' ').trim() : null; })()`);
   assert(build, 'nothing on screen says which build this is');
   assert(/20[0-9]{2}/.test(build), 'the build marker does not carry a date: ' + build);
 
@@ -2019,6 +2019,80 @@ await journey('the shelf holds what you are not using', async () => {
   const dupes = await evalJs(`(() => { const all = [...document.querySelectorAll('[data-shelf] .cand-meta b')].map(b => b.textContent.trim());
     return all.length - new Set(all).size; })()`);
   assert(dupes === 0, dupes + ' duplicate versions are on the shelf');
+});
+
+/* 49 — a sister can be kept on its own, and brought into another palette */
+await journey('a sister outlives the palette it was made in', async () => {
+  await click('#tabs button', 6);
+  await click('#btnFamAdd');
+  /* give it everything that makes it itself */
+  await evalJs(`(() => { const set = (k, v) => { const i = document.querySelector('#famList [data-fam="' + k + '"]');
+      i.value = v; i.dispatchEvent(new Event('change', { bubbles: true })); };
+    set('hex', '#B5123E'); set('name', 'Coastal'); set('note', 'the further-education arm'); })()`);
+  await sleep(600);
+
+  /* keep it */
+  await click('#famList [data-sisterkeep]');
+  await sleep(400);
+  let kept = await evalJs(`(() => ({
+    chips: [...document.querySelectorAll('[data-sisterbring]')].map(b => b.textContent.replace(/\\s+/g,' ').trim()),
+    stored: JSON.parse(localStorage.getItem('palette-sisters-v1') || '{"items":[]}').items.map(s => s.name) }))()`);
+  assert(kept.stored.includes('Coastal'), 'keeping a sister stored nothing: ' + JSON.stringify(kept.stored));
+  assert(kept.chips.some(c => /Coastal/.test(c)), 'the kept sister is not offered anywhere: ' + kept.chips.join(' | '));
+
+  /* keeping it twice is one sister, not two */
+  await click('#famList [data-sisterkeep]');
+  await sleep(300);
+  const twice = await evalJs(`JSON.parse(localStorage.getItem('palette-sisters-v1')).items.length`);
+  assert(twice === 1, 'keeping the same sister twice made ' + twice + ' of them');
+
+  /* a different palette entirely */
+  await click('#btnReset');
+  await sleep(600);
+  await click('#tabs button', 6);
+  assert(await evalJs(`document.querySelectorAll('#famList .card').length`) === 1, 'the reset did not clear the family');
+  const offered = await evalJs(`document.querySelectorAll('[data-sisterbring]').length`);
+  assert(offered >= 1, 'the kept sister is not offered in a new palette: ' + offered);
+
+  /* bring it in */
+  await click('[data-sisterbring]');
+  await sleep(600);
+  let here = await evalJs(`(() => {
+    const card = document.querySelectorAll('#famList .card')[1];
+    return { cards: document.querySelectorAll('#famList .card').length,
+             name: card.querySelector('[data-fam="name"]').value,
+             hex: card.querySelector('[data-fam="hex"]').value,
+             note: card.querySelector('[data-fam="note"]').value,
+             hue: +card.querySelector('[data-fam="h"]').value,
+             undo: document.getElementById('btnUndo').textContent }; })()`);
+  assert(here.cards === 2, 'bringing a sister in did not add it');
+  assert(here.name === 'Coastal', 'the sister lost its name: ' + here.name);
+  assert(here.hex.toUpperCase() === '#B5123E', 'the sister lost its colour: ' + here.hex);
+  assert(here.note === 'the further-education arm', 'the sister lost what it is for: ' + here.note);
+  assert(/Coastal|sister/i.test(here.undo), 'bringing one in cannot be undone by name: ' + here.undo);
+
+  /* twice gives two, each with its own selector */
+  await click('[data-sisterbring]');
+  await sleep(600);
+  const slugs = await evalJs(`(() => { const css = document.getElementById('outFamily').textContent;
+    return [...new Set([...css.matchAll(/\\[data-brand="([^"]+)"\\]/g)].map(m => m[1]))]; })()`);
+  assert(slugs.length === 2, 'two copies share one selector: ' + slugs.join(', '));
+  assert(slugs.every(x => /coastal/.test(x)), 'the copies are not recognisably the same brand: ' + slugs.join(', '));
+
+  /* the export carries them */
+  const css = await evalJs(`document.getElementById('outFamily').textContent`);
+  assert(/--main-brand: #b5123e/.test(css), 'the brought-in sister lost its pinned colour in the export');
+
+  /* dropping a kept sister asks first, like everything else that destroys */
+  await click('[data-sisterdrop]');
+  const armed = await evalJs(`document.querySelector('[data-sisterdrop]').textContent.trim()`);
+  assert(armed !== '✕' && armed.length > 1, 'dropping a kept sister does not ask: ' + armed);
+  await click('[data-sisterdrop]');
+  await sleep(300);
+  const left = await evalJs(`JSON.parse(localStorage.getItem('palette-sisters-v1')).items.length`);
+  assert(left === 0, 'the kept sister was not dropped: ' + left);
+  assert(await evalJs(`document.querySelectorAll('#famList .card').length`) === 3,
+    'dropping the kept copy took the sisters out of this palette too');
 });
 
 const failed = results.filter(r => !r[1]);

@@ -1486,6 +1486,70 @@
       '<button class="btn" id="btnCandClose">Put them away</button></div></div>';
   }
 
+  /* ---------- sisters kept on their own ----------
+     A sister belongs to its family, but a brand outlives the palette it was
+     drawn in: the client keeps it when the system around it is redrawn. Kept
+     sisters live beside the library, and can be brought into any family. */
+  var SIS_KEY = 'palette-sisters-v1';
+  function keptSisters(){
+    try{ var d = JSON.parse(localStorage.getItem(SIS_KEY) || 'null'); return (d && d.items) ? d.items : []; }
+    catch(e){ return []; }
+  }
+  function keptWrite(items){
+    try{ localStorage.setItem(SIS_KEY, JSON.stringify({ items: items.slice(0, 40) })); }catch(e){}
+  }
+  function keepSister(sis){
+    var items = keptSisters();
+    /* the same brand kept again is the same brand, brought up to date */
+    var at = -1;
+    items.forEach(function(it, i){ if(it.slug === sisterSlug(sis) || it.name === sis.name) at = i; });
+    var entry = { slug: sisterSlug(sis), name: sis.name, note: sis.note || '', brand: sis.brand || null,
+                  h: sis.h, c: sis.c, from: S.name || 'Untitled', at: Date.now() };
+    if(at >= 0) items[at] = entry; else items.unshift(entry);
+    keptWrite(items);
+    announce('Kept ' + sis.name);
+    render();
+  }
+  /* a slug has to be unique within the family it lands in */
+  function freeSlug(base){
+    var taken = sisters().map(function(x){ return x.slug; });
+    if(taken.indexOf(base) === -1) return base;
+    for(var n = 2; n < 60; n++){ if(taken.indexOf(base + '-' + n) === -1) return base + '-' + n; }
+    return base + '-' + Date.now().toString(36);
+  }
+  function bringSister(i){
+    var it = keptSisters()[i]; if(!it) return;
+    S.family = S.family || { sisters: [], shape: 'spread', width: 90 };
+    var again = sisters().some(function(x){ return x.name === it.name; });
+    S.family.sisters.push({
+      id: 's' + Date.now().toString(36) + Math.floor(Math.random()*1e3).toString(36),
+      /* "sister-1" means nothing in a new stylesheet; a named brand keeps its
+         name, and the number only appears when two copies are in one family */
+      slug: freeSlug(/^sister-[0-9]+$/.test(it.slug || '') ? slug(it.name) : (it.slug || slug(it.name))),
+      name: it.name, note: it.note || '', brand: it.brand || null,
+      h: it.h, c: it.c
+    });
+    describe('bringing ' + it.name + ' in' + (again ? ' again' : ''));
+    render();
+  }
+  function keptSistersHtml(){
+    var items = keptSisters();
+    if(!items.length){
+      return '<p class="hint teach" style="margin:0">Keep a sister and it can be brought into any other palette, with its colour, its name and what it is for. Useful when the system is redrawn and the brands are not.</p>';
+    }
+    return '<div class="brandrow">' + items.map(function(it, i){
+      var hex = it.brand || asSister({ h:it.h, c:it.c }, function(){ return stepOf(build(false).main, 600).hex; });
+      return '<span class="keptsis">' +
+        '<button class="brandpick" data-sisterbring="' + i + '" title="Bring ' + it.name + ' into this family — kept from ' + it.from + '">' +
+          '<span class="dot" style="background:' + hex + '"></span>' + it.name +
+          '<span class="muted mono" style="margin-left:6px">' + Math.round(it.h) + '°</span>' +
+        '</button>' +
+        '<button class="btn mini sisdrop" data-sisterdrop="' + i + '" aria-label="Forget ' + it.name + '">✕</button>' +
+      '</span>';
+    }).join('') + '</div>' +
+    '<p class="hint teach" style="margin:8px 0 0">Brought in, a sister keeps its colour, its name and its purpose, and is given a selector of its own so two copies never collide. Kept in this browser, beside the library.</p>';
+  }
+
   /* ---------- family shapes ----------
      A family is rarely "evenly spaced". It has a shape: a cluster around the
      parent, a warm wing and a cool wing, three points of a triangle. */
@@ -1650,6 +1714,7 @@
             : '') +
           '<div class="row" style="margin-top:4px"><label>Hue</label><input type="range" data-fam="h" data-id="' + m.id + '" min="0" max="360" step="1" value="' + Math.round(m.h) + '"><output>' + Math.round(m.h) + '</output></div>' +
           '<div class="row"><label>Colourfulness</label><input type="range" data-fam="c" data-id="' + m.id + '" min="0.02" max="0.30" step="0.005" value="' + m.c + '"><output>' + m.c.toFixed(3).replace(/^0/,'') + '</output></div>' +
+          '<div class="btns" style="margin-top:8px"><button class="btn mini" data-sisterkeep="' + m.id + '">Keep this sister</button></div>' +
           '<p class="hint teach" style="margin:6px 0 0">Ships as <code>[data-brand="' + sisterSlug(m) + '"]</code>. Renaming does not change that, so a stylesheet already in use keeps working.</p>';
       return '<div class="card">' +
         '<div class="pv-row" style="justify-content:space-between;align-items:baseline">' +
@@ -2144,6 +2209,7 @@
     },
     family: function(L, D){
     el('famSuggest').innerHTML = famSuggestHtml();
+    el('keptSisters').innerHTML = keptSistersHtml();
     el('famWheel_wrap').innerHTML = famWheelHtml(L);
     (function(){
       var kind = (S.family && S.family.shape) || 'spread';
@@ -2599,6 +2665,28 @@
   el('btnFamSuggest').addEventListener('click', function(){
     CANDS = { kind:'sister', items: suggestSiblings() };
     render();
+  });
+
+  document.addEventListener('click', function(e){
+    var k = e.target.closest('[data-sisterkeep]');
+    if(k){
+      var sis = sisters().filter(function(x){ return x.id === k.dataset.sisterkeep; })[0];
+      if(sis) keepSister(sis);
+      return;
+    }
+    var b = e.target.closest('[data-sisterbring]');
+    if(b){ bringSister(+b.dataset.sisterbring); return; }
+    var d = e.target.closest('[data-sisterdrop]');
+    if(d){
+      if(d.dataset.armed !== '1'){
+        document.querySelectorAll('[data-sisterdrop]').forEach(function(x){ x.dataset.armed = '0'; x.textContent = '✕'; });
+        d.dataset.armed = '1'; d.textContent = 'Forget it?';
+        return;
+      }
+      var items = keptSisters(); items.splice(+d.dataset.sisterdrop, 1);
+      keptWrite(items); announce('Forgotten'); render();
+      return;
+    }
   });
 
   /* ---------- family controls ---------- */
