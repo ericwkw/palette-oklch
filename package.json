@@ -11,5 +11,5 @@
     "test": "npm run build && npm run check && npm run journeys",
     "start": "node serve.mjs"
   },
-  "engines": { "node": ">=20" }
+  "engines": { "node": ">=22" }
 }

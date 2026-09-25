@@ -26,6 +26,12 @@ const CHROME = process.env.CHROME || [
   '/usr/bin/chromium-browser',
   '/usr/bin/chromium',
 ].find(p => existsSync(p));
+/* WebSocket became a global in Node 21; say so plainly rather than throwing
+   a ReferenceError sixty lines later */
+if (typeof WebSocket === 'undefined') {
+  console.error(`This needs Node 22 or newer for its WebSocket; this is ${process.version}.`);
+  process.exit(2);
+}
 if (!CHROME) {
   console.error('No Chrome found. Install one, or set CHROME=/path/to/chrome.');
   process.exit(2);

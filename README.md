@@ -67,7 +67,7 @@ Colour is generated in OKLCH and stays there: every ramp sits on the same lightn
 npm test
 ```
 
-That builds the page from its parts, fails if the committed `index.html` is not what those parts make, and drives the tool through every journey in headless Chrome. It needs Node and a Chrome; it starts its own server and installs nothing. The pieces run on their own too — `npm run check`, `npm run journeys`, `npm start` to just serve it — and `node journeys.mjs http://host/page` points them at a deployed copy.
+That builds the page from its parts, fails if the committed `index.html` is not what those parts make, and drives the tool through every journey in headless Chrome. It needs Node 22 or newer (for its built-in WebSocket) and a Chrome; it starts its own server and installs nothing. The pieces run on their own too — `npm run check`, `npm run journeys`, `npm start` to just serve it — and `node journeys.mjs http://host/page` points them at a deployed copy.
 
 The same three steps run on every push and pull request, and `main` publishes to GitHub Pages only if they pass.
 
