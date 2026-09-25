@@ -6,8 +6,9 @@
   "type": "module",
   "scripts": {
     "build": "./build.sh",
-    "check": "node check-build.mjs",
+    "check": "node check-build.mjs && node lint-escapes.mjs",
     "journeys": "node journeys.mjs",
+    "lint": "node lint-escapes.mjs",
     "test": "npm run build && npm run check && npm run journeys",
     "start": "node serve.mjs"
   },

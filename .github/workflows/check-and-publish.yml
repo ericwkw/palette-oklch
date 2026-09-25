@@ -41,6 +41,10 @@ jobs:
       - name: The published page matches its parts
         run: node check-build.mjs
 
+      # a backslash that does not survive a template literal makes a test lie
+      - name: Escapes survive their template literals
+        run: node lint-escapes.mjs
+
       # every change is driven through the tool with real clicks
       - name: Journeys
         run: node journeys.mjs

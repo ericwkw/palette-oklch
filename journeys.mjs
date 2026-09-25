@@ -611,7 +611,7 @@ await journey('the exports parse and the link round-trips', async () => {
     const css = document.getElementById('outCss').textContent;
     const el = document.createElement('div');
     const out = [];
-    for (const [, name, value] of css.matchAll(/--([a-z0-9-]+):\s*([^;]+);/g)) {
+    for (const [, name, value] of css.matchAll(/--([a-z0-9-]+):\\s*([^;]+);/g)) {
       if (!/^(oklch|#|rgb)/.test(value.trim())) continue;
       el.style.color = '';
       el.style.color = value.trim();
@@ -1921,7 +1921,9 @@ await journey('what you can do is always on screen, even when nothing is explain
 
   /* no line that tells you what you can do is allowed to be hidden */
   const swallowed = await evalJs(`(() => {
-    const doing = /\b(drop|drag|click|hover|double-click|press) /i;
+    /* an instruction starts with its verb; "a whole slider drag counts as one"
+       is describing, not telling you to do anything */
+    const doing = /(^|[.;:] )(drop|drag|click|hover|double-click|press|paste|pick) /i;
     return [...document.querySelectorAll('.teach')]
       .map(el => el.textContent.replace(/\\s+/g, ' ').trim())
       .filter(t => doing.test(t))
