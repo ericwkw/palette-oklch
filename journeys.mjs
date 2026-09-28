@@ -2097,6 +2097,56 @@ await journey('a sister outlives the palette it was made in', async () => {
     'dropping the kept copy took the sisters out of this palette too');
 });
 
+/* 50 — the printed sheet shows the family, not just the parent */
+await journey('the sheet is the whole palette, sisters included', async () => {
+  await click('#tabs button', 7);
+  const sheet = () => evalJs(`(() => { const c = document.getElementById('sheet');
+    return { w: c.width, h: c.height }; })()`);
+  const alone = await sheet();
+  assert(alone.h > 400, 'there is no sheet to speak of: ' + alone.h);
+
+  /* two sisters, given colours far from the parent so they are easy to find */
+  await click('#tabs button', 6);
+  await click('#btnFamAdd');
+  await click('#btnFamAdd');
+  await evalJs(`(() => { const set = (n, k, v) => { const i = document.querySelectorAll('#famList [data-fam="' + k + '"]')[n];
+      i.value = v; i.dispatchEvent(new Event('change', { bubbles: true })); };
+    set(0, 'hex', '#B5123E'); set(0, 'name', 'Coastal');
+    set(1, 'hex', '#0B6E4F'); set(1, 'name', 'Moorland'); })()`);
+  await sleep(800);
+  await click('#tabs button', 7);
+  const family = await sheet();
+  assert(family.h > alone.h, `the sheet ignores the family: ${alone.h} with none, ${family.h} with two`);
+
+  /* each sister costs about the same, so the sheet is drawing them one by one */
+  await click('#tabs button', 6);
+  await click('#btnFamAdd');
+  await sleep(500);
+  await click('#tabs button', 7);
+  const three = await sheet();
+  const perSister = (family.h - alone.h) / 2, nextOne = three.h - family.h;
+  assert(Math.abs(perSister - nextOne) < perSister * 0.5,
+    `the sheet does not grow evenly per sister: ${perSister} then ${nextOne}`);
+
+  /* and the sisters' own colours are really on it */
+  const found = await evalJs(`(() => {
+    const c = document.getElementById('sheet'), g = c.getContext('2d');
+    const d = g.getImageData(0, 0, c.width, c.height).data;
+    const want = ['#b5123e', '#0b6e4f'];
+    const seen = new Set();
+    for (let i = 0; i < d.length; i += 4) {
+      const hex = '#' + [d[i], d[i+1], d[i+2]].map(v => v.toString(16).padStart(2, '0')).join('');
+      if (want.includes(hex)) seen.add(hex);
+    }
+    return [...seen]; })()`);
+  assert(found.length === 2, 'the sisters’ own colours are not on the sheet: ' + found.join(', '));
+
+  /* the sheet still says what is shared, so nobody reads it as three palettes */
+  const says = await evalJs(`document.getElementById('sheet').getAttribute('aria-label') || ''`);
+  assert(/shares?|family/i.test(says),
+    'the sheet does not say the family shares its neutrals and states: ' + JSON.stringify(says));
+});
+
 const failed = results.filter(r => !r[1]);
 console.log('');
 results.forEach(([name, ok, why]) => console.log(`${ok ? ' ok ' : 'FAIL'}  ${name}${why ? ' — ' + why : ''}`));

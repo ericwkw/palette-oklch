@@ -1024,8 +1024,10 @@
     var L = build(false), D = build(true);
     var pad = 28, rowH = 46, gap = 12, labelW = 132, stepW = 76;
     var rows = RAMP_KEYS.length;
+    var kin = sisters();
+    var sisterH = kin.length ? 58 + kin.length * (rowH + gap) : 0;   /* a heading, air, and a ramp each */
     var w = pad*2 + labelW + stepW*STEPS.length;
-    var h = pad*2 + 66 + rows*(rowH+gap) + 74;
+    var h = pad*2 + 66 + rows*(rowH+gap) + 74 + sisterH;
     var dpr = 2;
     c.width = w*dpr; c.height = h*dpr;
     c.style.width = '100%';
@@ -1082,6 +1084,49 @@
         g.fillText(n, x + 24, y + 13);
       });
     });
+
+    /* the family: only what differs, because everything else is above */
+    if(kin.length){
+      var sy = fy + 88;   /* clear of the token strip above */
+      g.fillStyle = '#111418';
+      g.font = '600 13px ui-sans-serif, system-ui, sans-serif';
+      g.fillText('The family', pad, sy);
+      g.fillStyle = '#6b7480';
+      g.font = '11px ui-sans-serif, system-ui, sans-serif';
+      g.fillText('Each sister changes only its main colour; the neutrals, the state colours and the steps above are shared.',
+        pad + 82, sy);
+      kin.forEach(function(sis, r){
+        var y = sy + 14 + r*(rowH+gap);
+        var ramp = asSister(sis, function(){ return build(false).main; });
+        g.fillStyle = '#111418';
+        g.font = '600 13px ui-sans-serif, system-ui, sans-serif';
+        g.fillText(sis.name, pad, y + 18);
+        g.fillStyle = '#6b7480';
+        g.font = '11px ui-monospace, SFMono-Regular, monospace';
+        g.fillText(Math.round(sis.h) + '\u00b0' + (sis.brand ? ' · ' + sis.brand.toUpperCase() : ''), pad, y + 34);
+        if(sis.note){
+          g.font = '10px ui-sans-serif, system-ui, sans-serif';
+          g.fillText(sis.note.slice(0, 22), pad, y + 46);
+        }
+        ramp.forEach(function(st, i){
+          var x = pad + labelW + i*stepW;
+          g.fillStyle = st.hex; g.fillRect(x, y, stepW - 4, rowH);
+          /* the colour you were given, marked where it sits */
+          if(sis.brand && st.hex.toUpperCase() === sis.brand.toUpperCase()){
+            g.strokeStyle = '#111418'; g.lineWidth = 2;
+            g.strokeRect(x + 1, y + 1, stepW - 6, rowH - 2); g.lineWidth = 1;
+          }
+          g.fillStyle = wcag('#111418', st.hex) >= wcag('#ffffff', st.hex) ? '#111418' : '#ffffff';
+          g.font = '10px ui-monospace, SFMono-Regular, monospace';
+          g.fillText(st.hex.toUpperCase(), x + 6, y + rowH - 8);
+        });
+      });
+    }
+    c.setAttribute('aria-label', kin.length
+      ? 'The palette as a sheet: every ramp with its steps, the tokens for both themes, and ' +
+        kin.length + (kin.length === 1 ? ' sister brand' : ' sister brands') +
+        ', which share these neutrals and state colours.'
+      : 'The palette as a sheet: every ramp with its steps and the tokens for both themes.');
     return c;
   }
 
